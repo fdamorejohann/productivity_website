@@ -27,8 +27,11 @@ interface Goal {
   type: "weekly" | "daily";
   starred: boolean;
   done: boolean;
+  color: string;
   createdAt: string;
 }
+
+const GOAL_COLORS = ["#6b7280","#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#06b6d4"];
 
 interface Habit {
   id: string;
@@ -88,6 +91,7 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
   const [goals, setGoals] = useState<Goal[]>(() => LS.get(key, []));
   const [panelOpen, setPanelOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [newColor, setNewColor] = useState(GOAL_COLORS[0]);
 
   useEffect(() => { LS.set(key, goals); }, [goals, key]);
 
@@ -95,10 +99,13 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
     if (!newTitle.trim()) return;
     setGoals(g => [...g, {
       id: uid(), title: newTitle.trim(), type,
-      starred: false, done: false, createdAt: new Date().toISOString(),
+      starred: false, done: false, color: newColor, createdAt: new Date().toISOString(),
     }]);
     setNewTitle("");
   };
+
+  const setColor = (id: string, color: string) =>
+    setGoals(g => g.map(x => x.id === id ? { ...x, color } : x));
 
   const toggleStar = (id: string) =>
     setGoals(g => g.map(x => x.id === id ? { ...x, starred: !x.starred } : x));
@@ -135,10 +142,12 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
           <div key={g.id} className="flex items-center gap-2 group">
             <button
               onClick={() => toggleDone(g.id)}
-              className="w-4 h-4 rounded border border-gray-600 flex-shrink-0 flex items-center justify-center hover:border-white transition-colors"
+              className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center hover:opacity-80 transition-opacity"
+              style={{ borderColor: g.color || "#6b7280", backgroundColor: g.done ? (g.color || "#6b7280") : "transparent" }}
             >
               {g.done && <span className="text-white text-xs">✓</span>}
             </button>
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: g.color || "#6b7280" }} />
             <span className="flex-1 text-sm text-gray-200">{g.title}</span>
             <button onClick={() => toggleStar(g.id)} className="text-yellow-400 opacity-0 group-hover:opacity-100 text-xs">★</button>
           </div>
@@ -158,7 +167,7 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
             </div>
 
             {/* Add new */}
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-2">
               <input
                 className="flex-1 bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500"
                 placeholder="Add goal…"
@@ -168,24 +177,39 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
               />
               <button onClick={add} className="bg-white text-black px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">+</button>
             </div>
+            <div className="flex gap-1.5 mb-4">
+              {GOAL_COLORS.map(c => (
+                <button key={c} onClick={() => setNewColor(c)}
+                  className="w-5 h-5 rounded-full transition-transform hover:scale-110"
+                  style={{ backgroundColor: c, outline: newColor === c ? `2px solid ${c}` : "none", outlineOffset: 2 }}
+                />
+              ))}
+            </div>
 
             {/* All goals list */}
             <div className="flex-1 overflow-y-auto space-y-2">
               {goals.length === 0 && <p className="text-xs text-gray-600 text-center py-6">No goals yet</p>}
               {goals.map(g => (
-                <div key={g.id} className={`flex items-center gap-3 p-3 rounded-xl border ${g.done ? "opacity-40 border-transparent" : "border-[#2a2a2a]"} hover:border-[#3a3a3a] group`}>
-                  <button onClick={() => toggleDone(g.id)} className="w-4 h-4 rounded border border-gray-600 flex-shrink-0 flex items-center justify-center">
-                    {g.done && <span className="text-white text-xs">✓</span>}
-                  </button>
-                  <span className={`flex-1 text-sm ${g.done ? "line-through text-gray-600" : "text-gray-200"}`}>{g.title}</span>
-                  <button
-                    onClick={() => toggleStar(g.id)}
-                    className={`text-sm transition-colors ${g.starred ? "text-yellow-400" : "text-gray-700 group-hover:text-gray-500"}`}
-                    title="Star to show on homepage"
-                  >
-                    ★
-                  </button>
-                  <button onClick={() => remove(g.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
+                <div key={g.id} className={`flex flex-col gap-2 p-3 rounded-xl border ${g.done ? "opacity-40 border-transparent" : "border-[#2a2a2a]"} hover:border-[#3a3a3a] group`}>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => toggleDone(g.id)}
+                      className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center"
+                      style={{ borderColor: g.color || "#6b7280", backgroundColor: g.done ? (g.color || "#6b7280") : "transparent" }}>
+                      {g.done && <span className="text-white text-xs">✓</span>}
+                    </button>
+                    <span className={`flex-1 text-sm ${g.done ? "line-through text-gray-600" : "text-gray-200"}`}>{g.title}</span>
+                    <button onClick={() => toggleStar(g.id)}
+                      className={`text-sm transition-colors ${g.starred ? "text-yellow-400" : "text-gray-700 group-hover:text-gray-500"}`}>★</button>
+                    <button onClick={() => remove(g.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
+                  </div>
+                  <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {GOAL_COLORS.map(c => (
+                      <button key={c} onClick={() => setColor(g.id, c)}
+                        className="w-4 h-4 rounded-full transition-transform hover:scale-110"
+                        style={{ backgroundColor: c, outline: (g.color || GOAL_COLORS[0]) === c ? `2px solid ${c}` : "none", outlineOffset: 2 }}
+                      />
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -199,7 +223,7 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
 // ─── Finance Box ─────────────────────────────────────────────────────────────
 
 function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
-  const { savingsTarget, savingsActual } = budgetData;
+  const { savingsTarget, savingsActual, freeSpendRemaining } = budgetData;
 
   // Build cumulative savings data points for the current month
   const now = new Date();
@@ -241,7 +265,7 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
 
   const pathD = points.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x} ${y}`).join(" ");
 
-  const currentTotal = prevTotal + savingsActual;
+  const currentTotal = prevTotal + savingsActual + freeSpendRemaining;
 
   return (
     <button
@@ -252,8 +276,8 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Total Saved</span>
         <span className="text-xs text-gray-600 group-hover:text-gray-400 transition-colors">View Budget →</span>
       </div>
-      <div className="text-2xl font-bold text-white mb-3">
-        ${currentTotal.toLocaleString()}
+      <div className={`text-2xl font-bold mb-3 ${currentTotal < 0 ? "text-red-400" : "text-white"}`}>
+        {currentTotal < 0 ? "-" : ""}${Math.abs(currentTotal).toLocaleString()}
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
         <defs>
@@ -272,7 +296,7 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
           <circle cx={points[today][0]} cy={points[today][1]} r="3" fill="#3b82f6" />
         )}
       </svg>
-      <p className="text-xs text-gray-600 mt-1">${savingsActual.toLocaleString()} this month · target ${savingsTarget.toLocaleString()}</p>
+      <p className="text-xs text-gray-600 mt-1">${savingsActual.toLocaleString()} saved · {freeSpendRemaining >= 0 ? "$" + freeSpendRemaining.toLocaleString() + " leftover" : "-$" + Math.abs(freeSpendRemaining).toLocaleString() + " overspent"}</p>
     </button>
   );
 }
@@ -474,7 +498,7 @@ function HabitsCalendar() {
               <div
                 key={i}
                 onClick={() => assignHabit(ds)}
-                className={`rounded-xl p-2 min-h-24 cursor-pointer transition-colors ${
+                className={`rounded-xl p-2 min-h-40 cursor-pointer transition-colors ${
                   selectedHabit ? "hover:bg-[#2a2a2a]" : ""
                 } ${isToday ? "border border-[#3a3a3a] bg-[#242424]" : "border border-[#262626]"}`}
               >
@@ -818,10 +842,25 @@ function NotesBox() {
 
 // ─── Whoop Box ───────────────────────────────────────────────────────────────
 
+interface WhoopSleep {
+  sleep_performance_percentage: number;
+  sleep_efficiency_percentage: number;
+  respiratory_rate: number;
+  stage_summary: {
+    total_in_bed_time_milli: number;
+    total_light_sleep_time_milli: number;
+    total_slow_wave_sleep_time_milli: number;
+    total_rem_sleep_time_milli: number;
+    total_awake_time_milli: number;
+  };
+}
+
 interface WhoopData {
-  recovery: { recovery_score: number; hrv_rmssd_milli: number; resting_heart_rate: number } | null;
-  sleep: { sleep_performance_percentage: number; stage_summary: { total_in_bed_time_milli: number } } | null;
-  strain: { strain: number; average_heart_rate: number } | null;
+  recovery: { recovery_score: number; hrv_rmssd_milli: number; resting_heart_rate: number; spo2_percentage: number; skin_temp_celsius: number } | null;
+  sleep: WhoopSleep | null;
+  strain: { strain: number; average_heart_rate: number; max_heart_rate: number; kilojoule: number } | null;
+  workouts: { sport_name: string; score: { strain: number; average_heart_rate: number; max_heart_rate: number; kilojoule: number } }[];
+  recoveryHistory: { date: string; score: number | null; hrv: number | null }[];
 }
 
 function recoveryColor(score: number) {
@@ -830,84 +869,205 @@ function recoveryColor(score: number) {
   return "#ef4444";
 }
 
+function msToHours(ms: number) { return (ms / 3_600_000).toFixed(1); }
+
 function WhoopBox() {
   const [data, setData] = useState<WhoopData | null>(null);
   const [connected, setConnected] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     fetch("/api/whoop/data")
       .then(r => r.json())
       .then(d => {
-        if (d.error === "not_connected") { setConnected(false); }
-        else { setData(d); }
+        if (d.error === "not_connected") setConnected(false);
+        else setData(d);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
 
   const sleepHours = data?.sleep?.stage_summary?.total_in_bed_time_milli
-    ? (data.sleep.stage_summary.total_in_bed_time_milli / 3_600_000).toFixed(1)
-    : null;
+    ? msToHours(data.sleep.stage_summary.total_in_bed_time_milli) : null;
 
   return (
-    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
-      <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">WHOOP</p>
+    <>
+      <button
+        onClick={() => data && setExpanded(true)}
+        className="w-full text-left bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 hover:border-[#444] transition-colors"
+      >
+        <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">WHOOP</p>
 
-      {loading && <p className="text-xs text-gray-600 animate-pulse">Loading…</p>}
+        {loading && <p className="text-xs text-gray-600 animate-pulse">Loading…</p>}
 
-      {!loading && !connected && (
-        <div className="text-center py-2">
-          <p className="text-xs text-gray-600 mb-3">Not connected</p>
-          <a
-            href="/api/whoop/login"
-            className="text-xs bg-white text-black px-3 py-1.5 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-          >
-            Connect WHOOP
-          </a>
-        </div>
-      )}
+        {!loading && !connected && (
+          <div className="text-center py-2">
+            <p className="text-xs text-gray-600 mb-3">Not connected</p>
+            <a href="/api/whoop/login" onClick={e => e.stopPropagation()}
+              className="text-xs bg-white text-black px-3 py-1.5 rounded-lg font-medium hover:bg-gray-200 transition-colors">
+              Connect WHOOP
+            </a>
+          </div>
+        )}
 
-      {!loading && connected && data && (
-        <div className="space-y-3">
-          {/* Recovery */}
-          {data.recovery && (
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-600">Recovery</p>
-                <p className="text-2xl font-bold" style={{ color: recoveryColor(data.recovery.recovery_score) }}>
-                  {data.recovery.recovery_score}%
-                </p>
-              </div>
-              <div className="text-right space-y-1">
-                <p className="text-xs text-gray-500">HRV <span className="text-gray-300">{Math.round(data.recovery.hrv_rmssd_milli)}ms</span></p>
-                <p className="text-xs text-gray-500">RHR <span className="text-gray-300">{data.recovery.resting_heart_rate}bpm</span></p>
-              </div>
-            </div>
-          )}
-
-          <div className="border-t border-[#2a2a2a]" />
-
-          {/* Sleep + Strain */}
-          <div className="flex justify-between text-xs">
-            {data.sleep && (
-              <div>
-                <p className="text-gray-600">Sleep</p>
-                <p className="text-white font-medium">{data.sleep.sleep_performance_percentage}%</p>
-                {sleepHours && <p className="text-gray-600">{sleepHours}h</p>}
+        {!loading && connected && data && (
+          <div className="space-y-3">
+            {data.recovery && (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-600">Recovery</p>
+                  <p className="text-2xl font-bold" style={{ color: recoveryColor(data.recovery.recovery_score) }}>
+                    {data.recovery.recovery_score}%
+                  </p>
+                </div>
+                <div className="text-right space-y-1">
+                  <p className="text-xs text-gray-500">HRV <span className="text-gray-300">{Math.round(data.recovery.hrv_rmssd_milli)}ms</span></p>
+                  <p className="text-xs text-gray-500">RHR <span className="text-gray-300">{data.recovery.resting_heart_rate}bpm</span></p>
+                </div>
               </div>
             )}
-            {data.strain && (
-              <div className="text-right">
-                <p className="text-gray-600">Strain</p>
-                <p className="text-white font-medium">{data.strain.strain.toFixed(1)}</p>
-                <p className="text-gray-600">{data.strain.average_heart_rate}bpm avg</p>
+            <div className="border-t border-[#2a2a2a]" />
+            <div className="flex justify-between text-xs">
+              {data.sleep && (
+                <div>
+                  <p className="text-gray-600">Sleep</p>
+                  <p className="text-white font-medium">{data.sleep.sleep_performance_percentage}%</p>
+                  {sleepHours && <p className="text-gray-600">{sleepHours}h</p>}
+                </div>
+              )}
+              {data.strain && (
+                <div className="text-right">
+                  <p className="text-gray-600">Strain</p>
+                  <p className="text-white font-medium">{data.strain.strain.toFixed(1)}</p>
+                  <p className="text-gray-600">{data.strain.average_heart_rate}bpm avg</p>
+                </div>
+              )}
+            </div>
+            <p className="text-[10px] text-gray-700 text-right">Tap for details →</p>
+          </div>
+        )}
+      </button>
+
+      {/* Expanded modal */}
+      {expanded && data && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6" onClick={() => setExpanded(false)}>
+          <div className="bg-[#181818] border border-[#2e2e2e] rounded-2xl w-full max-w-2xl p-7 shadow-2xl overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-sm font-semibold text-white">WHOOP</span>
+              <button onClick={() => setExpanded(false)} className="text-gray-500 hover:text-white text-lg">✕</button>
+            </div>
+
+            {/* Recovery row */}
+            {data.recovery && (
+              <div className="grid grid-cols-4 gap-3 mb-6">
+                {[
+                  { label: "Recovery", value: `${data.recovery.recovery_score}%`, color: recoveryColor(data.recovery.recovery_score) },
+                  { label: "HRV", value: `${Math.round(data.recovery.hrv_rmssd_milli)}ms` },
+                  { label: "Resting HR", value: `${data.recovery.resting_heart_rate}bpm` },
+                  { label: "SpO2", value: `${data.recovery.spo2_percentage?.toFixed(1)}%` },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="bg-[#222] rounded-xl p-3">
+                    <p className="text-xs text-gray-600 mb-1">{label}</p>
+                    <p className="text-lg font-bold" style={{ color: color || "#fff" }}>{value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Sleep breakdown */}
+            {data.sleep && (
+              <div className="mb-6">
+                <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Sleep</p>
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div className="bg-[#222] rounded-xl p-3">
+                    <p className="text-xs text-gray-600 mb-1">Performance</p>
+                    <p className="text-lg font-bold text-white">{data.sleep.sleep_performance_percentage}%</p>
+                  </div>
+                  <div className="bg-[#222] rounded-xl p-3">
+                    <p className="text-xs text-gray-600 mb-1">Efficiency</p>
+                    <p className="text-lg font-bold text-white">{data.sleep.sleep_efficiency_percentage?.toFixed(0)}%</p>
+                  </div>
+                  <div className="bg-[#222] rounded-xl p-3">
+                    <p className="text-xs text-gray-600 mb-1">Resp. Rate</p>
+                    <p className="text-lg font-bold text-white">{data.sleep.respiratory_rate?.toFixed(1)}</p>
+                  </div>
+                </div>
+                {/* Sleep stage bar */}
+                {(() => {
+                  const s = data.sleep!.stage_summary;
+                  const total = s.total_in_bed_time_milli;
+                  const stages = [
+                    { label: "Awake", ms: s.total_awake_time_milli, color: "#6b7280" },
+                    { label: "Light", ms: s.total_light_sleep_time_milli, color: "#3b82f6" },
+                    { label: "Deep", ms: s.total_slow_wave_sleep_time_milli, color: "#8b5cf6" },
+                    { label: "REM", ms: s.total_rem_sleep_time_milli, color: "#06b6d4" },
+                  ];
+                  return (
+                    <div>
+                      <div className="flex h-4 rounded-full overflow-hidden mb-2">
+                        {stages.map(st => (
+                          <div key={st.label} style={{ width: `${(st.ms / total) * 100}%`, backgroundColor: st.color }} />
+                        ))}
+                      </div>
+                      <div className="flex gap-4">
+                        {stages.map(st => (
+                          <div key={st.label} className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st.color }} />
+                            <span className="text-xs text-gray-500">{st.label} <span className="text-gray-300">{msToHours(st.ms)}h</span></span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* HRV trend */}
+            {data.recoveryHistory.length > 1 && (
+              <div className="mb-6">
+                <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Recovery — Last {data.recoveryHistory.length} Days</p>
+                <div className="flex items-end gap-1.5 h-16">
+                  {[...data.recoveryHistory].reverse().map((r, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <div
+                        className="w-full rounded-sm"
+                        style={{
+                          height: `${((r.score ?? 0) / 100) * 52}px`,
+                          backgroundColor: recoveryColor(r.score ?? 0),
+                          opacity: 0.85,
+                        }}
+                      />
+                      <span className="text-[9px] text-gray-700">{r.score ?? "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Recent workouts */}
+            {data.workouts.length > 0 && (
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Recent Workouts</p>
+                <div className="space-y-2">
+                  {data.workouts.map((w, i) => (
+                    <div key={i} className="flex items-center justify-between bg-[#222] rounded-xl px-4 py-2.5">
+                      <span className="text-sm text-gray-200 capitalize">{w.sport_name ?? "Workout"}</span>
+                      <div className="flex gap-4 text-xs text-gray-500">
+                        <span>Strain <span className="text-gray-300">{w.score?.strain?.toFixed(1)}</span></span>
+                        <span>Avg HR <span className="text-gray-300">{w.score?.average_heart_rate}bpm</span></span>
+                        <span>Cal <span className="text-gray-300">{((w.score?.kilojoule ?? 0) / 4.184).toFixed(0)}</span></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 

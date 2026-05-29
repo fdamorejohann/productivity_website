@@ -1,5 +1,5 @@
 // api/whoop/data.js
-// Fetches today's recovery, sleep, and cycle data from WHOOP.
+// Fetches today's recovery, sleep, cycle, workout history from WHOOP.
 // Silently refreshes the access token if it has expired.
 
 async function refreshAccessToken(refreshToken) {
@@ -42,11 +42,10 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "not_connected" });
   }
 
-  // Try a quick profile call to check if access token is still valid
+  // Check if access token is valid
   let test = await whoopGet("/v2/user/profile/basic", access);
 
   if (test.status === 401) {
-    // Token expired — refresh silently
     try {
       const tokens = await refreshAccessToken(refresh);
       access = tokens.access_token;
@@ -61,21 +60,33 @@ export default async function handler(req, res) {
     }
   }
 
-  // Fetch latest recovery (limit 1)
-  const [recoveryRes, sleepRes, cycleRes] = await Promise.all([
+  // Fetch all data in parallel
+  const [recoveryRes, sleepRes, cycleRes, workoutRes, recoveryHistoryRes] = await Promise.all([
     whoopGet("/v2/recovery?limit=1", access),
     whoopGet("/v2/activity/sleep?limit=1", access),
     whoopGet("/v2/cycle?limit=1", access),
+    whoopGet("/v2/activity/workout?limit=5", access),
+    whoopGet("/v2/recovery?limit=7", access),
   ]);
 
   const recovery = recoveryRes.data?.records?.[0] ?? null;
   const sleep = sleepRes.data?.records?.[0] ?? null;
   const cycle = cycleRes.data?.records?.[0] ?? null;
+  const workouts = workoutRes.data?.records ?? [];
+  const recoveryHistory = recoveryHistoryRes.data?.records ?? [];
 
   res.json({
     profile: test.data,
     recovery: recovery?.score ?? null,
     sleep: sleep?.score ?? null,
+    sleepStart: sleep?.start ?? null,
+    sleepEnd: sleep?.end ?? null,
     strain: cycle?.score ?? null,
+    workouts,
+    recoveryHistory: recoveryHistory.map(r => ({
+      date: r.created_at,
+      score: r.score?.recovery_score ?? null,
+      hrv: r.score?.hrv_rmssd_milli ?? null,
+    })),
   });
 }
