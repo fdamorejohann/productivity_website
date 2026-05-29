@@ -364,7 +364,7 @@ function buildImportPreview(
 
   return rows.map(raw => {
     const rawDate = findColumn(raw, ["Transaction Date", "Post Date", "Date"]);
-    const rawVendor = findColumn(raw, ["Description", "Merchant", "Name", "Payee"]);
+    const rawVendor = findColumn(raw, ["Vendor", "Vender", "Merchant", "Merchent", "Description", "Name", "Payee"]);
     const rawAmount = findColumn(raw, ["Amount", "Transaction Amount"]);
     const rawCategory = findColumn(raw, ["Category"]);
     const rawCard = findColumn(raw, ["Account", "Card", "Account Name"]);
@@ -1286,9 +1286,9 @@ function ExpenseRow({ row, displayActual, onUpdateLabel, onUpdateBudget, onUpdat
     <tr className="group border-b border-[#2a2a2a] hover:bg-[#252525]">
       <td className="py-1.5 pr-2"><EditableText value={row.label} onChange={onUpdateLabel} /></td>
       <td className="py-1.5 text-right pr-1"><EditableAmount value={row.budget} onChange={onUpdateBudget} /></td>
-      <td className={`py-1.5 text-right pr-1 ${actualColor}`}>
+      <td className="py-1.5 text-right pr-1">
         <div className="flex items-center justify-end gap-1">
-          <EditableAmount value={displayActual} onChange={onUpdateActual} dim={isDerived} />
+          <EditableAmount value={displayActual} onChange={onUpdateActual} dim={isDerived} colorClass={actualColor} />
           {!isDerived && (
             <button onClick={onClearActual} title="Reset to auto-derived" className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-blue-400 text-xs transition-all">↺</button>
           )}
@@ -1440,7 +1440,7 @@ function EditableText({ value, onChange }: { value: string; onChange: (v: string
           if (e.key === "Escape") setEditing(false);
         }}
         autoFocus
-        className="w-full border-b border-blue-500 focus:outline-none text-xs bg-transparent py-0.5 text-gray-200"
+        className="w-full border-b border-blue-500 focus:outline-none text-xs bg-transparent py-0.5 text-white"
       />
     );
   }
@@ -1456,11 +1456,12 @@ function EditableText({ value, onChange }: { value: string; onChange: (v: string
 
 // ─── EditableAmount ───────────────────────────────────────────────────────────
 
-function EditableAmount({ value, onChange, dim = false, placeholder }: {
+function EditableAmount({ value, onChange, dim = false, placeholder, colorClass }: {
   value: number;
   onChange: (v: number) => void;
   dim?: boolean;
   placeholder?: string;
+  colorClass?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -1481,14 +1482,14 @@ function EditableAmount({ value, onChange, dim = false, placeholder }: {
         onBlur={save}
         onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
         autoFocus
-        className="w-20 text-right border-b border-blue-500 focus:outline-none text-xs bg-transparent text-gray-200 py-0.5 tabular-nums"
+        className="w-20 text-right border-b border-blue-500 focus:outline-none text-xs bg-transparent text-white py-0.5 tabular-nums"
       />
     );
   }
   return (
     <span
       onClick={() => { setDraft(value === 0 ? "" : String(value)); setEditing(true); }}
-      className={`cursor-pointer text-xs tabular-nums rounded px-1 py-0.5 hover:bg-[#2a2a2a] transition-colors ${dim ? "text-gray-600 italic" : ""}`}
+      className={`cursor-pointer text-xs tabular-nums rounded px-1 py-0.5 hover:bg-[#2a2a2a] transition-colors ${dim ? "text-gray-600 italic" : colorClass ?? "text-gray-200"}`}
     >
       {value === 0 && placeholder ? placeholder : fmt(value)}
     </span>
