@@ -456,7 +456,23 @@ export default function BudgetPanel() {
   useEffect(() => {
     if (!data) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => db.budget.save(month, data), 800);
+    saveTimer.current = setTimeout(() => {
+      db.budget.save(month, data);
+      // Recompute and save summary values
+      const eAct = (r: BudgetExpenseRow) => expActual(r, data.logs);
+      const fixedRows = data.expenses.filter(r => r.type === "fixed");
+      const variableRows = data.expenses.filter(r => r.type === "variable" && r.label !== "work");
+      const incomeAct = data.income.reduce((s, r) => s + r.actual, 0);
+      const fixedAct = fixedRows.reduce((s, r) => s + eAct(r), 0);
+      const rebates = data.logs.filter(l => l.category === "Rebates").reduce((s, l) => s + effectiveCost(l), 0);
+      const varAct = variableRows.reduce((s, r) => s + eAct(r), 0) - rebates;
+      const leftover = incomeAct - fixedAct - varAct;
+      const savings = data.expenses.filter(r => r.bucket === "savings").reduce((s, r) => s + eAct(r), 0);
+      const investments = data.expenses.filter(r => r.bucket === "investments").reduce((s, r) => s + eAct(r), 0);
+      db.summary.upsert(month, "leftover", leftover);
+      db.summary.upsert(month, "savings", savings);
+      db.summary.upsert(month, "investments", investments);
+    }, 800);
   }, [data, month]);
 
   useEffect(() => {
@@ -698,13 +714,6 @@ export default function BudgetPanel() {
   const totalBudget = savingsBudget + investingBudget + leftoverBudget;
   const totalActual = savingsActual + investingActual + leftoverActual;
 
-  // Auto-save summary to DB whenever totals change
-  useEffect(() => {
-    if (!data) return;
-    db.summary.upsert(month, "leftover", leftoverActual);
-    db.summary.upsert(month, "savings", savingsActual);
-    db.summary.upsert(month, "investments", investingActual);
-  }, [leftoverActual, savingsActual, investingActual, month]);
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 bg-[#111] min-h-screen">

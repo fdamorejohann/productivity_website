@@ -255,7 +255,7 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   const range = maxVal || 1;
 
   const svgPoints: [number, number][] = allPts.map((p, i) => [
-    (i / (allPts.length - 1)) * W,
+    (allPts.length <= 1 ? i : i / (allPts.length - 1)) * W,
     H - (p.cumulative / range) * (H - 4),
   ]);
 
