@@ -195,8 +195,15 @@ async function handleGcal(req, res) {
     const token = await getValidAccessToken();
     if (!token) return res.json({ connected: false, events: [] });
 
-    const now = new Date().toISOString();
-    const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    // Start from Monday of current week so past events this week still show
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
+    const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + daysToMonday);
+    monday.setHours(0, 0, 0, 0);
+    const now = monday.toISOString();
+    const future = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
     const params = new URLSearchParams({
       timeMin: now,
       timeMax: future,

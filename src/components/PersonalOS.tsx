@@ -344,6 +344,7 @@ function HabitsCalendar() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [gcalEvents, setGcalEvents] = useState<CalendarEvent[]>([]);
   const [gcalConnected, setGcalConnected] = useState(false);
+  const [gcalRefreshing, setGcalRefreshing] = useState(false);
   const [calMonth, setCalMonth] = useState(() => {
     const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() };
   });
@@ -351,21 +352,27 @@ function HabitsCalendar() {
   const [newEventTitle, setNewEventTitle] = useState("");
   const [newEventTime, setNewEventTime] = useState("09:00");
 
-  useEffect(() => {
-    db.habits.list().then((h: Habit[]) => setHabits(h));
-    db.planned.list().then((p: PlannedHabit[]) => setPlanned(p.map((x: PlannedHabit & { habit_id?: string }) => ({ ...x, habitId: x.habit_id ?? x.habitId }))));
-    db.events.list().then((e: CalendarEvent[]) => setEvents(e));
+  const fetchGcal = () => {
+    setGcalRefreshing(true);
     db.gcal.get().then((res: { connected: boolean; events: { id: string; title: string; start: string; allDay: boolean }[] }) => {
-      if (!res?.connected) return;
+      if (!res?.connected) { setGcalRefreshing(false); return; }
       setGcalConnected(true);
       const mapped: CalendarEvent[] = res.events.map(e => {
         const dt = new Date(e.start);
-        const date = e.allDay ? e.start.slice(0, 10) : dt.toISOString().slice(0, 10);
+        const date = e.allDay ? e.start.slice(0, 10) : `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
         const time = e.allDay ? "" : dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
         return { id: `gcal_${e.id}`, date, title: e.title, time };
       });
       setGcalEvents(mapped);
-    }).catch(() => {});
+      setGcalRefreshing(false);
+    }).catch(() => setGcalRefreshing(false));
+  };
+
+  useEffect(() => {
+    db.habits.list().then((h: Habit[]) => setHabits(h));
+    db.planned.list().then((p: PlannedHabit[]) => setPlanned(p.map((x: PlannedHabit & { habit_id?: string }) => ({ ...x, habitId: x.habit_id ?? x.habitId }))));
+    db.events.list().then((e: CalendarEvent[]) => setEvents(e));
+    fetchGcal();
   }, []);
 
   const monday = getMondayOf(new Date());
@@ -536,7 +543,14 @@ function HabitsCalendar() {
                     </a>
                   )}
                   {gcalConnected && (
-                    <span className="text-xs text-green-500">● Google Cal</span>
+                    <button
+                      onClick={() => fetchGcal()}
+                      disabled={gcalRefreshing}
+                      className="text-xs text-green-500 hover:text-green-400 transition-colors disabled:opacity-50"
+                      title="Refresh Google Calendar"
+                    >
+                      {gcalRefreshing ? "↻ Syncing…" : "● Google Cal ↻"}
+                    </button>
                   )}
                   <button
                     onClick={() => setFullCalOpen(true)}
