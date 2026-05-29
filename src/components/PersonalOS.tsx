@@ -255,6 +255,7 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   const [rows, setRows] = useState<SummaryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<FinanceTab>("total");
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     db.summary.list().then((data: SummaryRow[]) => {
@@ -290,8 +291,12 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
           {FINANCE_TABS.find(t => t.key === tab)!.label}
         </span>
-        <button onClick={onOpenBudget} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">View Budget →</button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setHidden(h => !h)} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">{hidden ? "Show" : "Hide"}</button>
+          <button onClick={onOpenBudget} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">View Budget →</button>
+        </div>
       </div>
+      <div className={`transition-all duration-200 ${hidden ? "blur-md select-none pointer-events-none" : ""}`}>
       <div className="text-2xl font-bold mb-2" style={{ color: activeColor }}>
         {loading ? "—" : `${activeValue < 0 ? "-" : ""}$${Math.abs(activeValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
       </div>
@@ -308,6 +313,7 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
         <path d={activePath} fill="none" stroke={activeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         {sortedMonths.length > 0 && <circle cx={W} cy={lastY} r="3" fill={activeColor} />}
       </svg>
+      </div>
       <div className="flex gap-3 mt-2">
         {FINANCE_TABS.map(t => (
           <button
