@@ -1275,11 +1275,18 @@ function ExpenseRow({ row, displayActual, onUpdateLabel, onUpdateBudget, onUpdat
   onDelete: () => void;
 }) {
   const isDerived = row.actual === null;
+  const actualColor = row.budget === 0 && displayActual === 0
+    ? "text-gray-400"
+    : displayActual < row.budget
+    ? "text-green-400"
+    : displayActual === row.budget
+    ? "text-gray-200"
+    : "text-red-400";
   return (
     <tr className="group border-b border-[#2a2a2a] hover:bg-[#252525]">
       <td className="py-1.5 pr-2"><EditableText value={row.label} onChange={onUpdateLabel} /></td>
       <td className="py-1.5 text-right pr-1"><EditableAmount value={row.budget} onChange={onUpdateBudget} /></td>
-      <td className="py-1.5 text-right pr-1">
+      <td className={`py-1.5 text-right pr-1 ${actualColor}`}>
         <div className="flex items-center justify-end gap-1">
           <EditableAmount value={displayActual} onChange={onUpdateActual} dim={isDerived} />
           {!isDerived && (
@@ -1481,7 +1488,7 @@ function EditableAmount({ value, onChange, dim = false, placeholder }: {
   return (
     <span
       onClick={() => { setDraft(value === 0 ? "" : String(value)); setEditing(true); }}
-      className={`cursor-pointer text-xs tabular-nums rounded px-1 py-0.5 hover:bg-[#2a2a2a] transition-colors ${dim ? "text-gray-600 italic" : "text-gray-200"}`}
+      className={`cursor-pointer text-xs tabular-nums rounded px-1 py-0.5 hover:bg-[#2a2a2a] transition-colors ${dim ? "text-gray-600 italic" : ""}`}
     >
       {value === 0 && placeholder ? placeholder : fmt(value)}
     </span>
