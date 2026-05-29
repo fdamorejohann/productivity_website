@@ -816,6 +816,101 @@ function NotesBox() {
   );
 }
 
+// ─── Whoop Box ───────────────────────────────────────────────────────────────
+
+interface WhoopData {
+  recovery: { recovery_score: number; hrv_rmssd_milli: number; resting_heart_rate: number } | null;
+  sleep: { sleep_performance_percentage: number; stage_summary: { total_in_bed_time_milli: number } } | null;
+  strain: { strain: number; average_heart_rate: number } | null;
+}
+
+function recoveryColor(score: number) {
+  if (score >= 67) return "#22c55e";
+  if (score >= 34) return "#f59e0b";
+  return "#ef4444";
+}
+
+function WhoopBox() {
+  const [data, setData] = useState<WhoopData | null>(null);
+  const [connected, setConnected] = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/whoop/data")
+      .then(r => r.json())
+      .then(d => {
+        if (d.error === "not_connected") { setConnected(false); }
+        else { setData(d); }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const sleepHours = data?.sleep?.stage_summary?.total_in_bed_time_milli
+    ? (data.sleep.stage_summary.total_in_bed_time_milli / 3_600_000).toFixed(1)
+    : null;
+
+  return (
+    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+      <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">WHOOP</p>
+
+      {loading && <p className="text-xs text-gray-600 animate-pulse">Loading…</p>}
+
+      {!loading && !connected && (
+        <div className="text-center py-2">
+          <p className="text-xs text-gray-600 mb-3">Not connected</p>
+          <a
+            href="/api/whoop/login"
+            className="text-xs bg-white text-black px-3 py-1.5 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+          >
+            Connect WHOOP
+          </a>
+        </div>
+      )}
+
+      {!loading && connected && data && (
+        <div className="space-y-3">
+          {/* Recovery */}
+          {data.recovery && (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-600">Recovery</p>
+                <p className="text-2xl font-bold" style={{ color: recoveryColor(data.recovery.recovery_score) }}>
+                  {data.recovery.recovery_score}%
+                </p>
+              </div>
+              <div className="text-right space-y-1">
+                <p className="text-xs text-gray-500">HRV <span className="text-gray-300">{Math.round(data.recovery.hrv_rmssd_milli)}ms</span></p>
+                <p className="text-xs text-gray-500">RHR <span className="text-gray-300">{data.recovery.resting_heart_rate}bpm</span></p>
+              </div>
+            </div>
+          )}
+
+          <div className="border-t border-[#2a2a2a]" />
+
+          {/* Sleep + Strain */}
+          <div className="flex justify-between text-xs">
+            {data.sleep && (
+              <div>
+                <p className="text-gray-600">Sleep</p>
+                <p className="text-white font-medium">{data.sleep.sleep_performance_percentage}%</p>
+                {sleepHours && <p className="text-gray-600">{sleepHours}h</p>}
+              </div>
+            )}
+            {data.strain && (
+              <div className="text-right">
+                <p className="text-gray-600">Strain</p>
+                <p className="text-white font-medium">{data.strain.strain.toFixed(1)}</p>
+                <p className="text-gray-600">{data.strain.average_heart_rate}bpm avg</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export default function PersonalOS() {
@@ -869,6 +964,7 @@ export default function PersonalOS() {
             </p>
           </div>
           <WeatherBox />
+          <WhoopBox />
           <NotesBox />
         </div>
 
