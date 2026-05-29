@@ -638,8 +638,10 @@ function HabitsCalendar() {
                     <div
                       key={ev.id}
                       onClick={e => { e.stopPropagation(); if (!ev.id.startsWith("gcal_")) setEditingEvent(ev); }}
-                      className={`text-xs truncate ${ev.id.startsWith("gcal_") ? "text-green-500" : "text-gray-500 hover:text-gray-300 cursor-pointer"}`}
-                    >{ev.time} {ev.title}</div>
+                      className={`text-xs rounded-md px-1.5 py-1 mb-0.5 leading-tight break-words ${ev.id.startsWith("gcal_") ? "bg-green-900/40 text-green-400 border border-green-900/60" : "bg-blue-900/40 text-blue-300 border border-blue-900/60 cursor-pointer hover:bg-blue-900/60"}`}
+                    >
+                      {ev.time && <span className="opacity-60 mr-1">{ev.time}</span>}{ev.title}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -829,7 +831,7 @@ function HabitsCalendar() {
                       <div
                         key={ev.id}
                         onClick={() => { if (!ev.id.startsWith("gcal_")) setEditingEvent(ev); }}
-                        className={`text-xs rounded px-1 truncate mb-0.5 ${ev.id.startsWith("gcal_") ? "bg-green-600/30 text-green-400" : "bg-blue-600/30 text-blue-400 cursor-pointer hover:bg-blue-600/50"}`}
+                        className={`text-xs rounded px-1.5 py-0.5 mb-0.5 break-words leading-tight border ${ev.id.startsWith("gcal_") ? "bg-green-900/40 text-green-400 border-green-900/60" : "bg-blue-900/40 text-blue-300 border-blue-900/60 cursor-pointer hover:bg-blue-900/60"}`}
                       >{ev.title}</div>
                     ))}
                   </div>
@@ -1081,6 +1083,7 @@ function WeatherBox() {
 function NotesBox() {
   const [notes, setNotes] = useState("");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     db.notes.get().then((d: { content: string }) => setNotes(d.content ?? ""));
@@ -1090,13 +1093,24 @@ function NotesBox() {
     setNotes(val);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => db.notes.save(val), 1000);
+    // Auto-resize
+    const el = textareaRef.current;
+    if (el) { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; }
   };
 
+  // Resize on initial load
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (el && notes) { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; }
+  }, [notes]);
+
   return (
-    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 flex flex-col flex-1">
+    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 flex flex-col">
       <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Notes</p>
       <textarea
-        className="flex-1 bg-transparent text-sm text-gray-300 placeholder-gray-700 resize-none focus:outline-none leading-relaxed min-h-40"
+        ref={textareaRef}
+        className="bg-transparent text-sm text-gray-300 placeholder-gray-700 resize-none focus:outline-none leading-relaxed overflow-hidden"
+        style={{ minHeight: "10rem", maxHeight: "30rem" }}
         placeholder="Jot something down…"
         value={notes}
         onChange={e => handleChange(e.target.value)}
