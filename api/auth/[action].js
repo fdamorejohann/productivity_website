@@ -2,8 +2,8 @@ import { supabase } from "../_supabase.js";
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}/api/auth/callback`
+const REDIRECT_URI = process.env.NODE_ENV === "production"
+  ? "https://productivity-website-three.vercel.app/api/auth/callback"
   : "http://localhost:3000/api/auth/callback";
 
 export default async function handler(req, res) {
@@ -56,8 +56,8 @@ async function handleCallback(req, res) {
   });
 
   // Redirect back to homepage
-  const origin = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
+  const origin = process.env.NODE_ENV === "production"
+    ? "https://productivity-website-three.vercel.app"
     : "http://localhost:3000";
   res.redirect(`${origin}/?gcal=connected`);
 }
