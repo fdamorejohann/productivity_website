@@ -776,16 +776,17 @@ interface WeatherData {
   high: number;
   low: number;
   code: number;
+  forecast: { date: string; high: number; low: number; code: number }[];
 }
 
 function WeatherBox() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [error, setError] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    // NYC: 40.7128, -74.0060
     fetch(
-      "https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current=temperature_2m,apparent_temperature,weather_code&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=1"
+      "https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current=temperature_2m,apparent_temperature,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=7"
     )
       .then(r => r.json())
       .then(d => setWeather({
@@ -794,29 +795,70 @@ function WeatherBox() {
         high: Math.round(d.daily.temperature_2m_max[0]),
         low: Math.round(d.daily.temperature_2m_min[0]),
         code: d.current.weather_code,
+        forecast: d.daily.time.map((date: string, i: number) => ({
+          date,
+          high: Math.round(d.daily.temperature_2m_max[i]),
+          low: Math.round(d.daily.temperature_2m_min[i]),
+          code: d.daily.weather_code[i],
+        })),
       }))
       .catch(() => setError(true));
   }, []);
 
+  const dayLabel = (dateStr: string, i: number) => {
+    if (i === 0) return "Today";
+    if (i === 1) return "Tomorrow";
+    return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" });
+  };
+
   return (
-    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
-      <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">New York</p>
-      {error && <p className="text-xs text-gray-600">Weather unavailable</p>}
-      {!weather && !error && <p className="text-xs text-gray-600 animate-pulse">Loading…</p>}
-      {weather && (
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-end gap-2">
-              <span className="text-3xl font-bold text-white">{weather.temp}°</span>
-              <span className="text-sm text-gray-500 mb-1">Feels {weather.feelsLike}°</span>
+    <>
+      <button
+        onClick={() => weather && setExpanded(true)}
+        className="w-full text-left bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 hover:border-[#444] transition-colors"
+      >
+        <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">New York</p>
+        {error && <p className="text-xs text-gray-600">Weather unavailable</p>}
+        {!weather && !error && <p className="text-xs text-gray-600 animate-pulse">Loading…</p>}
+        {weather && (
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-end gap-2">
+                <span className="text-3xl font-bold text-white">{weather.temp}°</span>
+                <span className="text-sm text-gray-500 mb-1">Feels {weather.feelsLike}°</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">{WMO_LABELS[weather.code] ?? "—"}</p>
+              <p className="text-xs text-gray-600 mt-1">H:{weather.high}° L:{weather.low}°</p>
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">{WMO_LABELS[weather.code] ?? "—"}</p>
-            <p className="text-xs text-gray-600 mt-1">H:{weather.high}° L:{weather.low}°</p>
+            <span className="text-4xl">{WMO_EMOJI[weather.code] ?? "🌡️"}</span>
           </div>
-          <span className="text-4xl">{WMO_EMOJI[weather.code] ?? "🌡️"}</span>
+        )}
+      </button>
+
+      {expanded && weather && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6" onClick={() => setExpanded(false)}>
+          <div className="bg-[#181818] border border-[#2e2e2e] rounded-2xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <span className="text-sm font-semibold text-white">New York — 7 Day Forecast</span>
+              <button onClick={() => setExpanded(false)} className="text-gray-500 hover:text-white text-lg">✕</button>
+            </div>
+            <div className="space-y-2">
+              {weather.forecast.map((day, i) => (
+                <div key={day.date} className={`flex items-center justify-between px-3 py-2 rounded-xl ${i === 0 ? "bg-[#252525]" : ""}`}>
+                  <span className="text-sm text-gray-300 w-20">{dayLabel(day.date, i)}</span>
+                  <span className="text-xl">{WMO_EMOJI[day.code] ?? "🌡️"}</span>
+                  <span className="text-xs text-gray-500 flex-1 text-center">{WMO_LABELS[day.code] ?? "—"}</span>
+                  <div className="text-right">
+                    <span className="text-sm text-white font-medium">{day.high}°</span>
+                    <span className="text-sm text-gray-600 ml-2">{day.low}°</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -861,6 +903,7 @@ interface WhoopData {
   strain: { strain: number; average_heart_rate: number; max_heart_rate: number; kilojoule: number } | null;
   workouts: { sport_name: string; score: { strain: number; average_heart_rate: number; max_heart_rate: number; kilojoule: number } }[];
   recoveryHistory: { date: string; score: number | null; hrv: number | null }[];
+  sleepHistory: { date: string; performance: number | null; hours: string | null }[];
 }
 
 function recoveryColor(score: number) {
@@ -1040,6 +1083,25 @@ function WhoopBox() {
                         }}
                       />
                       <span className="text-[9px] text-gray-700">{r.score ?? "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sleep history */}
+            {data.sleepHistory?.length > 1 && (
+              <div className="mb-6">
+                <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Sleep — Last {data.sleepHistory.length} Nights</p>
+                <div className="flex items-end gap-1.5 h-16">
+                  {[...data.sleepHistory].reverse().map((s, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <span className="text-[9px] text-gray-700">{s.hours}h</span>
+                      <div
+                        className="w-full rounded-sm bg-cyan-500"
+                        style={{ height: `${((s.performance ?? 0) / 100) * 40}px`, opacity: 0.8 }}
+                      />
+                      <span className="text-[9px] text-gray-700">{s.performance ?? "—"}%</span>
                     </div>
                   ))}
                 </div>

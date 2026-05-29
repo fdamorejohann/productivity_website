@@ -61,12 +61,13 @@ export default async function handler(req, res) {
   }
 
   // Fetch all data in parallel
-  const [recoveryRes, sleepRes, cycleRes, workoutRes, recoveryHistoryRes] = await Promise.all([
+  const [recoveryRes, sleepRes, cycleRes, workoutRes, recoveryHistoryRes, sleepHistoryRes] = await Promise.all([
     whoopGet("/v2/recovery?limit=1", access),
     whoopGet("/v2/activity/sleep?limit=1", access),
     whoopGet("/v2/cycle?limit=1", access),
     whoopGet("/v2/activity/workout?limit=5", access),
     whoopGet("/v2/recovery?limit=7", access),
+    whoopGet("/v2/activity/sleep?limit=7", access),
   ]);
 
   const recovery = recoveryRes.data?.records?.[0] ?? null;
@@ -74,6 +75,7 @@ export default async function handler(req, res) {
   const cycle = cycleRes.data?.records?.[0] ?? null;
   const workouts = workoutRes.data?.records ?? [];
   const recoveryHistory = recoveryHistoryRes.data?.records ?? [];
+  const sleepHistory = sleepHistoryRes.data?.records ?? [];
 
   res.json({
     profile: test.data,
@@ -87,6 +89,13 @@ export default async function handler(req, res) {
       date: r.created_at,
       score: r.score?.recovery_score ?? null,
       hrv: r.score?.hrv_rmssd_milli ?? null,
+    })),
+    sleepHistory: sleepHistory.filter(s => !s.nap).map(s => ({
+      date: s.end,
+      performance: s.score?.sleep_performance_percentage ?? null,
+      hours: s.score?.stage_summary?.total_in_bed_time_milli
+        ? (s.score.stage_summary.total_in_bed_time_milli / 3_600_000).toFixed(1)
+        : null,
     })),
   });
 }
