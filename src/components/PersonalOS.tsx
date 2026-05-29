@@ -256,7 +256,7 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   const [rows, setRows] = useState<SummaryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<FinanceTab>("total");
-  const [hidden, setHidden] = useState(false);
+  const [hidden, setHidden] = useState(true);
 
   useEffect(() => {
     db.summary.list().then((data: SummaryRow[]) => {
@@ -962,7 +962,7 @@ function WeatherBox() {
 
   useEffect(() => {
     fetch(
-      "https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current=temperature_2m,apparent_temperature,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&hourly=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=2"
+      "https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current=temperature_2m,apparent_temperature,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&hourly=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=8"
     )
       .then(r => r.json())
       .then(d => {
@@ -1207,8 +1207,8 @@ function WhoopBox() {
                   </p>
                 </div>
                 <div className="text-right space-y-1">
-                  <p className="text-xs text-gray-500">HRV <span className="text-gray-300">{Math.round(data.recovery.hrv_rmssd_milli)}ms</span></p>
-                  <p className="text-xs text-gray-500">RHR <span className="text-gray-300">{data.recovery.resting_heart_rate}bpm</span></p>
+                  <p className="text-xs text-gray-400">HRV <span className="text-white">{Math.round(data.recovery.hrv_rmssd_milli)}ms</span></p>
+                  <p className="text-xs text-gray-400">RHR <span className="text-white">{data.recovery.resting_heart_rate}bpm</span></p>
                 </div>
               </div>
             )}
@@ -1216,16 +1216,16 @@ function WhoopBox() {
             <div className="flex justify-between text-xs">
               {data.sleep && (
                 <div>
-                  <p className="text-gray-600">Sleep</p>
+                  <p className="text-gray-400">Sleep</p>
                   <p className="text-white font-medium">{data.sleep.sleep_performance_percentage}%</p>
-                  {sleepHours && <p className="text-gray-600">{sleepHours}h</p>}
+                  {sleepHours && <p className="text-gray-300">{sleepHours}h</p>}
                 </div>
               )}
               {data.strain && (
                 <div className="text-right">
-                  <p className="text-gray-600">Strain</p>
+                  <p className="text-gray-400">Strain</p>
                   <p className="text-white font-medium">{data.strain.strain.toFixed(1)}</p>
-                  <p className="text-gray-600">{data.strain.average_heart_rate}bpm avg</p>
+                  <p className="text-gray-300">{data.strain.average_heart_rate}bpm avg</p>
                 </div>
               )}
             </div>
@@ -1253,7 +1253,7 @@ function WhoopBox() {
                   { label: "SpO2", value: `${data.recovery.spo2_percentage?.toFixed(1)}%` },
                 ].map(({ label, value, color }) => (
                   <div key={label} className="bg-[#222] rounded-xl p-3">
-                    <p className="text-xs text-gray-600 mb-1">{label}</p>
+                    <p className="text-xs text-gray-400 mb-1">{label}</p>
                     <p className="text-lg font-bold" style={{ color: color || "#fff" }}>{value}</p>
                   </div>
                 ))}
@@ -1266,15 +1266,15 @@ function WhoopBox() {
                 <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Sleep</p>
                 <div className="grid grid-cols-3 gap-3 mb-3">
                   <div className="bg-[#222] rounded-xl p-3">
-                    <p className="text-xs text-gray-600 mb-1">Performance</p>
+                    <p className="text-xs text-gray-400 mb-1">Performance</p>
                     <p className="text-lg font-bold text-white">{data.sleep.sleep_performance_percentage}%</p>
                   </div>
                   <div className="bg-[#222] rounded-xl p-3">
-                    <p className="text-xs text-gray-600 mb-1">Efficiency</p>
+                    <p className="text-xs text-gray-400 mb-1">Efficiency</p>
                     <p className="text-lg font-bold text-white">{data.sleep.sleep_efficiency_percentage?.toFixed(0)}%</p>
                   </div>
                   <div className="bg-[#222] rounded-xl p-3">
-                    <p className="text-xs text-gray-600 mb-1">Resp. Rate</p>
+                    <p className="text-xs text-gray-400 mb-1">Resp. Rate</p>
                     <p className="text-lg font-bold text-white">{data.sleep.respiratory_rate?.toFixed(1)}</p>
                   </div>
                 </div>
@@ -1299,7 +1299,7 @@ function WhoopBox() {
                         {stages.map(st => (
                           <div key={st.label} className="flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st.color }} />
-                            <span className="text-xs text-gray-500">{st.label} <span className="text-gray-300">{msToHours(st.ms)}h</span></span>
+                            <span className="text-xs text-gray-400">{st.label} <span className="text-white">{msToHours(st.ms)}h</span></span>
                           </div>
                         ))}
                       </div>
