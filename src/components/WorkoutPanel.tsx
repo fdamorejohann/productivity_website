@@ -42,6 +42,14 @@ interface Session {
   workout_sets: WorkoutSet[];
 }
 
+const WORKOUT_COLORS: Record<string, string> = {
+  lifting: "#ef4444",
+  running: "#f97316",
+  rollerblading: "#a78bfa",
+  muaythai: "#ec4899",
+  biking: "#3b82f6",
+};
+
 const WORKOUT_TYPES: { key: WorkoutType; label: string; emoji: string; color: string }[] = [
   { key: "lifting",       label: "Lifting",       emoji: "🏋️",  color: "#ef4444" },
   { key: "running",       label: "Running",       emoji: "🏃",  color: "#f97316" },
@@ -99,7 +107,7 @@ function typeInfo(type: WorkoutType) {
 // ─── WorkoutPanel ─────────────────────────────────────────────────────────────
 
 export default function WorkoutPanel() {
-  const [tab, setTab] = useState<"log" | "history" | "progress">("log");
+  const [tab, setTab] = useState<"log" | "history" | "progress">("history");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +132,7 @@ export default function WorkoutPanel() {
           <p className="text-xs text-gray-500 mt-1">{sessions.length} sessions logged</p>
         </div>
         <div className="flex gap-2">
-          {(["log", "history", "progress"] as const).map(t => (
+          {(["history", "log", "progress"] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -620,12 +628,60 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
     setSaving(false);
   };
 
-  if (sessions.length === 0) return <p className="text-gray-600 text-sm">No workouts logged yet.</p>;
-
   const filteredEx = exercises.filter(e => e.name.toLowerCase().includes(exSearch.toLowerCase()));
 
+  // Heatmap data from sessions prop
+  const workoutDateMap: Record<string, string> = {};
+  for (const s of sessions) workoutDateMap[s.date] = s.type ?? "lifting";
+  const HMAP_WEEKS = 16;
+  const today = new Date();
+  const todayDay = today.getDay() === 0 ? 6 : today.getDay() - 1;
+  const heatCells: { date: string; type: string | null }[] = [];
+  for (let w = HMAP_WEEKS - 1; w >= 0; w--) {
+    for (let d = 0; d < 7; d++) {
+      const offset = w * 7 + (6 - todayDay) - d;
+      const dt = new Date(today);
+      dt.setDate(today.getDate() - offset);
+      if (dt > today) { heatCells.push({ date: "", type: null }); continue; }
+      const ds = dt.toISOString().slice(0, 10);
+      heatCells.push({ date: ds, type: workoutDateMap[ds] ?? null });
+    }
+  }
+
+  if (sessions.length === 0) return (
+    <div>
+      <p className="text-gray-600 text-sm mb-4">No workouts logged yet.</p>
+    </div>
+  );
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Heatmap */}
+      <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs text-gray-500 uppercase tracking-widest">Activity</p>
+          <span className="text-xs text-gray-600">{sessions.length} sessions total</span>
+        </div>
+        <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${HMAP_WEEKS}, 1fr)` }}>
+          {heatCells.map((c, i) => {
+            const color = c.type ? (WORKOUT_COLORS[c.type] ?? "#ef4444") : "#252525";
+            return (
+              <div key={i} title={c.date ? (c.type ? `${c.date} — ${c.type}` : c.date) : ""}
+                style={{ backgroundColor: color }} className="aspect-square rounded-[2px]" />
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3">
+          {Object.entries(WORKOUT_COLORS).map(([type, color]) => (
+            <span key={type} className="flex items-center gap-1 text-xs text-gray-600 capitalize">
+              <span className="w-2 h-2 rounded-[2px]" style={{ backgroundColor: color }} />
+              {type === "muaythai" ? "Muay Thai" : type}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Session list */}
       {sessions.map(s => {
         const t = typeInfo(s.type ?? "lifting");
         const exerciseNames = [...new Set(s.workout_sets.map(st => st.exercises?.name).filter(Boolean))];
@@ -640,11 +696,14 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
               onClick={() => { setExpanded(isOpen ? null : s.id); if (isEditing) setEditing(null); }}
             >
               <div className="text-left">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-white font-medium text-sm">{formatDate(s.date)}</p>
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: t.color + "33", color: t.color }}>
                     {t.emoji} {t.label}
                   </span>
+                  {s.notes && (
+                    <span className="text-xs text-gray-400 italic">{s.notes}</span>
+                  )}
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {isLifting
@@ -850,67 +909,66 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
 
   const history = exerciseHistory();
 
+  // Mini sparkline SVG for a card
+  const Sparkline = ({ values, color, isAmrap }: { values: number[]; color: string; isAmrap: boolean }) => {
+    if (values.length < 2) return <div className="h-10 flex items-end"><span className="text-xs text-gray-600">Not enough data</span></div>;
+    const W = 120; const H = 36;
+    const maxV = Math.max(...values);
+    const minV = Math.min(...values);
+    const range = maxV - minV || 1;
+    const pts = values.map((v, i) => {
+      const x = (i / (values.length - 1)) * W;
+      const y = H - ((v - minV) / range) * (H - 4) - 2;
+      return `${x},${y}`;
+    }).join(" ");
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-10">
+        <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          strokeDasharray={isAmrap ? "3 2" : undefined} />
+        {values.map((v, i) => {
+          const x = (i / (values.length - 1)) * W;
+          const y = H - ((v - minV) / range) * (H - 4) - 2;
+          return <circle key={i} cx={x} cy={y} r="2.5" fill={color} />;
+        })}
+      </svg>
+    );
+  };
+
   const renderOverview = () => {
-    const weightEntries = [...history.entries()].filter(([, pts]) => pts.length >= 2 && pts.some(p => p.maxWeight > 0));
-    const amrapEntries = [...history.entries()].filter(([, pts]) => pts.length >= 2 && pts.every(p => p.isAmrap));
+    const liftingEntries = [...history.entries()].filter(([, pts]) => pts.some(p => p.maxWeight > 0));
+    const amrapEntries = [...history.entries()].filter(([, pts]) => pts.every(p => p.isAmrap) && pts.some(p => p.maxReps > 0));
+    const hasLifts = liftingEntries.length > 0;
+    const hasAmrap = amrapEntries.length > 0;
 
-    if (weightEntries.length === 0 && amrapEntries.length === 0) {
-      return <p className="text-gray-600 text-sm">Log at least 2 sessions per exercise to see trends.</p>;
+    if (!hasLifts && !hasAmrap && cardioSessions("running").length + cardioSessions("biking").length + cardioSessions("rollerblading").length + cardioSessions("muaythai").length < 1) {
+      return <p className="text-gray-600 text-sm">No workout data yet.</p>;
     }
-
-    const allDates = [...new Set(liftingSessions.map(s => s.date))].sort();
-    const H = 160;
-    const W = 560;
-    const colors = ["#3b82f6","#22c55e","#a78bfa","#f59e0b","#ec4899","#06b6d4","#f97316","#84cc16"];
 
     return (
       <div className="space-y-5">
-        {weightEntries.length > 0 && (
-          <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">All Lifts — Normalized Progress</p>
-            <p className="text-xs text-gray-600 mb-4">Each line = % of personal best (max weight). 100% = your all-time best set.</p>
-            <div className="relative overflow-x-auto">
-              <svg viewBox={`0 0 ${W + 80} ${H + 20}`} className="w-full" style={{ minWidth: "320px" }}>
-                {[0, 50, 100].map(pct => (
-                  <text key={pct} x="0" y={H - (pct / 100) * (H - 10) + 4} fill="#555" fontSize="9">{pct}%</text>
-                ))}
-                {weightEntries.map(([exId, pts], idx) => {
-                  const maxW = Math.max(...pts.map(p => p.maxWeight));
-                  if (maxW === 0) return null;
-                  const color = colors[idx % colors.length];
-                  const exName = exercises.find(e => e.id === exId)?.name ?? exId;
-                  const pointsStr = pts.map(p => {
-                    const dateIdx = allDates.indexOf(p.date);
-                    const x = allDates.length <= 1 ? W / 2 : 24 + (dateIdx / (allDates.length - 1)) * (W - 24);
-                    const y = H - ((p.maxWeight / maxW) * (H - 10));
-                    return `${x},${y}`;
-                  }).join(" ");
-                  const last = pts[pts.length - 1];
-                  const lastDateIdx = allDates.indexOf(last.date);
-                  const lastX = allDates.length <= 1 ? W / 2 : 24 + (lastDateIdx / (allDates.length - 1)) * (W - 24);
-                  const lastY = H - ((last.maxWeight / maxW) * (H - 10));
-                  return (
-                    <g key={exId}>
-                      <polyline points={pointsStr} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      {pts.map((p, i) => {
-                        const dateIdx = allDates.indexOf(p.date);
-                        const x = allDates.length <= 1 ? W / 2 : 24 + (dateIdx / (allDates.length - 1)) * (W - 24);
-                        const y = H - ((p.maxWeight / maxW) * (H - 10));
-                        return <circle key={i} cx={x} cy={y} r="3" fill={color} />;
-                      })}
-                      <text x={lastX + 6} y={lastY + 4} fill={color} fontSize="9">{exName}</text>
-                    </g>
-                  );
-                })}
-              </svg>
-            </div>
-            <div className="flex flex-wrap gap-3 mt-3">
-              {weightEntries.map(([exId], idx) => {
+        {/* Lifting exercise cards */}
+        {hasLifts && (
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">🏋️ Lifting — click any to drill in</p>
+            <div className="grid grid-cols-2 gap-3">
+              {liftingEntries.map(([exId, pts]) => {
                 const exName = exercises.find(e => e.id === exId)?.name ?? exId;
+                const values = pts.map(p => p.maxWeight).filter(v => v > 0);
+                const best = values.length ? Math.max(...values) : 0;
+                const first = values[0] ?? 0;
+                const last = values[values.length - 1] ?? 0;
+                const delta = last - first;
                 return (
-                  <button key={exId} onClick={() => { setSelectedExercise(exId); setView("lift"); }} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: colors[idx % colors.length] }} />
-                    {exName}
+                  <button key={exId} onClick={() => { setSelectedExercise(exId); setView("lift"); }}
+                    className="bg-[#1e1e1e] border border-[#2e2e2e] hover:border-[#444] rounded-2xl p-4 text-left transition-colors group">
+                    <div className="flex items-start justify-between mb-2">
+                      <p className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors leading-tight">{exName}</p>
+                      <span className={`text-xs font-medium ml-2 shrink-0 ${delta >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {first > 0 ? `${delta >= 0 ? "+" : ""}${delta} lbs` : "—"}
+                      </span>
+                    </div>
+                    <Sparkline values={values} color="#3b82f6" isAmrap={false} />
+                    <p className="text-xs text-gray-500 mt-2">Best: <span className="text-white">{best} lbs</span> · {pts.length} sessions</p>
                   </button>
                 );
               })}
@@ -918,59 +976,32 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
           </div>
         )}
 
-        {/* AMRAP exercises */}
-        {amrapEntries.length > 0 && (
-          <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">AMRAP Progress</p>
-            <p className="text-xs text-gray-600 mb-4">Max reps per session (no weight). Track endurance improvements.</p>
-            <div className="relative overflow-x-auto">
-              <svg viewBox={`0 0 ${W + 80} ${H + 20}`} className="w-full" style={{ minWidth: "320px" }}>
-                {[0, 50, 100].map(pct => (
-                  <text key={pct} x="0" y={H - (pct / 100) * (H - 10) + 4} fill="#555" fontSize="9">{pct}%</text>
-                ))}
-                {amrapEntries.map(([exId, pts], idx) => {
-                  const maxReps = Math.max(...pts.map(p => p.maxReps));
-                  if (maxReps === 0) return null;
-                  const color = ["#a78bfa","#ec4899","#22c55e","#f59e0b"][idx % 4];
-                  const exName = exercises.find(e => e.id === exId)?.name ?? exId;
-                  const pointsStr = pts.map(p => {
-                    const dateIdx = allDates.indexOf(p.date);
-                    const x = allDates.length <= 1 ? W / 2 : 24 + (dateIdx / (allDates.length - 1)) * (W - 24);
-                    const y = H - ((p.maxReps / maxReps) * (H - 10));
-                    return `${x},${y}`;
-                  }).join(" ");
-                  const last = pts[pts.length - 1];
-                  const lastDateIdx = allDates.indexOf(last.date);
-                  const lastX = allDates.length <= 1 ? W / 2 : 24 + (lastDateIdx / (allDates.length - 1)) * (W - 24);
-                  const lastY = H - ((last.maxReps / maxReps) * (H - 10));
-                  return (
-                    <g key={exId}>
-                      <polyline points={pointsStr} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 2" />
-                      {pts.map((p, i) => {
-                        const dateIdx = allDates.indexOf(p.date);
-                        const x = allDates.length <= 1 ? W / 2 : 24 + (dateIdx / (allDates.length - 1)) * (W - 24);
-                        const y = H - ((p.maxReps / maxReps) * (H - 10));
-                        return <circle key={i} cx={x} cy={y} r="3" fill={color} />;
-                      })}
-                      <text x={lastX + 6} y={lastY + 4} fill={color} fontSize="9">{exName}</text>
-                    </g>
-                  );
-                })}
-              </svg>
-            </div>
-          </div>
-        )}
-
-        {/* Drill into lift */}
-        {history.size > 0 && (
-          <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Drill Into a Lift</p>
-            <div className="flex flex-wrap gap-2">
-              {[...history.keys()].map(exId => (
-                <button key={exId} onClick={() => { setSelectedExercise(exId); setView("lift"); }} className="text-xs text-gray-400 hover:text-white border border-[#2e2e2e] hover:border-[#444] rounded-lg px-3 py-1.5 transition-colors">
-                  {exercises.find(e => e.id === exId)?.name ?? exId}
-                </button>
-              ))}
+        {/* AMRAP cards */}
+        {hasAmrap && (
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">AMRAP — reps over time</p>
+            <div className="grid grid-cols-2 gap-3">
+              {amrapEntries.map(([exId, pts]) => {
+                const exName = exercises.find(e => e.id === exId)?.name ?? exId;
+                const values = pts.map(p => p.maxReps).filter(v => v > 0);
+                const best = values.length ? Math.max(...values) : 0;
+                const first = values[0] ?? 0;
+                const last = values[values.length - 1] ?? 0;
+                const delta = last - first;
+                return (
+                  <button key={exId} onClick={() => { setSelectedExercise(exId); setView("lift"); }}
+                    className="bg-[#1e1e1e] border border-[#2e2e2e] hover:border-[#444] rounded-2xl p-4 text-left transition-colors group">
+                    <div className="flex items-start justify-between mb-2">
+                      <p className="text-sm font-medium text-white group-hover:text-purple-400 transition-colors leading-tight">{exName}</p>
+                      <span className={`text-xs font-medium ml-2 shrink-0 ${delta >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {first > 0 ? `${delta >= 0 ? "+" : ""}${delta} reps` : "—"}
+                      </span>
+                    </div>
+                    <Sparkline values={values} color="#a78bfa" isAmrap={true} />
+                    <p className="text-xs text-gray-500 mt-2">Best: <span className="text-white">{best} reps</span> · {pts.length} sessions</p>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -978,14 +1009,21 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
         {/* Cardio sessions */}
         {WORKOUT_TYPES.filter(wt => wt.key !== "lifting").map(wt => {
           const cs = cardioSessions(wt.key);
-          if (cs.length < 2) return null;
+          if (cs.length < 1) return null;
+          const totalDist = cs.reduce((a, s) => a + (s.cardio_data?.distance_miles ?? 0), 0);
+          const totalMin = cs.reduce((a, s) => a + (s.cardio_data?.duration_min ?? 0), 0);
           return (
-            <button key={wt.key} onClick={() => { setCardioType(wt.key); setView("cardio"); }} className="w-full bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-4 flex items-center justify-between hover:bg-[#242424] transition-colors">
+            <button key={wt.key} onClick={() => { setCardioType(wt.key); setView("cardio"); }}
+              className="w-full bg-[#1e1e1e] border border-[#2e2e2e] hover:border-[#444] rounded-2xl p-4 flex items-center justify-between transition-colors">
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{wt.emoji}</span>
                 <div className="text-left">
                   <p className="text-sm font-medium text-white">{wt.label}</p>
-                  <p className="text-xs text-gray-500">{cs.length} sessions</p>
+                  <p className="text-xs text-gray-500">
+                    {cs.length} sessions
+                    {totalDist > 0 && ` · ${totalDist.toFixed(1)} mi`}
+                    {totalMin > 0 && ` · ${Math.round(totalMin / 60)}h total`}
+                  </p>
                 </div>
               </div>
               <span className="text-gray-500 text-sm">View trends →</span>
