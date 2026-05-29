@@ -342,6 +342,8 @@ function HabitsCalendar() {
   const [fullCalOpen, setFullCalOpen] = useState(false);
   const [histExpanded, setHistExpanded] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [gcalEvents, setGcalEvents] = useState<CalendarEvent[]>([]);
+  const [gcalConnected, setGcalConnected] = useState(false);
   const [calMonth, setCalMonth] = useState(() => {
     const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() };
   });
@@ -353,6 +355,17 @@ function HabitsCalendar() {
     db.habits.list().then((h: Habit[]) => setHabits(h));
     db.planned.list().then((p: PlannedHabit[]) => setPlanned(p.map((x: PlannedHabit & { habit_id?: string }) => ({ ...x, habitId: x.habit_id ?? x.habitId }))));
     db.events.list().then((e: CalendarEvent[]) => setEvents(e));
+    db.gcal.get().then((res: { connected: boolean; events: { id: string; title: string; start: string; allDay: boolean }[] }) => {
+      if (!res?.connected) return;
+      setGcalConnected(true);
+      const mapped: CalendarEvent[] = res.events.map(e => {
+        const dt = new Date(e.start);
+        const date = e.allDay ? e.start.slice(0, 10) : dt.toISOString().slice(0, 10);
+        const time = e.allDay ? "" : dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+        return { id: `gcal_${e.id}`, date, title: e.title, time };
+      });
+      setGcalEvents(mapped);
+    }).catch(() => {});
   }, []);
 
   const monday = getMondayOf(new Date());
@@ -514,6 +527,17 @@ function HabitsCalendar() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-gray-500">{weekDone}/{weekTotal} done · {pct}%</span>
+                  {!gcalConnected && (
+                    <a
+                      href="/api/auth/google"
+                      className="text-xs text-blue-400 hover:text-blue-300 border border-blue-900 rounded-lg px-2 py-1 transition-colors"
+                    >
+                      + Google Cal
+                    </a>
+                  )}
+                  {gcalConnected && (
+                    <span className="text-xs text-green-500">● Google Cal</span>
+                  )}
                   <button
                     onClick={() => setFullCalOpen(true)}
                     className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-2 py-1"
@@ -539,7 +563,7 @@ function HabitsCalendar() {
             const ds = dateStr(d);
             const isToday = ds === todayStr();
             const dayPlans = planned.filter(p => p.date === ds);
-            const dayEvents = events.filter(e => e.date === ds);
+            const dayEvents = [...events, ...gcalEvents].filter(e => e.date === ds);
 
             return (
               <div
@@ -764,13 +788,13 @@ function HabitsCalendar() {
               {calDays().map((day, i) => {
                 if (!day) return <div key={i} />;
                 const ds = `${calMonth.year}-${String(calMonth.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                const dayEvents = events.filter(e => e.date === ds);
+                const dayEvents = [...events, ...gcalEvents].filter(e => e.date === ds);
                 const isToday = ds === todayStr();
                 return (
                   <div key={i} className={`rounded-lg p-1.5 min-h-12 ${isToday ? "bg-[#2a2a2a] border border-[#444]" : "hover:bg-[#222]"}`}>
                     <div className={`text-xs font-medium mb-1 ${isToday ? "text-white" : "text-gray-500"}`}>{day}</div>
                     {dayEvents.map(ev => (
-                      <div key={ev.id} className="text-xs bg-blue-600/30 text-blue-400 rounded px-1 truncate mb-0.5">{ev.title}</div>
+                      <div key={ev.id} className={`text-xs rounded px-1 truncate mb-0.5 ${ev.id.startsWith("gcal_") ? "bg-green-600/30 text-green-400" : "bg-blue-600/30 text-blue-400"}`}>{ev.title}</div>
                     ))}
                   </div>
                 );
@@ -824,31 +848,43 @@ interface WeatherData {
   low: number;
   code: number;
   forecast: { date: string; high: number; low: number; code: number }[];
+  hourly: { time: string; temp: number; code: number }[];
 }
 
 function WeatherBox() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [error, setError] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [showHourly, setShowHourly] = useState(false);
 
   useEffect(() => {
     fetch(
-      "https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current=temperature_2m,apparent_temperature,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=7"
+      "https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current=temperature_2m,apparent_temperature,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&hourly=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=2"
     )
       .then(r => r.json())
-      .then(d => setWeather({
-        temp: Math.round(d.current.temperature_2m),
-        feelsLike: Math.round(d.current.apparent_temperature),
-        high: Math.round(d.daily.temperature_2m_max[0]),
-        low: Math.round(d.daily.temperature_2m_min[0]),
-        code: d.current.weather_code,
-        forecast: d.daily.time.map((date: string, i: number) => ({
-          date,
-          high: Math.round(d.daily.temperature_2m_max[i]),
-          low: Math.round(d.daily.temperature_2m_min[i]),
-          code: d.daily.weather_code[i],
-        })),
-      }))
+      .then(d => {
+        const todayStr = d.daily.time[0] as string;
+        const hourly: { time: string; temp: number; code: number }[] = [];
+        (d.hourly.time as string[]).forEach((t, i) => {
+          if (t.startsWith(todayStr)) {
+            hourly.push({ time: t, temp: Math.round(d.hourly.temperature_2m[i]), code: d.hourly.weather_code[i] });
+          }
+        });
+        setWeather({
+          temp: Math.round(d.current.temperature_2m),
+          feelsLike: Math.round(d.current.apparent_temperature),
+          high: Math.round(d.daily.temperature_2m_max[0]),
+          low: Math.round(d.daily.temperature_2m_min[0]),
+          code: d.current.weather_code,
+          forecast: d.daily.time.map((date: string, i: number) => ({
+            date,
+            high: Math.round(d.daily.temperature_2m_max[i]),
+            low: Math.round(d.daily.temperature_2m_min[i]),
+            code: d.daily.weather_code[i],
+          })),
+          hourly,
+        });
+      })
       .catch(() => setError(true));
   }, []);
 
@@ -885,23 +921,53 @@ function WeatherBox() {
       {expanded && weather && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6" onClick={() => setExpanded(false)}>
           <div className="bg-[#181818] border border-[#2e2e2e] rounded-2xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <span className="text-sm font-semibold text-white">New York — 7 Day Forecast</span>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-semibold text-white">New York</span>
               <button onClick={() => setExpanded(false)} className="text-gray-500 hover:text-white text-lg">✕</button>
             </div>
-            <div className="space-y-2">
-              {weather.forecast.map((day, i) => (
-                <div key={day.date} className={`flex items-center justify-between px-3 py-2 rounded-xl ${i === 0 ? "bg-[#252525]" : ""}`}>
-                  <span className="text-sm text-gray-300 w-20">{dayLabel(day.date, i)}</span>
-                  <span className="text-xl">{WMO_EMOJI[day.code] ?? "🌡️"}</span>
-                  <span className="text-xs text-gray-500 flex-1 text-center">{WMO_LABELS[day.code] ?? "—"}</span>
-                  <div className="text-right">
-                    <span className="text-sm text-white font-medium">{day.high}°</span>
-                    <span className="text-sm text-gray-600 ml-2">{day.low}°</span>
-                  </div>
-                </div>
-              ))}
+            {/* tab toggle */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setShowHourly(false)}
+                className={`text-xs px-3 py-1 rounded-full transition-colors ${!showHourly ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"}`}
+              >7 Day</button>
+              <button
+                onClick={() => setShowHourly(true)}
+                className={`text-xs px-3 py-1 rounded-full transition-colors ${showHourly ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"}`}
+              >Today by Hour</button>
             </div>
+            {!showHourly && (
+              <div className="space-y-2">
+                {weather.forecast.map((day, i) => (
+                  <div key={day.date} className={`flex items-center justify-between px-3 py-2 rounded-xl ${i === 0 ? "bg-[#252525]" : ""}`}>
+                    <span className="text-sm text-gray-300 w-20">{dayLabel(day.date, i)}</span>
+                    <span className="text-xl">{WMO_EMOJI[day.code] ?? "🌡️"}</span>
+                    <span className="text-xs text-gray-500 flex-1 text-center">{WMO_LABELS[day.code] ?? "—"}</span>
+                    <div className="text-right">
+                      <span className="text-sm text-white font-medium">{day.high}°</span>
+                      <span className="text-sm text-gray-600 ml-2">{day.low}°</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {showHourly && (
+              <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
+                {weather.hourly.map(h => {
+                  const hour = new Date(h.time).getHours();
+                  const ampm = hour === 0 ? "12am" : hour < 12 ? `${hour}am` : hour === 12 ? "12pm" : `${hour - 12}pm`;
+                  const isNow = new Date().getHours() === hour;
+                  return (
+                    <div key={h.time} className={`flex items-center justify-between px-3 py-1.5 rounded-xl ${isNow ? "bg-[#252525]" : ""}`}>
+                      <span className={`text-sm w-14 ${isNow ? "text-white font-medium" : "text-gray-400"}`}>{ampm}</span>
+                      <span className="text-lg">{WMO_EMOJI[h.code] ?? "🌡️"}</span>
+                      <span className="text-xs text-gray-500 flex-1 text-center">{WMO_LABELS[h.code] ?? "—"}</span>
+                      <span className={`text-sm font-medium ${isNow ? "text-white" : "text-gray-300"}`}>{h.temp}°</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

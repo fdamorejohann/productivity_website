@@ -11,6 +11,7 @@ export default async function handler(req, res) {
     case "notes":      return handleNotes(req, res);
     case "budget":     return handleBudget(req, res);
     case "summary":    return handleSummary(req, res);
+    case "gcal":       return handleGcal(req, res);
     default:           return res.status(404).json({ error: "Not found" });
   }
 }
@@ -157,6 +158,70 @@ async function handleSummary(req, res) {
     const { month, category, value } = req.body;
     const { error } = await supabase.from("monthly_summary").upsert({ month, category, value });
     if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  }
+  res.status(405).end();
+}
+
+// ─── Google Calendar ──────────────────────────────────────────────────────────
+async function getValidAccessToken() {
+  const { data, error } = await supabase.from("google_tokens").select("*").eq("id", 1).single();
+  if (error || !data) return null;
+
+  // Still valid
+  if (Date.now() < data.expires_at - 60_000) return data.access_token;
+
+  // Refresh
+  if (!data.refresh_token) return null;
+  const r = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      refresh_token: data.refresh_token,
+      grant_type: "refresh_token",
+    }),
+  });
+  const tokens = await r.json();
+  if (tokens.error) return null;
+  const expires_at = Date.now() + tokens.expires_in * 1000;
+  await supabase.from("google_tokens").update({ access_token: tokens.access_token, expires_at }).eq("id", 1);
+  return tokens.access_token;
+}
+
+async function handleGcal(req, res) {
+  if (req.method === "GET") {
+    const token = await getValidAccessToken();
+    if (!token) return res.json({ connected: false, events: [] });
+
+    const now = new Date().toISOString();
+    const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const params = new URLSearchParams({
+      timeMin: now,
+      timeMax: future,
+      singleEvents: "true",
+      orderBy: "startTime",
+      maxResults: "30",
+    });
+    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json();
+    if (data.error) return res.status(500).json({ error: data.error.message });
+
+    const events = (data.items ?? []).map(e => ({
+      id: e.id,
+      title: e.summary ?? "(No title)",
+      start: e.start?.dateTime ?? e.start?.date,
+      end: e.end?.dateTime ?? e.end?.date,
+      allDay: !e.start?.dateTime,
+      color: e.colorId ?? null,
+    }));
+    return res.json({ connected: true, events });
+  }
+  if (req.method === "DELETE") {
+    await supabase.from("google_tokens").delete().eq("id", 1);
     return res.json({ ok: true });
   }
   res.status(405).end();

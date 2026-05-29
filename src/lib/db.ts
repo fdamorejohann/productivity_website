@@ -47,4 +47,8 @@ export const db = {
     list: () => api.get("/api/data/summary"),
     upsert: (month: string, category: string, value: number) => api.post("/api/data/summary", { month, category, value }),
   },
+  gcal: {
+    get: () => api.get("/api/data/gcal"),
+    disconnect: () => api.delete("/api/data/gcal", {}),
+  },
 };
