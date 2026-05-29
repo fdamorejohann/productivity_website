@@ -230,16 +230,17 @@ interface MonthBudgetSnap {
 }
 
 function monthSavingsAndLeftover(d: MonthBudgetSnap): number {
-  const totalIncome = d.income.reduce((s, r) => s + (r.actual ?? 0), 0);
   const expActual = (row: { actual: number | null; label: string }) => {
     if (row.actual !== null) return row.actual;
     const lbl = row.label.toLowerCase();
     return d.logs.filter(l => l.category.toLowerCase() === lbl).reduce((s, l) => s + l.amount, 0);
   };
-  const totalSpending = d.expenses
-    .filter(r => r.bucket === "spending")
-    .reduce((s, r) => s + expActual(r), 0);
-  return totalIncome - totalSpending;
+  const incomeActual = d.income.reduce((s, r) => s + (r.actual ?? 0), 0);
+  const spendingActual = d.expenses.filter(r => r.bucket === "spending" && r.label !== "work").reduce((s, r) => s + expActual(r), 0);
+  const rebates = d.logs.filter(l => l.category === "Rebates").reduce((s, l) => s + l.amount, 0);
+  const savingsActual = d.expenses.filter(r => r.bucket === "savings").reduce((s, r) => s + expActual(r), 0);
+  const leftover = incomeActual - spendingActual + rebates;
+  return savingsActual + leftover;
 }
 
 function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
