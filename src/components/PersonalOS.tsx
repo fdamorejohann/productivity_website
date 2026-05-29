@@ -263,7 +263,8 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
     });
   }, []);
 
-  const sortedMonths = [...new Set(rows.map(r => r.month))].sort();
+  const currentMonthKey = new Date().toISOString().slice(0, 7);
+  const sortedMonths = [...new Set(rows.map(r => r.month))].sort().filter(m => m <= currentMonthKey);
   const savingsLine  = buildCumulativeLine(rows, "savings", sortedMonths);
   const investLine   = buildCumulativeLine(rows, "investments", sortedMonths);
   const leftoverLine = buildCumulativeLine(rows, "leftover", sortedMonths);

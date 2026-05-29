@@ -191,18 +191,6 @@ function formatMonthLabel(key: string): string {
   return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-function bKey(month: string) { return `wg_budget_${month}`; }
-
-function loadBudget(month: string): MonthBudget | null {
-  try {
-    const raw = localStorage.getItem(bKey(month));
-    return raw ? migrateMonthBudget(JSON.parse(raw) as MonthBudget) : null;
-  } catch { return null; }
-}
-
-function saveBudget(month: string, data: MonthBudget): void {
-  localStorage.setItem(bKey(month), JSON.stringify(data));
-}
 
 function migrateAllLogsToReserve(): void {
   const keys = Object.keys(localStorage).filter(k => k.startsWith("wg_budget_"));
@@ -422,6 +410,7 @@ function buildImportPreview(
 export default function BudgetPanel() {
   const [month, setMonth] = useState<string>(todayMonthKey);
   const [data, setData] = useState<MonthBudget | null>(null);
+  const [nextMonthExists, setNextMonthExists] = useState(false);
 
   // One-time migration: set all existing logs to Reserve - Chase with correct points
   useEffect(() => {
@@ -442,6 +431,7 @@ export default function BudgetPanel() {
     setImportRows([]);
     setImportFileName("");
     setImportError("");
+    const nk = nextMonthKey(month);
     db.budget.get(month).then((stored: MonthBudget | null) => {
       if (stored) {
         setData(migrateMonthBudget(stored));
@@ -451,6 +441,7 @@ export default function BudgetPanel() {
         setData(fresh);
       }
     });
+    db.budget.get(nk).then((d: MonthBudget | null) => setNextMonthExists(!!d));
   }, [month]);
 
   useEffect(() => {
@@ -594,18 +585,21 @@ export default function BudgetPanel() {
   }
 
   function createMonth() {
-    const prev = loadBudget(prevMonthKey(month));
-    const fresh = prev ? fromTemplate(prev) : defaultMonth();
-    saveBudget(month, fresh);
-    setData(fresh);
+    db.budget.get(prevMonthKey(month)).then((prev: MonthBudget | null) => {
+      const fresh = prev ? fromTemplate(prev) : defaultMonth();
+      db.budget.save(month, fresh);
+      setData(fresh);
+    });
   }
 
   function createNextMonth() {
-    if (!loadBudget(nextKey)) {
-      const fresh = data ? fromTemplate(data) : defaultMonth();
-      saveBudget(nextKey, fresh);
-    }
-    setMonth(nextKey);
+    db.budget.get(nextKey).then((existing: MonthBudget | null) => {
+      if (!existing) {
+        const fresh = data ? fromTemplate(data) : defaultMonth();
+        db.budget.save(nextKey, fresh);
+      }
+      setMonth(nextKey);
+    });
   }
 
   function exportCsv() {
@@ -641,7 +635,7 @@ export default function BudgetPanel() {
   function resetCurrentMonth() {
     if (!window.confirm(`Reset ${formatMonthLabel(month)} to the default budget and remove all logs?`)) return;
     const fresh = defaultMonth();
-    saveBudget(month, fresh);
+    db.budget.save(month, fresh);
     setData(fresh);
     clearImport();
   }
@@ -721,7 +715,7 @@ export default function BudgetPanel() {
       {/* Header */}
       <BudgetHeader
         month={month} isCurrentMonth={isCurrentMonth}
-        showNewMonth={isCurrentMonth && !loadBudget(nextKey)}
+        showNewMonth={isCurrentMonth && !nextMonthExists}
         onPrev={() => setMonth(prevMonthKey(month))}
         onNext={() => setMonth(nextMonthKey(month))}
         onNewMonth={createNextMonth}
