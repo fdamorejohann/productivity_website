@@ -223,44 +223,55 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
 
 // ─── Finance Box ─────────────────────────────────────────────────────────────
 
+type SummaryRow = { month: string; category: string; value: number };
+
+function buildCumulativeLine(rows: SummaryRow[], category: string, sortedMonths: string[]): number[] {
+  let cum = 0;
+  return [0, ...sortedMonths.map(m => {
+    const row = rows.find(r => r.month === m && r.category === category);
+    cum += row ? Number(row.value) : 0;
+    return cum;
+  })];
+}
+
+function makePath(vals: number[], maxVal: number, W: number, H: number): string {
+  return vals.map((v, i) => {
+    const x = (vals.length <= 1 ? 0 : (i / (vals.length - 1))) * W;
+    const y = H - (v / maxVal) * (H - 4);
+    return `${i === 0 ? "M" : "L"} ${x} ${y}`;
+  }).join(" ");
+}
+
 function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
-  const [points, setPoints] = useState<{ month: string; cumulative: number }[]>([]);
+  const [rows, setRows] = useState<SummaryRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    db.summary.list().then((rows: { month: string; category: string; value: number }[]) => {
-      // Group by month, sum leftover + savings + investments per month
-      const byMonth = new Map<string, number>();
-      for (const row of rows) {
-        byMonth.set(row.month, (byMonth.get(row.month) ?? 0) + Number(row.value));
-      }
-      // Sort months and build cumulative points
-      const sortedMonths = [...byMonth.keys()].sort();
-      let cumulative = 0;
-      const pts = sortedMonths.map(month => {
-        cumulative += byMonth.get(month) ?? 0;
-        return { month, cumulative };
-      });
-      setPoints(pts);
+    db.summary.list().then((data: SummaryRow[]) => {
+      setRows(data);
       setLoading(false);
     });
   }, []);
 
-  const total = points.length > 0 ? points[points.length - 1].cumulative : 0;
+  const sortedMonths = [...new Set(rows.map(r => r.month))].sort();
+  const savingsLine = buildCumulativeLine(rows, "savings", sortedMonths);
+  const investLine  = buildCumulativeLine(rows, "investments", sortedMonths);
+  const leftoverLine = buildCumulativeLine(rows, "leftover", sortedMonths);
+  const total = (savingsLine.at(-1) ?? 0) + (investLine.at(-1) ?? 0) + (leftoverLine.at(-1) ?? 0);
+
   const W = 280;
   const H = 80;
-  // Always start from 0
-  const allPts = [{ month: "start", cumulative: 0 }, ...points];
-  const maxVal = Math.max(...allPts.map(p => p.cumulative), 1);
-  const range = maxVal || 1;
+  const maxVal = Math.max(...savingsLine, ...investLine, ...leftoverLine, 1);
 
-  const svgPoints: [number, number][] = allPts.map((p, i) => [
-    (allPts.length <= 1 ? i : i / (allPts.length - 1)) * W,
-    H - (p.cumulative / range) * (H - 4),
-  ]);
+  const savingsPath  = makePath(savingsLine, maxVal, W, H);
+  const investPath   = makePath(investLine, maxVal, W, H);
+  const leftoverPath = makePath(leftoverLine, maxVal, W, H);
 
-  const pathD = svgPoints.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x} ${y}`).join(" ");
-  const lastPt = svgPoints[svgPoints.length - 1];
+  const lastX = W;
+  const dot = (line: number[]) => {
+    const y = H - ((line.at(-1) ?? 0) / maxVal) * (H - 4);
+    return { x: lastX, y };
+  };
 
   return (
     <button
@@ -271,29 +282,24 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Total Saved</span>
         <span className="text-xs text-gray-600 group-hover:text-gray-400 transition-colors">View Budget →</span>
       </div>
-      <div className={`text-2xl font-bold mb-3 ${total < 0 ? "text-red-400" : "text-white"}`}>
+      <div className={`text-2xl font-bold mb-2 ${total < 0 ? "text-red-400" : "text-white"}`}>
         {loading ? "—" : `${total < 0 ? "-" : ""}$${Math.abs(total).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
       </div>
-      {svgPoints.length >= 1 && (
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="savingsGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          {svgPoints.length > 1 && (
-            <path d={`${pathD} L ${W} ${H} L 0 ${H} Z`} fill="url(#savingsGrad)" />
-          )}
-          {svgPoints.length > 1 && (
-            <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          )}
-          {lastPt && <circle cx={lastPt[0]} cy={lastPt[1]} r="3" fill="#3b82f6" />}
-        </svg>
-      )}
-      <p className="text-xs text-gray-600 mt-1">
-        {points.length} month{points.length !== 1 ? "s" : ""} tracked
-      </p>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
+        <path d={savingsPath}  fill="none" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={investPath}   fill="none" stroke="#a78bfa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={leftoverPath} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        {sortedMonths.length > 0 && <>
+          <circle cx={dot(savingsLine).x}  cy={dot(savingsLine).y}  r="3" fill="#22c55e" />
+          <circle cx={dot(investLine).x}   cy={dot(investLine).y}   r="3" fill="#a78bfa" />
+          <circle cx={dot(leftoverLine).x} cy={dot(leftoverLine).y} r="3" fill="#3b82f6" />
+        </>}
+      </svg>
+      <div className="flex gap-3 mt-2">
+        <span className="text-xs text-green-400">● Savings</span>
+        <span className="text-xs text-purple-400">● Investing</span>
+        <span className="text-xs text-blue-400">● Leftover</span>
+      </div>
     </button>
   );
 }
