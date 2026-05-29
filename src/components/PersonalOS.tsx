@@ -223,57 +223,27 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
 
 // ─── Finance Box ─────────────────────────────────────────────────────────────
 
-interface MonthBudgetSnap {
-  income: { actual: number }[];
-  expenses: { bucket: string; type: string; actual: number | null; label: string }[];
-  logs: { category: string; amount: number }[];
-}
-
-function monthSavingsAndLeftover(d: MonthBudgetSnap): number {
-  const expActual = (row: { actual: number | null; label: string }) => {
-    if (row.actual !== null) return row.actual;
-    const lbl = row.label.toLowerCase();
-    return d.logs.filter(l => l.category.toLowerCase() === lbl).reduce((s, l) => s + l.amount, 0);
-  };
-  const incomeActual = d.income.reduce((s, r) => s + (r.actual ?? 0), 0);
-  const fixedActual = d.expenses.filter(r => r.type === "fixed").reduce((s, r) => s + expActual(r), 0);
-  const variableActual = d.expenses
-    .filter(r => r.type === "variable" && r.label !== "work")
-    .reduce((s, r) => s + expActual(r), 0);
-  const savingsActual = d.expenses.filter(r => r.bucket === "savings").reduce((s, r) => s + expActual(r), 0);
-  const leftover = incomeActual - fixedActual - variableActual;
-  return savingsActual + leftover;
-}
-
 function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   const [points, setPoints] = useState<{ month: string; cumulative: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
-      // Load all months up to current
-      const now = new Date();
-      const months: string[] = [];
-      for (let y = 2026; y <= now.getFullYear(); y++) {
-        const startM = y === 2026 ? 5 : 1; // start from May 2026
-        const endM = y === now.getFullYear() ? now.getMonth() + 1 : 12;
-        for (let m = startM; m <= endM; m++) {
-          months.push(`${y}-${String(m).padStart(2, "0")}`);
-        }
+    db.summary.list().then((rows: { month: string; category: string; value: number }[]) => {
+      // Group by month, sum leftover + savings + investments per month
+      const byMonth = new Map<string, number>();
+      for (const row of rows) {
+        byMonth.set(row.month, (byMonth.get(row.month) ?? 0) + Number(row.value));
       }
+      // Sort months and build cumulative points
+      const sortedMonths = [...byMonth.keys()].sort();
       let cumulative = 0;
-      const pts: { month: string; cumulative: number }[] = [];
-      for (const month of months) {
-        const data = await db.budget.get(month);
-        if (data) {
-          cumulative += monthSavingsAndLeftover(data as MonthBudgetSnap);
-          pts.push({ month, cumulative });
-        }
-      }
+      const pts = sortedMonths.map(month => {
+        cumulative += byMonth.get(month) ?? 0;
+        return { month, cumulative };
+      });
       setPoints(pts);
       setLoading(false);
-    }
-    load();
+    });
   }, []);
 
   const total = points.length > 0 ? points[points.length - 1].cumulative : 0;

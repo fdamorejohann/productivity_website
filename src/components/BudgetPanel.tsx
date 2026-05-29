@@ -691,8 +691,20 @@ export default function BudgetPanel() {
   const savingsBudget = savingsExpRows.reduce((s, r) => s + r.budget, 0);
   const savingsActual = savingsExpRows.reduce((s, r) => s + expActual(r, data.logs), 0);
 
-  const savingsLeftoverBudget = savingsBudget + leftoverBudget;
-  const savingsLeftoverActual = savingsActual + leftoverActual;
+  const investingExpRows = data.expenses.filter(r => r.bucket === "investments");
+  const investingBudget = investingExpRows.reduce((s, r) => s + r.budget, 0);
+  const investingActual = investingExpRows.reduce((s, r) => s + expActual(r, data.logs), 0);
+
+  const totalBudget = savingsBudget + investingBudget + leftoverBudget;
+  const totalActual = savingsActual + investingActual + leftoverActual;
+
+  // Auto-save summary to DB whenever totals change
+  useEffect(() => {
+    if (!data) return;
+    db.summary.upsert(month, "leftover", leftoverActual);
+    db.summary.upsert(month, "savings", savingsActual);
+    db.summary.upsert(month, "investments", investingActual);
+  }, [leftoverActual, savingsActual, investingActual, month]);
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 bg-[#111] min-h-screen">
@@ -716,10 +728,11 @@ export default function BudgetPanel() {
           <SummaryCard label="Variable Expenses" actual={variableActualTotal} budget={variableBudgetTotal} higherIsBetter={false} />
         </div>
 
-        <div className="grid grid-cols-3 gap-4 pl-8">
+        <div className="grid grid-cols-4 gap-4 pl-8">
           <SummaryCard label="Leftover" actual={leftoverActual} budget={leftoverBudget} higherIsBetter />
           <SummaryCard label="Savings" actual={savingsActual} budget={savingsBudget} higherIsBetter />
-          <SummaryCard label="Savings + Leftovers" actual={savingsLeftoverActual} budget={savingsLeftoverBudget} higherIsBetter />
+          <SummaryCard label="Investments" actual={investingActual} budget={investingBudget} higherIsBetter />
+          <SummaryCard label="Total" actual={totalActual} budget={totalBudget} higherIsBetter />
         </div>
       </div>
 
