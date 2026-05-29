@@ -225,7 +225,7 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
 
 interface MonthBudgetSnap {
   income: { actual: number }[];
-  expenses: { bucket: string; actual: number | null; label: string }[];
+  expenses: { bucket: string; type: string; actual: number | null; label: string }[];
   logs: { category: string; amount: number }[];
 }
 
@@ -236,12 +236,12 @@ function monthSavingsAndLeftover(d: MonthBudgetSnap): number {
     return d.logs.filter(l => l.category.toLowerCase() === lbl).reduce((s, l) => s + l.amount, 0);
   };
   const incomeActual = d.income.reduce((s, r) => s + (r.actual ?? 0), 0);
-  // All expenses except "work" (reimbursed), subtract all buckets to get true leftover
-  const allExpenses = d.expenses.filter(r => r.label !== "work").reduce((s, r) => s + expActual(r), 0);
-  const rebates = d.logs.filter(l => l.category === "Rebates").reduce((s, l) => s + l.amount, 0);
+  const fixedActual = d.expenses.filter(r => r.type === "fixed").reduce((s, r) => s + expActual(r), 0);
+  const variableActual = d.expenses
+    .filter(r => r.type === "variable" && r.label !== "work")
+    .reduce((s, r) => s + expActual(r), 0);
   const savingsActual = d.expenses.filter(r => r.bucket === "savings").reduce((s, r) => s + expActual(r), 0);
-  // leftover = income - ALL expenses + rebates (matches Budget page "Leftover" card)
-  const leftover = incomeActual - allExpenses + rebates;
+  const leftover = incomeActual - fixedActual - variableActual;
   return savingsActual + leftover;
 }
 
