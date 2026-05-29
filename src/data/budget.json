@@ -1,0 +1,113 @@
+{
+  "month": "June",
+  "totalIncome": 7300.0,
+  "rawFreeSpend": 1787.92,
+  "freeSpendRemaining": 7.920000000000073,
+  "variableActualSpent": 1780.0,
+  "savingsTarget": 2500.0,
+  "savingsActual": 2500.0,
+  "fixedExpenses": [
+    {
+      "label": "Rent",
+      "budget": 2000.0,
+      "actual": 1425.0
+    },
+    {
+      "label": "Roth IRA",
+      "budget": 400.0,
+      "actual": 400.0
+    },
+    {
+      "label": "Subscriptions",
+      "budget": 135.0,
+      "actual": 135.0
+    },
+    {
+      "label": "Phone Bill",
+      "budget": 20.0,
+      "actual": 20.0
+    },
+    {
+      "label": "Gym Membership",
+      "budget": 400.0,
+      "actual": 400.0
+    },
+    {
+      "label": "Internet",
+      "budget": 0.0,
+      "actual": 0.0
+    },
+    {
+      "label": "MTA",
+      "budget": 150.0,
+      "actual": 150.0
+    },
+    {
+      "label": "Savings",
+      "budget": 1500.0,
+      "actual": 1500.0
+    },
+    {
+      "label": "Seperate Account",
+      "budget": 1000.0,
+      "actual": 1000.0
+    }
+  ],
+  "variableExpenses": [
+    {
+      "label": "Groceries",
+      "budget": 400.0,
+      "actual": 0.0
+    },
+    {
+      "label": "Eating out",
+      "budget": 150.0,
+      "actual": 0.0
+    },
+    {
+      "label": "Coffee/ drinks",
+      "budget": 40.0,
+      "actual": 0.0
+    },
+    {
+      "label": "Ubers",
+      "budget": 150.0,
+      "actual": 0.0
+    },
+    {
+      "label": "Fun",
+      "budget": 125.0,
+      "actual": 0.0
+    },
+    {
+      "label": "Travel Fund",
+      "budget": 250.0,
+      "actual": 320.0
+    },
+    {
+      "label": "Emergency Savings",
+      "budget": 300.0,
+      "actual": 300.0
+    },
+    {
+      "label": "Investing",
+      "budget": 200.0,
+      "actual": 200.0
+    },
+    {
+      "label": "misc",
+      "budget": 60.0,
+      "actual": 360.0
+    },
+    {
+      "label": "claude",
+      "budget": 20.0,
+      "actual": 0.0
+    },
+    {
+      "label": "Investing",
+      "budget": 0.0,
+      "actual": 600.0
+    }
+  ]
+}

@@ -4,12 +4,15 @@
  * Data stored in localStorage (ready for Supabase migration later)
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import BudgetPanel from "./BudgetPanel";
+import budgetData from "../data/budget.json";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 type Priority = "high" | "medium" | "low";
 type TaskStatus = "todo" | "in_progress" | "done";
+type TaskSize = "important" | "small";
 
 interface Task {
   id: string;
@@ -17,6 +20,7 @@ interface Task {
   category: string;
   priority: Priority;
   status: TaskStatus;
+  size: TaskSize;
   starred: boolean;
   createdAt: string;
 }
@@ -45,12 +49,6 @@ interface JournalEntry {
   text: string;
 }
 
-interface FinanceItem {
-  id: string;
-  label: string;
-  amount: number;
-  type: "asset" | "expense";
-}
 
 // ─── Storage helpers ────────────────────────────────────────────────────────
 
@@ -134,7 +132,7 @@ function TasksSection() {
   const [newTitle, setNewTitle] = useState("");
   const [newCat, setNewCat] = useState("General");
   const [newPriority, setNewPriority] = useState<Priority>("medium");
-  const [filter, setFilter] = useState<TaskStatus | "all">("all");
+  const [newSize, setNewSize] = useState<TaskSize>("important");
 
   useEffect(() => { LS.set("pos_tasks", tasks); }, [tasks]);
 
@@ -142,40 +140,48 @@ function TasksSection() {
     if (!newTitle.trim()) return;
     setTasks(t => [...t, {
       id: uid(), title: newTitle.trim(), category: newCat,
-      priority: newPriority, status: "todo", starred: false,
-      createdAt: new Date().toISOString(),
+      priority: newPriority, status: "todo", size: newSize,
+      starred: false, createdAt: new Date().toISOString(),
     }]);
     setNewTitle("");
   };
 
-  const toggle = (id: string, field: "starred") =>
-    setTasks(t => t.map(x => x.id === id ? { ...x, [field]: !x[field] } : x));
+  const toggleStar = (id: string) =>
+    setTasks(t => t.map(x => x.id === id ? { ...x, starred: !x.starred } : x));
 
   const setStatus = (id: string, status: TaskStatus) =>
     setTasks(t => t.map(x => x.id === id ? { ...x, status } : x));
 
   const remove = (id: string) => setTasks(t => t.filter(x => x.id !== id));
 
-  const visible = filter === "all" ? tasks : tasks.filter(t => t.status === filter);
-  const starred = tasks.filter(t => t.starred && t.status !== "done");
+  const important = tasks.filter(t => t.size === "important");
+  const small = tasks.filter(t => t.size === "small");
+
+  const TaskRow = ({ t }: { t: Task }) => (
+    <div className={`flex items-center gap-3 border rounded-lg px-3 py-2.5 ${t.status === "done" ? "opacity-40 bg-gray-50" : "bg-white border-gray-200"}`}>
+      <button onClick={() => toggleStar(t.id)} className="text-base flex-shrink-0" title="Star to show on home page">
+        {t.starred ? "⭐" : "☆"}
+      </button>
+      <span className={`flex-1 text-sm ${t.status === "done" ? "line-through text-gray-400" : "text-gray-800"}`}>
+        {t.title}
+      </span>
+      <span className="text-xs text-gray-400 hidden sm:block">{t.category}</span>
+      <PriorityBadge p={t.priority} />
+      <select
+        className="text-xs border border-gray-200 rounded px-1 py-0.5"
+        value={t.status}
+        onChange={e => setStatus(t.id, e.target.value as TaskStatus)}
+      >
+        <option value="todo">To Do</option>
+        <option value="in_progress">In Progress</option>
+        <option value="done">Done</option>
+      </select>
+      <button onClick={() => remove(t.id)} className="text-gray-300 hover:text-red-400 text-sm flex-shrink-0">✕</button>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
-      {starred.length > 0 && (
-        <div>
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">⭐ Key Priorities</h3>
-          <div className="space-y-2">
-            {starred.map(t => (
-              <div key={t.id} className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                <span className="flex-1 text-sm font-medium text-gray-800">{t.title}</span>
-                <PriorityBadge p={t.priority} />
-                <span className="text-xs text-gray-400">{t.category}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Add task */}
       <div className="flex gap-2 flex-wrap">
         <input
@@ -192,7 +198,15 @@ function TasksSection() {
           onChange={e => setNewCat(e.target.value)}
         />
         <select
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
+          value={newSize}
+          onChange={e => setNewSize(e.target.value as TaskSize)}
+        >
+          <option value="important">Important</option>
+          <option value="small">Small</option>
+        </select>
+        <select
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
           value={newPriority}
           onChange={e => setNewPriority(e.target.value as Priority)}
         >
@@ -200,53 +214,41 @@ function TasksSection() {
           <option value="medium">Medium</option>
           <option value="low">Low</option>
         </select>
-        <button
-          onClick={add}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-        >
+        <button onClick={add} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
           Add
         </button>
       </div>
 
-      {/* Filter */}
-      <div className="flex gap-2">
-        {(["all", "todo", "in_progress", "done"] as const).map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`text-xs px-3 py-1 rounded-full border ${filter === f ? "bg-blue-600 text-white border-blue-600" : "border-gray-200 text-gray-600 hover:border-blue-400"}`}
-          >
-            {f === "all" ? "All" : f === "in_progress" ? "In Progress" : f.charAt(0).toUpperCase() + f.slice(1)}
-          </button>
-        ))}
+      {/* Two lanes */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Important */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-base">🎯</span>
+            <h3 className="font-semibold text-gray-800">Important</h3>
+            <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">{important.length}</span>
+          </div>
+          <div className="space-y-2">
+            {important.length === 0 && <p className="text-sm text-gray-400 py-3 text-center border border-dashed border-gray-200 rounded-lg">No important tasks</p>}
+            {important.map(t => <TaskRow key={t.id} t={t} />)}
+          </div>
+        </div>
+
+        {/* Small */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-base">⚡</span>
+            <h3 className="font-semibold text-gray-800">Small Tasks</h3>
+            <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">{small.length}</span>
+          </div>
+          <div className="space-y-2">
+            {small.length === 0 && <p className="text-sm text-gray-400 py-3 text-center border border-dashed border-gray-200 rounded-lg">No small tasks</p>}
+            {small.map(t => <TaskRow key={t.id} t={t} />)}
+          </div>
+        </div>
       </div>
 
-      {/* Task list */}
-      <div className="space-y-2">
-        {visible.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No tasks yet.</p>}
-        {visible.map(t => (
-          <div key={t.id} className={`flex items-center gap-3 border rounded-lg px-3 py-2 ${t.status === "done" ? "opacity-50 bg-gray-50" : "bg-white border-gray-200"}`}>
-            <button onClick={() => toggle(t.id, "starred")} className="text-base">
-              {t.starred ? "⭐" : "☆"}
-            </button>
-            <span className={`flex-1 text-sm ${t.status === "done" ? "line-through text-gray-400" : "text-gray-800"}`}>
-              {t.title}
-            </span>
-            <span className="text-xs text-gray-400">{t.category}</span>
-            <PriorityBadge p={t.priority} />
-            <select
-              className="text-xs border border-gray-200 rounded px-1 py-0.5"
-              value={t.status}
-              onChange={e => setStatus(t.id, e.target.value as TaskStatus)}
-            >
-              <option value="todo">To Do</option>
-              <option value="in_progress">In Progress</option>
-              <option value="done">Done</option>
-            </select>
-            <button onClick={() => remove(t.id)} className="text-gray-300 hover:text-red-400 text-sm">✕</button>
-          </div>
-        ))}
-      </div>
+      <p className="text-xs text-gray-400">⭐ Star any task to pin it to the home page as a key priority.</p>
     </div>
   );
 }
@@ -391,70 +393,115 @@ function GoalsSection() {
   );
 }
 
-function FinanceSection() {
-  const [items, setItems] = useState<FinanceItem[]>(() =>
-    LS.get("pos_finance", [] as FinanceItem[])
-  );
-  const [label, setLabel] = useState("");
-  const [amount, setAmount] = useState("");
-  const [type, setType] = useState<"asset" | "expense">("asset");
+function FinanceSection({ onOpenBudget }: { onOpenBudget: () => void }) {
   const [revealed, setRevealed] = useState(false);
 
-  useEffect(() => { LS.set("pos_finance", items); }, [items]);
+  const {
+    month,
+    rawFreeSpend,
+    freeSpendRemaining,
+    variableActualSpent,
+    savingsTarget,
+    savingsActual,
+    variableExpenses,
+  } = budgetData;
 
-  const add = () => {
-    const n = parseFloat(amount);
-    if (!label.trim() || isNaN(n)) return;
-    setItems(i => [...i, { id: uid(), label: label.trim(), amount: n, type }]);
-    setLabel(""); setAmount("");
-  };
+  const freeSpendPct = Math.max(0, Math.min(100, (freeSpendRemaining / rawFreeSpend) * 100));
+  const savingsPct = savingsTarget > 0 ? Math.min(100, (savingsActual / savingsTarget) * 100) : 0;
+  const isOverBudget = freeSpendRemaining < 0;
 
-  const remove = (id: string) => setItems(i => i.filter(x => x.id !== id));
-
-  const netWorth = items.filter(i => i.type === "asset").reduce((a, i) => a + i.amount, 0)
-    - items.filter(i => i.type === "expense").reduce((a, i) => a + i.amount, 0);
-
-  const fmt = (n: number) => revealed
-    ? `$${n.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
-    : "••••••";
+  const fmt = (n: number) =>
+    revealed ? `$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 0 })}` : "••••";
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-6 text-white">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-blue-200 text-sm">Net Worth</span>
-          <button
-            onClick={() => setRevealed(r => !r)}
-            className="text-xs bg-white/20 px-3 py-1 rounded-full hover:bg-white/30"
-          >
-            {revealed ? "Hide" : "Reveal"}
-          </button>
-        </div>
-        <div className="text-3xl font-bold">{fmt(netWorth)}</div>
-      </div>
-
-      <div className="flex gap-2 flex-wrap">
-        <input className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none" placeholder="Label (e.g. Savings)" value={label} onChange={e => setLabel(e.target.value)} />
-        <input className="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none" placeholder="Amount" type="number" value={amount} onChange={e => setAmount(e.target.value)} />
-        <select className="border border-gray-200 rounded-lg px-3 py-2 text-sm" value={type} onChange={e => setType(e.target.value as "asset" | "expense")}>
-          <option value="asset">Asset</option>
-          <option value="expense">Expense</option>
-        </select>
-        <button onClick={add} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">Add</button>
-      </div>
-
-      <div className="space-y-2">
-        {items.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No items yet.</p>}
-        {items.map(i => (
-          <div key={i.id} className="flex items-center gap-3 border border-gray-200 rounded-lg px-3 py-2">
-            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${i.type === "asset" ? "bg-green-500" : "bg-red-400"}`} />
-            <span className="flex-1 text-sm text-gray-800">{i.label}</span>
-            <span className={`text-sm font-medium ${i.type === "asset" ? "text-green-600" : "text-red-500"}`}>
-              {i.type === "expense" ? "-" : "+"}{fmt(i.amount)}
-            </span>
-            <button onClick={() => remove(i.id)} className="text-gray-300 hover:text-red-400 text-xs">✕</button>
+      {/* Main finance card — click to open full budget */}
+      <button
+        onClick={onOpenBudget}
+        className="w-full text-left bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 text-white hover:from-slate-700 hover:to-slate-800 transition-all group"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-slate-400 text-xs uppercase tracking-wider">Free to Spend · {month}</p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className={`text-3xl font-bold ${isOverBudget ? "text-red-400" : "text-white"}`}>
+                {isOverBudget ? "-" : ""}{fmt(freeSpendRemaining)}
+              </span>
+              <span className="text-slate-400 text-sm">/ {fmt(rawFreeSpend)}</span>
+            </div>
           </div>
-        ))}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={e => { e.stopPropagation(); setRevealed(r => !r); }}
+              className="text-xs bg-white/10 px-3 py-1 rounded-full hover:bg-white/20"
+            >
+              {revealed ? "Hide" : "Reveal"}
+            </button>
+            <span className="text-slate-400 group-hover:text-white text-sm">→</span>
+          </div>
+        </div>
+
+        {/* Descending free-spend bar */}
+        <div className="mb-1">
+          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${isOverBudget ? "bg-red-400" : freeSpendPct < 20 ? "bg-orange-400" : "bg-emerald-400"}`}
+              style={{ width: `${freeSpendPct}%` }}
+            />
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            {revealed ? `$${variableActualSpent.toLocaleString()} spent` : "•••"} of {fmt(rawFreeSpend)} budget
+          </p>
+        </div>
+      </button>
+
+      {/* Ascending savings bar */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wider">Savings · {month}</p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl font-bold text-gray-900">{fmt(savingsActual)}</span>
+              <span className="text-gray-400 text-sm">/ {fmt(savingsTarget)}</span>
+            </div>
+          </div>
+          <span className="text-2xl">📈</span>
+        </div>
+        <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-blue-500 rounded-full transition-all"
+            style={{ width: `${savingsPct}%` }}
+          />
+        </div>
+        <p className="text-xs text-gray-400 mt-1">{Math.round(savingsPct)}% of monthly savings goal</p>
+      </div>
+
+      {/* Variable expense breakdown */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">Variable Spending</h3>
+        <div className="space-y-2">
+          {variableExpenses.map((row) => {
+            const pct = row.budget > 0 ? Math.min(100, (row.actual / row.budget) * 100) : 0;
+            const over = row.actual > row.budget && row.budget > 0;
+            return (
+              <div key={row.label}>
+                <div className="flex items-center justify-between text-xs mb-0.5">
+                  <span className="text-gray-600">{row.label}</span>
+                  <span className={over ? "text-red-500 font-medium" : "text-gray-500"}>
+                    {revealed ? `$${row.actual} / $${row.budget}` : "•••"}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${over ? "bg-red-400" : "bg-blue-400"}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-xs text-gray-400 mt-3">Run <code className="bg-gray-100 px-1 rounded">python3 scripts/extract-budget.py</code> to sync latest data.</p>
       </div>
     </div>
   );
@@ -587,22 +634,28 @@ function JournalSection() {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-type Section = "tasks" | "habits" | "goals" | "finance" | "calendar" | "journal";
+type Section = "tasks" | "habits" | "goals" | "finance" | "calendar" | "journal" | "budget";
 
-const SECTIONS: { id: Section; label: string; icon: string }[] = [
+const SECTIONS: { id: Section; label: string; icon: string; hidden?: boolean }[] = [
   { id: "tasks", label: "Tasks", icon: "✅" },
   { id: "habits", label: "Habits", icon: "🔄" },
   { id: "goals", label: "Goals", icon: "🎯" },
   { id: "finance", label: "Finance", icon: "💰" },
   { id: "calendar", label: "Calendar", icon: "📅" },
   { id: "journal", label: "Journal", icon: "📓" },
+  { id: "budget", label: "Budget", icon: "📊", hidden: true },
 ];
 
 export default function PersonalOS() {
   const [active, setActive] = useState<Section>("tasks");
 
+  const openBudget = useCallback(() => setActive("budget"), []);
+
   const now = new Date();
   const dateLabel = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
+  const visibleSections = SECTIONS.filter(s => !s.hidden);
+  const current = SECTIONS.find(s => s.id === active)!;
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -612,7 +665,7 @@ export default function PersonalOS() {
           <div className="text-lg font-bold text-gray-900">My OS</div>
           <div className="text-xs text-gray-400 mt-0.5">{dateLabel}</div>
         </div>
-        {SECTIONS.map(s => (
+        {visibleSections.map(s => (
           <button
             key={s.id}
             onClick={() => setActive(s.id)}
@@ -626,16 +679,26 @@ export default function PersonalOS() {
 
       {/* Main */}
       <main className="flex-1 p-8 overflow-y-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">
-          {SECTIONS.find(s => s.id === active)?.icon}{" "}
-          {SECTIONS.find(s => s.id === active)?.label}
-        </h1>
-        {active === "tasks" && <TasksSection />}
-        {active === "habits" && <HabitsSection />}
-        {active === "goals" && <GoalsSection />}
-        {active === "finance" && <FinanceSection />}
-        {active === "calendar" && <CalendarSection />}
-        {active === "journal" && <JournalSection />}
+        {active === "budget" ? (
+          <div>
+            <button onClick={() => setActive("finance")} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-4">
+              ← Back to Finance
+            </button>
+            <BudgetPanel />
+          </div>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold text-gray-900 mb-6">
+              {current.icon} {current.label}
+            </h1>
+            {active === "tasks" && <TasksSection />}
+            {active === "habits" && <HabitsSection />}
+            {active === "goals" && <GoalsSection />}
+            {active === "finance" && <FinanceSection onOpenBudget={openBudget} />}
+            {active === "calendar" && <CalendarSection />}
+            {active === "journal" && <JournalSection />}
+          </>
+        )}
       </main>
     </div>
   );
