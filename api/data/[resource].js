@@ -12,6 +12,9 @@ export default async function handler(req, res) {
     case "budget":     return handleBudget(req, res);
     case "summary":    return handleSummary(req, res);
     case "gcal":       return handleGcal(req, res);
+    case "exercises":  return handleExercises(req, res);
+    case "sessions":   return handleSessions(req, res);
+    case "sets":       return handleSets(req, res);
     default:           return res.status(404).json({ error: "Not found" });
   }
 }
@@ -229,6 +232,62 @@ async function handleGcal(req, res) {
   }
   if (req.method === "DELETE") {
     await supabase.from("google_tokens").delete().eq("id", 1);
+    return res.json({ ok: true });
+  }
+  res.status(405).end();
+}
+
+// ─── Exercises ────────────────────────────────────────────────────────────────
+async function handleExercises(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase.from("exercises").select("*").order("name");
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+  if (req.method === "POST") {
+    const { data, error } = await supabase.from("exercises").upsert(req.body, { onConflict: "name" }).select();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
+  }
+  res.status(405).end();
+}
+
+// ─── Sessions ─────────────────────────────────────────────────────────────────
+async function handleSessions(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase
+      .from("workout_sessions")
+      .select("*, workout_sets(*, exercises(name))")
+      .order("date", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+  if (req.method === "POST") {
+    const { data, error } = await supabase.from("workout_sessions").upsert(req.body).select();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
+  }
+  if (req.method === "DELETE") {
+    const { id } = req.body;
+    await supabase.from("workout_sets").delete().eq("session_id", id);
+    const { error } = await supabase.from("workout_sessions").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  }
+  res.status(405).end();
+}
+
+// ─── Sets ─────────────────────────────────────────────────────────────────────
+async function handleSets(req, res) {
+  if (req.method === "POST") {
+    const { data, error } = await supabase.from("workout_sets").upsert(req.body).select();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
+  }
+  if (req.method === "DELETE") {
+    const { id } = req.body;
+    const { error } = await supabase.from("workout_sets").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
     return res.json({ ok: true });
   }
   res.status(405).end();

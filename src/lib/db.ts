@@ -51,4 +51,17 @@ export const db = {
     get: () => api.get("/api/data/gcal"),
     disconnect: () => api.delete("/api/data/gcal", {}),
   },
+  exercises: {
+    list: () => api.get("/api/data/exercises"),
+    upsert: (exercise: unknown) => api.post("/api/data/exercises", exercise),
+  },
+  sessions: {
+    list: () => api.get("/api/data/sessions"),
+    upsert: (session: unknown) => api.post("/api/data/sessions", session),
+    delete: (id: string) => api.delete("/api/data/sessions", { id }),
+  },
+  sets: {
+    upsert: (set: unknown) => api.post("/api/data/sets", set),
+    delete: (id: string) => api.delete("/api/data/sets", { id }),
+  },
 };

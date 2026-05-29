@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import BudgetPanel from "./BudgetPanel";
+import WorkoutPanel from "./WorkoutPanel";
 import { db } from "../lib/db";
 const uid = () => crypto.randomUUID();
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -1426,10 +1427,20 @@ function BibleModal({ onClose }: { onClose: () => void }) {
 export default function PersonalOS() {
   const [showBudget, setShowBudget] = useState(false);
   const [showBible, setShowBible] = useState(false);
+  const [showWorkout, setShowWorkout] = useState(false);
 
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  if (showWorkout) {
+    return (
+      <div className="min-h-screen bg-[#111] text-white p-8">
+        <button onClick={() => setShowWorkout(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition-colors">← Back</button>
+        <WorkoutPanel />
+      </div>
+    );
+  }
 
   if (showBudget) {
     return (
@@ -1478,6 +1489,7 @@ export default function PersonalOS() {
               Finn
               <button className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Dragon">🐉</button>
               <button className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Notes">✏️</button>
+              <button onClick={() => setShowWorkout(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Workouts">⚔️</button>
             </h1>
             <p className="text-xs text-gray-600 mt-2">
               {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
