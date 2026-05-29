@@ -969,11 +969,15 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
             <div className="grid grid-cols-2 gap-3">
               {liftingEntries.map(([exId, pts]) => {
                 const exName = exercises.find(e => e.id === exId)?.name ?? exId;
-                const values = pts.map(p => p.best1RM).filter(v => v > 0);
-                const best = values.length ? Math.max(...values) : 0;
-                const first = values[0] ?? 0;
-                const last = values[values.length - 1] ?? 0;
-                const delta = last - first;
+                const rawValues = pts.map(p => p.best1RM).filter(v => v > 0);
+                const smoothed = rawValues.map((_, i) => {
+                  const window = rawValues.slice(Math.max(0, i - 1), i + 2);
+                  return Math.round(window.reduce((a, b) => a + b, 0) / window.length);
+                });
+                const values = smoothed;
+                const best = rawValues.length ? Math.max(...rawValues) : 0;
+                const first = rawValues[0] ?? 0;
+                const delta = best - first;
                 return (
                   <button key={exId} onClick={() => { setSelectedExercise(exId); setView("lift"); }}
                     className="bg-[#1e1e1e] border border-[#2e2e2e] hover:border-[#444] rounded-2xl p-4 text-left transition-colors group">
@@ -1054,10 +1058,13 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
     const pts = selectedExercise ? history.get(selectedExercise) ?? [] : [];
     const exName = exercises.find(e => e.id === selectedExercise)?.name ?? "—";
     const isAmrap = pts.every(p => p.isAmrap);
-    const values = isAmrap ? pts.map(p => p.maxReps) : pts.map(p => p.best1RM);
+    const rawValues = isAmrap ? pts.map(p => p.maxReps) : pts.map(p => p.best1RM);
+    const values = rawValues.map((_, i) => {
+      const window = rawValues.slice(Math.max(0, i - 1), i + 2);
+      return Math.round(window.reduce((a, b) => a + b, 0) / window.length);
+    });
     const maxVal = values.length ? Math.max(...values) : 1;
-    const first = values[0] ?? 0;
-    const last = values[values.length - 1] ?? 0;
+    const first = rawValues[0] ?? 0;
     const best1RM = isAmrap ? 0 : Math.max(...pts.map(p => p.best1RM));
     const H = 140;
     const W = 560;
@@ -1084,7 +1091,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
           {[
             { label: isAmrap ? "Best AMRAP" : "Est. 1RM", value: `${maxVal} ${unit}` },
             { label: "All-time best", value: isAmrap ? "N/A" : `${best1RM} lbs` },
-            { label: "Progress", value: first ? `+${last - first} ${unit}` : "—" },
+            { label: "Progress", value: first ? `+${best1RM - first} ${unit}` : "—" },
             { label: "Sessions", value: String(pts.length) },
           ].map(({ label, value }) => (
             <div key={label} className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-xl p-4">
