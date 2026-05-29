@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
+import { db } from "../lib/db";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -434,24 +435,28 @@ export default function BudgetPanel() {
   const [includeCredits, setIncludeCredits] = useState(false);
   const [importError, setImportError] = useState("");
 
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    const stored = loadBudget(month);
-    if (stored) {
-      setData(stored);
-    } else if (month === todayMonthKey()) {
-      const fresh = defaultMonth();
-      saveBudget(month, fresh);
-      setData(fresh);
-    } else {
-      setData(null);
-    }
+    setData(null);
     setImportRows([]);
     setImportFileName("");
     setImportError("");
+    db.budget.get(month).then((stored: MonthBudget | null) => {
+      if (stored) {
+        setData(migrateMonthBudget(stored));
+      } else if (month === todayMonthKey()) {
+        const fresh = defaultMonth();
+        db.budget.save(month, fresh);
+        setData(fresh);
+      }
+    });
   }, [month]);
 
   useEffect(() => {
-    if (data) saveBudget(month, data);
+    if (!data) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => db.budget.save(month, data), 800);
   }, [data, month]);
 
   useEffect(() => {

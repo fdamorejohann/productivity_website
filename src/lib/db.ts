@@ -39,4 +39,8 @@ export const db = {
     get: () => api.get("/api/data/notes"),
     save: (content: string) => api.put("/api/data/notes", { content }),
   },
+  budget: {
+    get: (month: string) => api.get(`/api/data/budget?month=${month}`),
+    save: (month: string, data: unknown) => api.put(`/api/data/budget?month=${month}`, data),
+  },
 };
