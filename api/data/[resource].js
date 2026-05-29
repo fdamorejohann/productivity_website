@@ -14,8 +14,14 @@ export default async function handler(req, res) {
     case "gcal":       return handleGcal(req, res);
     case "exercises":  return handleExercises(req, res);
     case "sessions":   return handleSessions(req, res);
-    case "sets":       return handleSets(req, res);
-    default:           return res.status(404).json({ error: "Not found" });
+    case "sets":             return handleSets(req, res);
+    case "dnd-campaigns":    return handleDndTable(req, res, "dnd_campaigns", "id");
+    case "dnd-characters":   return handleDndTable(req, res, "dnd_characters", "campaign_id");
+    case "dnd-locations":    return handleDndTable(req, res, "dnd_locations", "campaign_id");
+    case "dnd-sessions":     return handleDndTable(req, res, "dnd_sessions", "campaign_id");
+    case "dnd-lore":         return handleDndTable(req, res, "dnd_lore", "campaign_id");
+    case "dnd-quests":       return handleDndTable(req, res, "dnd_quests", "campaign_id");
+    default:                 return res.status(404).json({ error: "Not found" });
   }
 }
 
@@ -271,6 +277,30 @@ async function handleSessions(req, res) {
     const { id } = req.body;
     await supabase.from("workout_sets").delete().eq("session_id", id);
     const { error } = await supabase.from("workout_sessions").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  }
+  res.status(405).end();
+}
+
+// ─── D&D (generic table handler) ─────────────────────────────────────────────
+async function handleDndTable(req, res, table, filterCol) {
+  if (req.method === "GET") {
+    let query = supabase.from(table).select("*").order("created_at");
+    const filterVal = req.query[filterCol];
+    if (filterVal && filterCol !== "id") query = query.eq(filterCol, filterVal);
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+  if (req.method === "POST") {
+    const { data, error } = await supabase.from(table).upsert(req.body).select();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
+  }
+  if (req.method === "DELETE") {
+    const { id } = req.body;
+    const { error } = await supabase.from(table).delete().eq("id", id);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ ok: true });
   }

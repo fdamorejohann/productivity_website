@@ -64,4 +64,36 @@ export const db = {
     upsert: (set: unknown) => api.post("/api/data/sets", set),
     delete: (id: string) => api.delete("/api/data/sets", { id }),
   },
+  dnd: {
+    campaigns: {
+      list: () => api.get("/api/data/dnd-campaigns"),
+      upsert: (row: unknown) => api.post("/api/data/dnd-campaigns", row),
+      delete: (id: string) => api.delete("/api/data/dnd-campaigns", { id }),
+    },
+    characters: {
+      list: (campaign_id: string) => api.get(`/api/data/dnd-characters?campaign_id=${campaign_id}`),
+      upsert: (row: unknown) => api.post("/api/data/dnd-characters", row),
+      delete: (id: string) => api.delete("/api/data/dnd-characters", { id }),
+    },
+    locations: {
+      list: (campaign_id: string) => api.get(`/api/data/dnd-locations?campaign_id=${campaign_id}`),
+      upsert: (row: unknown) => api.post("/api/data/dnd-locations", row),
+      delete: (id: string) => api.delete("/api/data/dnd-locations", { id }),
+    },
+    sessions: {
+      list: (campaign_id: string) => api.get(`/api/data/dnd-sessions?campaign_id=${campaign_id}`),
+      upsert: (row: unknown) => api.post("/api/data/dnd-sessions", row),
+      delete: (id: string) => api.delete("/api/data/dnd-sessions", { id }),
+    },
+    lore: {
+      list: (campaign_id: string) => api.get(`/api/data/dnd-lore?campaign_id=${campaign_id}`),
+      upsert: (row: unknown) => api.post("/api/data/dnd-lore", row),
+      delete: (id: string) => api.delete("/api/data/dnd-lore", { id }),
+    },
+    quests: {
+      list: (campaign_id: string) => api.get(`/api/data/dnd-quests?campaign_id=${campaign_id}`),
+      upsert: (row: unknown) => api.post("/api/data/dnd-quests", row),
+      delete: (id: string) => api.delete("/api/data/dnd-quests", { id }),
+    },
+  },
 };

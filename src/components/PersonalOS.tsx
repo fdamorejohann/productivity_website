@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef } from "react";
 import BudgetPanel from "./BudgetPanel";
 import WorkoutPanel from "./WorkoutPanel";
+import DndPanel from "./DndPanel";
 import { db } from "../lib/db";
 const uid = () => crypto.randomUUID();
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -1431,10 +1432,20 @@ export default function PersonalOS() {
   const [showBudget, setShowBudget] = useState(false);
   const [showBible, setShowBible] = useState(false);
   const [showWorkout, setShowWorkout] = useState(false);
+  const [showDnd, setShowDnd] = useState(false);
 
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  if (showDnd) {
+    return (
+      <div className="min-h-screen bg-[#111] text-white p-8">
+        <button onClick={() => setShowDnd(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition-colors">← Back</button>
+        <DndPanel />
+      </div>
+    );
+  }
 
   if (showWorkout) {
     return (
@@ -1490,7 +1501,7 @@ export default function PersonalOS() {
             <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">{greeting}</p>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2">
               Finn
-              <button className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Dragon">🐉</button>
+              <button onClick={() => setShowDnd(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="D&D">🐉</button>
               <button className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Notes">✏️</button>
               <button onClick={() => setShowWorkout(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Workouts">⚔️</button>
             </h1>
