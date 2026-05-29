@@ -1282,7 +1282,11 @@ export default function PersonalOS() {
               title="Verse of the day"
             >📖</button>
             <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">{greeting}</p>
-            <h1 className="text-2xl font-bold text-white">Finn</h1>
+            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+              Finn
+              <button className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Dragon">🐉</button>
+              <button className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Notes">✏️</button>
+            </h1>
             <p className="text-xs text-gray-600 mt-2">
               {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
             </p>
