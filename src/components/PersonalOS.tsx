@@ -42,6 +42,7 @@ interface CalendarEvent {
   date: string;
   title: string;
   time: string;
+  description?: string;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -351,6 +352,7 @@ function HabitsCalendar() {
   const [newEventDate, setNewEventDate] = useState(todayStr());
   const [newEventTitle, setNewEventTitle] = useState("");
   const [newEventTime, setNewEventTime] = useState("09:00");
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
 
   const fetchGcal = () => {
     setGcalRefreshing(true);
@@ -417,10 +419,22 @@ function HabitsCalendar() {
   // Full calendar helpers
   const addEvent = async () => {
     if (!newEventTitle.trim()) return;
-    const event = { id: uid(), date: newEventDate, title: newEventTitle.trim(), time: newEventTime };
+    const event = { id: uid(), date: newEventDate, title: newEventTitle.trim(), time: newEventTime, description: "" };
     const saved = await db.events.upsert(event);
     setEvents(e => [...e, saved]);
     setNewEventTitle("");
+  };
+
+  const saveEvent = async (ev: CalendarEvent) => {
+    await db.events.upsert(ev);
+    setEvents(es => es.map(e => e.id === ev.id ? ev : e));
+    setEditingEvent(null);
+  };
+
+  const deleteEvent = async (id: string) => {
+    await db.events.delete(id);
+    setEvents(es => es.filter(e => e.id !== id));
+    setEditingEvent(null);
   };
 
   const calDays = () => {
@@ -621,7 +635,11 @@ function HabitsCalendar() {
                     );
                   })}
                   {dayEvents.map(ev => (
-                    <div key={ev.id} className="text-xs text-gray-500 truncate">{ev.time} {ev.title}</div>
+                    <div
+                      key={ev.id}
+                      onClick={e => { e.stopPropagation(); if (!ev.id.startsWith("gcal_")) setEditingEvent(ev); }}
+                      className={`text-xs truncate ${ev.id.startsWith("gcal_") ? "text-green-500" : "text-gray-500 hover:text-gray-300 cursor-pointer"}`}
+                    >{ev.time} {ev.title}</div>
                   ))}
                 </div>
               </div>
@@ -808,7 +826,11 @@ function HabitsCalendar() {
                   <div key={i} className={`rounded-lg p-1.5 min-h-12 ${isToday ? "bg-[#2a2a2a] border border-[#444]" : "hover:bg-[#222]"}`}>
                     <div className={`text-xs font-medium mb-1 ${isToday ? "text-white" : "text-gray-500"}`}>{day}</div>
                     {dayEvents.map(ev => (
-                      <div key={ev.id} className={`text-xs rounded px-1 truncate mb-0.5 ${ev.id.startsWith("gcal_") ? "bg-green-600/30 text-green-400" : "bg-blue-600/30 text-blue-400"}`}>{ev.title}</div>
+                      <div
+                        key={ev.id}
+                        onClick={() => { if (!ev.id.startsWith("gcal_")) setEditingEvent(ev); }}
+                        className={`text-xs rounded px-1 truncate mb-0.5 ${ev.id.startsWith("gcal_") ? "bg-green-600/30 text-green-400" : "bg-blue-600/30 text-blue-400 cursor-pointer hover:bg-blue-600/50"}`}
+                      >{ev.title}</div>
                     ))}
                   </div>
                 );
@@ -829,6 +851,71 @@ function HabitsCalendar() {
                 <input type="date" className="bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} />
                 <input type="time" className="bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none" value={newEventTime} onChange={e => setNewEventTime(e.target.value)} />
                 <button onClick={addEvent} className="bg-white text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Event edit modal ── */}
+      {editingEvent && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6" onClick={() => setEditingEvent(null)}>
+          <div className="bg-[#181818] border border-[#2e2e2e] rounded-2xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <span className="text-sm font-semibold text-white">Edit Event</span>
+              <button onClick={() => setEditingEvent(null)} className="text-gray-500 hover:text-white text-lg">✕</button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Title</label>
+                <input
+                  className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#555]"
+                  value={editingEvent.title}
+                  onChange={e => setEditingEvent({ ...editingEvent, title: e.target.value })}
+                />
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Date</label>
+                  <input
+                    type="date"
+                    className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#555]"
+                    value={editingEvent.date}
+                    onChange={e => setEditingEvent({ ...editingEvent, date: e.target.value })}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Time</label>
+                  <input
+                    type="time"
+                    className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#555]"
+                    value={editingEvent.time}
+                    onChange={e => setEditingEvent({ ...editingEvent, time: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Description</label>
+                <textarea
+                  className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#555] resize-none"
+                  rows={3}
+                  placeholder="Add a description…"
+                  value={editingEvent.description ?? ""}
+                  onChange={e => setEditingEvent({ ...editingEvent, description: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex justify-between mt-5">
+              <button
+                onClick={() => deleteEvent(editingEvent.id)}
+                className="text-sm text-red-400 hover:text-red-300 transition-colors"
+              >Delete</button>
+              <div className="flex gap-2">
+                <button onClick={() => setEditingEvent(null)} className="text-sm text-gray-500 hover:text-gray-300 px-3 py-1.5">Cancel</button>
+                <button
+                  onClick={() => saveEvent(editingEvent)}
+                  className="bg-white text-black px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-200"
+                >Save</button>
               </div>
             </div>
           </div>
