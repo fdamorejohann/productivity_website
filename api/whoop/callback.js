@@ -6,7 +6,12 @@ export default async function handler(req, res) {
   const { code } = req.query;
 
   if (!code) {
-    return res.status(400).send("Missing code");
+    // Show everything WHOOP sent back so we can debug
+    return res.status(400).json({
+      error: "Missing code",
+      query: req.query,
+      url: req.url,
+    });
   }
 
   try {
