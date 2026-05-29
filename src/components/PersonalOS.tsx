@@ -928,6 +928,80 @@ function HabitsCalendar() {
   );
 }
 
+// ─── Workout Heatmap ─────────────────────────────────────────────────────────
+
+const WORKOUT_COLORS: Record<string, string> = {
+  lifting:      "#ef4444",
+  running:      "#f97316",
+  rollerblading:"#a78bfa",
+  muaythai:     "#ec4899",
+  biking:       "#3b82f6",
+};
+
+function WorkoutHeatmap({ onOpenWorkouts }: { onOpenWorkouts: () => void }) {
+  const [workoutDates, setWorkoutDates] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    db.sessions.list().then((sessions: { date: string; type?: string }[]) => {
+      const map: Record<string, string> = {};
+      for (const s of sessions) map[s.date] = s.type ?? "lifting";
+      setWorkoutDates(map);
+    }).catch(() => {});
+  }, []);
+
+  const weeks = 16;
+  const today = new Date();
+  const todayDay = today.getDay() === 0 ? 6 : today.getDay() - 1; // Mon=0
+  const cells: { date: string; type: string | null }[] = [];
+
+  for (let w = weeks - 1; w >= 0; w--) {
+    for (let d = 0; d < 7; d++) {
+      const offset = w * 7 + (6 - todayDay) - d;
+      const dt = new Date(today);
+      dt.setDate(today.getDate() - offset);
+      if (dt > today) { cells.push({ date: "", type: null }); continue; }
+      const ds = dt.toISOString().slice(0, 10);
+      cells.push({ date: ds, type: workoutDates[ds] ?? null });
+    }
+  }
+
+  const total = Object.keys(workoutDates).length;
+
+  return (
+    <button
+      onClick={onOpenWorkouts}
+      className="w-full text-left bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 hover:border-[#444] transition-colors"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-gray-500 uppercase tracking-widest">Workouts</p>
+        <span className="text-xs text-gray-600">{total} sessions ⚔️</span>
+      </div>
+      <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${weeks}, 1fr)` }}>
+        {cells.map((c, i) => {
+          const color = c.type ? (WORKOUT_COLORS[c.type] ?? "#ef4444") : "#1e1e1e";
+          const border = c.type ? "transparent" : "#2a2a2a";
+          return (
+            <div
+              key={i}
+              title={c.date ? (c.type ? `${c.date} — ${c.type}` : c.date) : ""}
+              style={{ backgroundColor: color, borderColor: border }}
+              className="aspect-square rounded-[2px] border"
+            />
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3">
+        {Object.entries(WORKOUT_COLORS).map(([type, color]) => (
+          <span key={type} className="flex items-center gap-1 text-xs text-gray-600 capitalize">
+            <span className="w-2 h-2 rounded-[2px]" style={{ backgroundColor: color }} />
+            {type === "muaythai" ? "Muay Thai" : type}
+          </span>
+        ))}
+      </div>
+    </button>
+  );
+}
+
 // ─── Weather Box ─────────────────────────────────────────────────────────────
 
 const WMO_LABELS: Record<number, string> = {
@@ -1498,6 +1572,7 @@ export default function PersonalOS() {
           {showBible && <BibleModal onClose={() => setShowBible(false)} />}
           <WeatherBox />
           <WhoopBox />
+          <WorkoutHeatmap onOpenWorkouts={() => setShowWorkout(true)} />
           <NotesBox />
         </div>
 
