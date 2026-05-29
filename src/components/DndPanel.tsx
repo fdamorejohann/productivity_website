@@ -77,6 +77,7 @@ interface Combatant {
   initiative: number;
   hp: number;
   maxHp: number;
+  ac: number;
   cr: string;
   kind: "pc" | "enemy";
 }
@@ -861,13 +862,12 @@ function CombatTab() {
   const [turnIdx, setTurnIdx] = useState(0);
   const [round, setRound] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
-  // add form state
   const [aName, setAName] = useState("");
   const [aInit, setAInit] = useState("");
   const [aMaxHp, setAMaxHp] = useState("");
+  const [aAc, setAAc] = useState("");
   const [aCr, setACr] = useState("");
   const [aKind, setAKind] = useState<"pc" | "enemy">("enemy");
-  // damage input per combatant
   const [dmgInput, setDmgInput] = useState<Record<string, string>>({});
 
   const sorted = [...combatants].sort((a, b) => b.initiative - a.initiative);
@@ -876,9 +876,9 @@ function CombatTab() {
   const addCombatant = () => {
     if (!aName.trim()) return;
     const hp = parseInt(aMaxHp) || 10;
-    const c: Combatant = { id: uid(), name: aName.trim(), initiative: parseInt(aInit) || 0, hp, maxHp: hp, cr: aCr.trim(), kind: aKind };
+    const c: Combatant = { id: uid(), name: aName.trim(), initiative: parseInt(aInit) || 0, hp, maxHp: hp, ac: parseInt(aAc) || 0, cr: aCr.trim(), kind: aKind };
     setCombatants(p => [...p, c]);
-    setAName(""); setAInit(""); setAMaxHp(""); setACr(""); setAKind("enemy");
+    setAName(""); setAInit(""); setAMaxHp(""); setAAc(""); setACr(""); setAKind("enemy");
     setShowAdd(false);
   };
 
@@ -902,15 +902,13 @@ function CombatTab() {
   const reset = () => { if (confirm("Clear all combatants and reset combat?")) { setCombatants([]); setTurnIdx(0); setRound(1); } };
 
   return (
-    <div className="space-y-4">
-      {/* Header bar */}
+    <div className="space-y-3">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-500 bg-[#252525] px-3 py-1 rounded-full">Round {round}</span>
           {sorted.length > 0 && (
-            <button onClick={nextTurn} className="bg-amber-500 text-black text-xs font-semibold px-4 py-1.5 rounded-lg hover:bg-amber-400 transition-colors">
-              Next Turn →
-            </button>
+            <button onClick={nextTurn} className="bg-amber-500 text-black text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-amber-400 transition-colors">Next →</button>
           )}
         </div>
         <div className="flex gap-2">
@@ -921,42 +919,29 @@ function CombatTab() {
 
       {/* Add form */}
       {showAdd && (
-        <div className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-2xl p-4 space-y-3">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Add Combatant</p>
-          <div className="grid grid-cols-2 gap-3">
+        <div className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-xl p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-2">
             <div>
               <p className="text-xs text-gray-600 mb-1">Name *</p>
-              <input autoFocus className={INPUT} placeholder="Goblin #1" value={aName} onChange={e => setAName(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && addCombatant()} />
+              <input autoFocus className={INPUT} placeholder="Goblin #1" value={aName} onChange={e => setAName(e.target.value)} onKeyDown={e => e.key === "Enter" && addCombatant()} />
             </div>
             <div>
               <p className="text-xs text-gray-600 mb-1">Type</p>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5 h-[38px]">
                 {(["enemy", "pc"] as const).map(k => (
                   <button key={k} onClick={() => setAKind(k)}
-                    className={`flex-1 text-xs py-2 rounded-lg border transition-colors ${aKind === k ? "border-amber-500 text-amber-500 bg-amber-500/10" : "border-[#333] text-gray-500 hover:text-white"}`}>
+                    className={`flex-1 text-xs rounded-lg border transition-colors ${aKind === k ? "border-amber-500 text-amber-500 bg-amber-500/10" : "border-[#333] text-gray-500 hover:text-white"}`}>
                     {k === "pc" ? "Player" : "Enemy"}
                   </button>
                 ))}
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <p className="text-xs text-gray-600 mb-1">Initiative</p>
-              <input type="number" className={INPUT} placeholder="15" value={aInit} onChange={e => setAInit(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && addCombatant()} />
-            </div>
-            <div>
-              <p className="text-xs text-gray-600 mb-1">Max HP</p>
-              <input type="number" className={INPUT} placeholder="30" value={aMaxHp} onChange={e => setAMaxHp(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && addCombatant()} />
-            </div>
-            <div>
-              <p className="text-xs text-gray-600 mb-1">CR</p>
-              <input className={INPUT} placeholder="1/2" value={aCr} onChange={e => setACr(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && addCombatant()} />
-            </div>
+          <div className="grid grid-cols-4 gap-2">
+            <div><p className="text-xs text-gray-600 mb-1">Init</p><input type="number" className={INPUT} placeholder="15" value={aInit} onChange={e => setAInit(e.target.value)} onKeyDown={e => e.key === "Enter" && addCombatant()} /></div>
+            <div><p className="text-xs text-gray-600 mb-1">HP</p><input type="number" className={INPUT} placeholder="30" value={aMaxHp} onChange={e => setAMaxHp(e.target.value)} onKeyDown={e => e.key === "Enter" && addCombatant()} /></div>
+            <div><p className="text-xs text-gray-600 mb-1">AC</p><input type="number" className={INPUT} placeholder="13" value={aAc} onChange={e => setAAc(e.target.value)} onKeyDown={e => e.key === "Enter" && addCombatant()} /></div>
+            <div><p className="text-xs text-gray-600 mb-1">CR</p><input className={INPUT} placeholder="1/2" value={aCr} onChange={e => setACr(e.target.value)} onKeyDown={e => e.key === "Enter" && addCombatant()} /></div>
           </div>
           <div className="flex gap-2">
             <button onClick={addCombatant} disabled={!aName.trim()} className="bg-amber-500 text-black text-xs font-semibold px-4 py-1.5 rounded-lg hover:bg-amber-400 disabled:opacity-50 transition-colors">Add</button>
@@ -969,56 +954,56 @@ function CombatTab() {
         <EmptyState emoji="🎲" text="No combatants" sub="Add players and enemies to start tracking initiative" />
       )}
 
-      {/* Combatant rows */}
-      <div className="space-y-2">
+      {/* Column headers */}
+      {sorted.length > 0 && (
+        <div className="grid grid-cols-[2rem_1fr_3.5rem_3.5rem_3.5rem_7rem_1.5rem] gap-2 px-3 pb-1">
+          <span className="text-xs text-gray-600 text-center">Init</span>
+          <span className="text-xs text-gray-600">Name</span>
+          <span className="text-xs text-gray-600 text-center">AC</span>
+          <span className="text-xs text-gray-600 text-center">CR</span>
+          <span className="text-xs text-gray-600 text-center">HP</span>
+          <span className="text-xs text-gray-600 text-center">Damage</span>
+          <span />
+        </div>
+      )}
+
+      {/* Rows */}
+      <div className="space-y-1.5">
         {sorted.map((c, i) => {
           const isActive = c.id === activeTurn;
-          const hpPct = Math.max(0, c.hp / c.maxHp);
-          const hpColor = hpPct > 0.5 ? "#22c55e" : hpPct > 0.25 ? "#f59e0b" : "#ef4444";
           const isDead = c.hp === 0;
+          const hpColor = c.hp / c.maxHp > 0.5 ? "#22c55e" : c.hp / c.maxHp > 0.25 ? "#f59e0b" : "#ef4444";
           return (
-            <div key={c.id}
-              className={`rounded-2xl border transition-all ${isActive ? "border-amber-500 bg-amber-500/5" : "border-[#2e2e2e] bg-[#1e1e1e]"} ${isDead ? "opacity-40" : ""}`}>
-              <div className="flex items-center gap-3 px-4 py-3">
-                {/* Initiative badge */}
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${isActive ? "bg-amber-500 text-black" : "bg-[#252525] text-gray-400"}`}>
-                  {c.initiative}
-                </div>
-
-                {/* Name + CR */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium ${isDead ? "line-through text-gray-600" : "text-white"}`}>{c.name}</span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${c.kind === "pc" ? "bg-blue-500/20 text-blue-400" : "bg-red-500/20 text-red-400"}`}>
-                      {c.kind === "pc" ? "PC" : "Enemy"}
-                    </span>
-                    {c.cr && <span className="text-xs text-gray-600 bg-[#252525] px-1.5 py-0.5 rounded-full">CR {c.cr}</span>}
-                    {isActive && <span className="text-xs text-amber-500 font-medium animate-pulse">● Active</span>}
-                  </div>
-                  {/* HP bar */}
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <div className="flex-1 h-1.5 bg-[#333] rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${hpPct * 100}%`, backgroundColor: hpColor }} />
-                    </div>
-                    <span className="text-xs font-mono shrink-0" style={{ color: hpColor }}>{c.hp}/{c.maxHp}</span>
-                  </div>
-                </div>
-
-                {/* Damage controls */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => adjustHp(c.id, 1)} className="w-6 h-6 rounded-lg bg-green-500/10 text-green-400 text-xs hover:bg-green-500/20 transition-colors">+</button>
-                  <input
-                    type="number"
-                    className="w-12 text-center bg-[#252525] border border-[#333] rounded-lg px-1 py-1 text-xs text-white focus:outline-none"
-                    placeholder="dmg"
-                    value={dmgInput[c.id] ?? ""}
-                    onChange={e => setDmgInput(p => ({ ...p, [c.id]: e.target.value }))}
-                    onKeyDown={e => e.key === "Enter" && applyDmg(c.id)}
-                  />
-                  <button onClick={() => applyDmg(c.id)} className="w-6 h-6 rounded-lg bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-colors">−</button>
-                  <button onClick={() => { setCombatants(p => p.filter(x => x.id !== c.id)); if (turnIdx >= i && turnIdx > 0) setTurnIdx(t => t - 1); }} className="w-6 h-6 rounded-lg text-gray-700 hover:text-red-400 text-xs transition-colors ml-1">✕</button>
-                </div>
+            <div key={c.id} className={`grid grid-cols-[2rem_1fr_3.5rem_3.5rem_3.5rem_7rem_1.5rem] gap-2 items-center px-3 py-2.5 rounded-xl border transition-all ${isActive ? "border-amber-500 bg-amber-500/5" : "border-[#2e2e2e] bg-[#1e1e1e]"} ${isDead ? "opacity-40" : ""}`}>
+              {/* Initiative */}
+              <span className={`text-xs font-bold text-center ${isActive ? "text-amber-400" : "text-gray-400"}`}>{c.initiative}</span>
+              {/* Name + badges */}
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className={`text-sm font-medium truncate ${isDead ? "line-through text-gray-600" : "text-white"}`}>{c.name}</span>
+                <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${c.kind === "pc" ? "bg-blue-500/20 text-blue-400" : "bg-red-500/15 text-red-400"}`}>{c.kind === "pc" ? "PC" : "E"}</span>
+                {isActive && <span className="text-xs text-amber-500 shrink-0">●</span>}
               </div>
+              {/* AC */}
+              <span className="text-xs text-gray-300 text-center font-mono">{c.ac || "—"}</span>
+              {/* CR */}
+              <span className="text-xs text-gray-500 text-center">{c.cr || "—"}</span>
+              {/* HP */}
+              <span className="text-xs font-mono text-center" style={{ color: hpColor }}>{c.hp}/{c.maxHp}</span>
+              {/* Damage input */}
+              <div className="flex items-center gap-1">
+                <button onClick={() => adjustHp(c.id, 1)} className="w-5 h-5 rounded bg-green-500/10 text-green-400 text-xs hover:bg-green-500/20 transition-colors leading-none">+</button>
+                <input
+                  type="number"
+                  className="w-10 text-center bg-[#252525] border border-[#333] rounded px-1 py-0.5 text-xs text-white focus:outline-none"
+                  placeholder="—"
+                  value={dmgInput[c.id] ?? ""}
+                  onChange={e => setDmgInput(p => ({ ...p, [c.id]: e.target.value }))}
+                  onKeyDown={e => e.key === "Enter" && applyDmg(c.id)}
+                />
+                <button onClick={() => applyDmg(c.id)} className="w-5 h-5 rounded bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-colors leading-none">−</button>
+              </div>
+              {/* Remove */}
+              <button onClick={() => { setCombatants(p => p.filter(x => x.id !== c.id)); if (turnIdx >= i && turnIdx > 0) setTurnIdx(t => t - 1); }} className="text-gray-700 hover:text-red-400 text-xs transition-colors text-center">✕</button>
             </div>
           );
         })}
