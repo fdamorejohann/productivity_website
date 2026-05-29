@@ -1133,10 +1133,57 @@ function WhoopBox() {
   );
 }
 
+// ─── Bible Box ───────────────────────────────────────────────────────────────
+
+interface BibleVerse {
+  reference: string;
+  text: string;
+  translation: string;
+  reflection: string;
+}
+
+function BibleModal({ onClose }: { onClose: () => void }) {
+  const [verse, setVerse] = useState<BibleVerse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/bible")
+      .then(r => r.json())
+      .then(d => { setVerse(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6" onClick={onClose}>
+      <div className="bg-[#181818] border border-[#2e2e2e] rounded-2xl w-full max-w-md p-7 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <span className="text-lg">📖</span>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg">✕</button>
+        </div>
+        {loading && <p className="text-xs text-gray-600 animate-pulse">Loading verse…</p>}
+        {verse && (
+          <div className="space-y-5">
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">{verse.reference}</p>
+              <p className="text-white text-base leading-relaxed italic">"{verse.text}"</p>
+              <p className="text-xs text-gray-600 mt-2">{verse.translation}</p>
+            </div>
+            <div className="border-t border-[#2a2a2a] pt-4">
+              <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Reflection</p>
+              <p className="text-gray-300 text-sm leading-relaxed">{verse.reflection}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export default function PersonalOS() {
   const [showBudget, setShowBudget] = useState(false);
+  const [showBible, setShowBible] = useState(false);
 
   const now = new Date();
   const hour = now.getHours();
@@ -1178,13 +1225,19 @@ export default function PersonalOS() {
 
         {/* ── Right column: Hello + Weather + Notes ── */}
         <div className="flex flex-col gap-5">
-          <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-6">
+          <div className="relative bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-6">
+            <button
+              onClick={() => setShowBible(true)}
+              className="absolute top-4 right-4 text-xl hover:scale-110 transition-transform"
+              title="Verse of the day"
+            >📖</button>
             <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">{greeting}</p>
             <h1 className="text-2xl font-bold text-white">Finn</h1>
             <p className="text-xs text-gray-600 mt-2">
               {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
             </p>
           </div>
+          {showBible && <BibleModal onClose={() => setShowBible(false)} />}
           <WeatherBox />
           <WhoopBox />
           <NotesBox />
