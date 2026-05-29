@@ -802,7 +802,7 @@ function formatCardioSummary(data: CardioData | undefined, type: WorkoutType): s
   return parts.join(" · ");
 }
 
-function cardioFields(type: WorkoutType, data: CardioData): { label: string; value: string }[] {
+function cardioFields(_type: WorkoutType, data: CardioData): { label: string; value: string }[] {
   const fields: { label: string; value: string }[] = [];
   if (data.duration_min) fields.push({ label: "Duration", value: `${data.duration_min} min` });
   if (data.distance_miles) fields.push({ label: "Distance", value: `${data.distance_miles} miles` });
@@ -1110,8 +1110,8 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
   };
 
   const renderCardio = () => {
-    const t = typeInfo(cardioType);
     const cs = cardioSessions(cardioType).sort((a, b) => a.date.localeCompare(b.date));
+    const t = typeInfo(cardioType);
     const hasDist = cs.some(s => s.cardio_data?.distance_miles);
     const hasDur = cs.some(s => s.cardio_data?.duration_min);
     const hasRounds = cs.some(s => s.cardio_data?.rounds);
