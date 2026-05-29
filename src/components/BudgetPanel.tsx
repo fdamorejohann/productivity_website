@@ -642,7 +642,7 @@ export default function BudgetPanel() {
   // ── Empty state ─────────────────────────────────────────────────────────────
   if (!data) {
     return (
-      <div className="p-8 max-w-6xl mx-auto">
+      <div className="p-8 max-w-6xl mx-auto bg-[#111] min-h-screen">
         <BudgetHeader
           month={month} isCurrentMonth={isCurrentMonth}
           showNewMonth={false}
@@ -654,8 +654,8 @@ export default function BudgetPanel() {
         />
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="text-5xl mb-4">📅</div>
-          <p className="text-xl font-semibold text-gray-700 mb-2">{formatMonthLabel(month)}</p>
-          <p className="text-sm text-gray-400 mb-6">No budget data for this month yet.</p>
+          <p className="text-xl font-semibold text-gray-200 mb-2">{formatMonthLabel(month)}</p>
+          <p className="text-sm text-gray-500 mb-6">No budget data for this month yet.</p>
           <button onClick={createMonth} className="px-5 py-2.5 bg-blue-500 text-white text-sm font-medium rounded-xl hover:bg-blue-600 transition-colors">
             Create Budget
           </button>
@@ -690,7 +690,7 @@ export default function BudgetPanel() {
   const savingsLeftoverActual = savingsActual + leftoverActual;
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
+    <div className="p-8 max-w-6xl mx-auto space-y-6 bg-[#111] min-h-screen">
 
       {/* Header */}
       <BudgetHeader
@@ -729,8 +729,8 @@ export default function BudgetPanel() {
           onDeleteRow={(id) => upd(d => ({ ...d, income: d.income.filter(r => r.id !== id) }))}
         />
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">Top Spend Categories</h2>
+        <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+          <h2 className="text-sm font-semibold text-gray-200 mb-4">Top Spend Categories</h2>
           {spendEntries.length === 0 ? (
             <div className="flex items-center justify-center h-32 text-sm text-gray-400">
               No spending logged yet
@@ -743,7 +743,7 @@ export default function BudgetPanel() {
                     <span className="font-medium text-gray-700">{cat}</span>
                     <span className="text-gray-500 tabular-nums">{fmt(amt)}</span>
                   </div>
-                  <div className="bg-gray-100 rounded-full h-2 overflow-hidden">
+                  <div className="bg-[#2a2a2a] rounded-full h-2 overflow-hidden">
                     <div className="h-full rounded-full bg-blue-400 transition-all" style={{ width: `${Math.max(4, (amt / maxSpend) * 100)}%` }} />
                   </div>
                 </div>
@@ -801,8 +801,8 @@ export default function BudgetPanel() {
       />
 
       {/* Add Expense form */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Add Expense</h2>
+      <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+        <h2 className="text-sm font-semibold text-gray-200 mb-4">Add Expense</h2>
         <form onSubmit={handleAddLog} className="flex flex-wrap gap-3 items-end">
           <FormField label="Vendor">
             <input
@@ -810,14 +810,14 @@ export default function BudgetPanel() {
               value={vendor}
               onChange={e => setVendor(e.target.value)}
               placeholder="e.g. Whole Foods"
-              className="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-36 border border-[#333] rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </FormField>
           <FormField label="Category">
             <select
               value={category}
               onChange={e => { setCategory(e.target.value); setFormPoints(defaultPoints(e.target.value, card)); }}
-              className="w-44 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-44 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {EXPENSE_CATEGORIES.map(c => <option key={c}>{c}</option>)}
             </select>
@@ -830,7 +830,7 @@ export default function BudgetPanel() {
               value={amount}
               onChange={e => setAmount(e.target.value)}
               placeholder="0.00"
-              className="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-28 border border-[#333] rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </FormField>
           <FormField label="Owed ($)">
@@ -841,14 +841,14 @@ export default function BudgetPanel() {
               value={owed}
               onChange={e => setOwed(e.target.value)}
               placeholder="0.00"
-              className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-24 border border-[#333] rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </FormField>
           <FormField label="Card">
             <select
               value={card}
               onChange={e => { setCard(e.target.value); setFormPoints(defaultPoints(category, e.target.value)); }}
-              className="w-40 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-40 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {CARDS.map(c => <option key={c}>{c}</option>)}
             </select>
@@ -858,7 +858,7 @@ export default function BudgetPanel() {
               type="date"
               value={logDate}
               onChange={e => setLogDate(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="border border-[#333] rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </FormField>
           <button
@@ -873,10 +873,10 @@ export default function BudgetPanel() {
 
       {/* Expense log */}
       {data.logs.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
           <div className="flex items-center justify-between mb-4 gap-4">
             <div>
-              <h2 className="text-sm font-semibold text-gray-700">Expense Log</h2>
+              <h2 className="text-sm font-semibold text-gray-200">Expense Log</h2>
               <span className="text-xs text-gray-400">
                 {filteredLogs.length} entries · {fmt(filteredLogs.reduce((s, l) => s + effectiveCost(l), 0))} total ·{" "}
                 {Math.round(filteredLogs.reduce((s, l) => s + effectiveCost(l) * (l.points ?? defaultPoints(l.category, l.card)), 0)).toLocaleString()} pts
@@ -894,7 +894,7 @@ export default function BudgetPanel() {
               <select
                 value={logFilter}
                 onChange={e => setLogFilter(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="All">All</option>
                 {Array.from(new Set(data.logs.map(l => l.category)))
@@ -908,7 +908,7 @@ export default function BudgetPanel() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-xs font-medium text-gray-400 border-b border-gray-100">
+                <tr className="text-xs font-medium text-gray-500 border-b border-[#2a2a2a]">
                   <th className="text-left pb-2 pr-4">Date</th>
                   <th className="text-left pb-2 pr-4">Vendor</th>
                   <th className="text-left pb-2 pr-4">Category</th>
@@ -958,11 +958,11 @@ function ImportCsvPanel({ fileName, rows, includeCredits, importError, onToggleI
   const total = importable.reduce((s, r) => s + r.amount, 0);
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-sm font-semibold text-gray-700">Import CSV</h2>
-          <p className="text-xs text-gray-400 mt-1">Upload a Chase CSV for this month. Chase charges are treated as negative values and converted to positive expenses.</p>
+          <h2 className="text-sm font-semibold text-gray-200">Import CSV</h2>
+          <p className="text-xs text-gray-500 mt-1">Upload a Chase CSV for this month. Chase charges are treated as negative values and converted to positive expenses.</p>
         </div>
         {rows.length > 0 && (
           <button onClick={onClear} className="text-xs text-gray-400 hover:text-red-500 font-medium">Clear</button>
@@ -1009,10 +1009,10 @@ function ImportCsvPanel({ fileName, rows, includeCredits, importError, onToggleI
             </button>
           </div>
 
-          <div className="max-h-80 overflow-auto border border-gray-100 rounded-xl">
+          <div className="max-h-80 overflow-auto border border-[#2e2e2e] rounded-xl">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-white">
-                <tr className="text-xs font-medium text-gray-400 border-b border-gray-100">
+              <thead className="sticky top-0 bg-[#1e1e1e]">
+                <tr className="text-xs font-medium text-gray-500 border-b border-[#2a2a2a]">
                   <th className="text-left py-2 px-3">Date</th>
                   <th className="text-left py-2 px-3">Vendor</th>
                   <th className="text-left py-2 px-3">Category</th>
@@ -1023,15 +1023,15 @@ function ImportCsvPanel({ fileName, rows, includeCredits, importError, onToggleI
               </thead>
               <tbody>
                 {rows.map(row => (
-                  <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/60">
+                  <tr key={row.id} className="border-b border-[#2a2a2a] hover:bg-[#252525]">
                     <td className="py-1.5 px-3 text-xs text-gray-500 whitespace-nowrap">{row.date || "—"}</td>
-                    <td className="py-1.5 px-3 text-xs text-gray-700 max-w-56 truncate">{row.vendor}</td>
+                    <td className="py-1.5 px-3 text-xs text-gray-200 max-w-56 truncate">{row.vendor}</td>
                     <td className="py-1.5 px-3 text-xs text-gray-500">
                       <select
                         value={row.category}
                         onChange={e => onUpdateRow(row.id, { category: e.target.value })}
                         disabled={row.status !== "import"}
-                        className="w-40 border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-50 disabled:text-gray-400"
+                        className="w-40 border border-[#333] rounded-lg px-2 py-1 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40"
                       >
                         {EXPENSE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                       </select>
@@ -1090,26 +1090,26 @@ function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onN
 }) {
   return (
     <div className="flex items-center justify-between">
-      <h1 className="text-3xl font-bold text-gray-900">Budget</h1>
+      <h1 className="text-3xl font-bold text-white">Budget</h1>
       <div className="flex items-center gap-3">
         {showNewMonth && (
-          <button onClick={onNewMonth} className="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors">
+          <button onClick={onNewMonth} className="px-3 py-1.5 text-sm font-medium text-blue-400 border border-blue-800 rounded-lg hover:bg-blue-900/30 transition-colors">
             + New Month
           </button>
         )}
-        <button onClick={onExport} className="px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+        <button onClick={onExport} className="px-3 py-1.5 text-sm font-medium text-gray-300 border border-[#333] rounded-lg hover:bg-[#2a2a2a] transition-colors">
           Export CSV
         </button>
-        <button onClick={onResetMonth} className="px-3 py-1.5 text-sm font-medium text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
+        <button onClick={onResetMonth} className="px-3 py-1.5 text-sm font-medium text-red-400 border border-red-900 rounded-lg hover:bg-red-900/30 transition-colors">
           Reset Month
         </button>
         <div className="flex items-center gap-1">
-          <button onClick={onPrev} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors text-lg leading-none">&#8592;</button>
+          <button onClick={onPrev} className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-[#2a2a2a] transition-colors text-lg leading-none">&#8592;</button>
           <div className="text-center min-w-36">
-            <div className="text-sm font-semibold text-gray-700">{formatMonthLabel(month)}</div>
-            {isCurrentMonth && <div className="text-xs text-blue-500">Current Month</div>}
+            <div className="text-sm font-semibold text-gray-200">{formatMonthLabel(month)}</div>
+            {isCurrentMonth && <div className="text-xs text-blue-400">Current Month</div>}
           </div>
-          <button onClick={onNext} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors text-lg leading-none">&#8594;</button>
+          <button onClick={onNext} className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-[#2a2a2a] transition-colors text-lg leading-none">&#8594;</button>
         </div>
       </div>
     </div>
@@ -1123,12 +1123,12 @@ function SummaryCard({ label, actual, budget, higherIsBetter }: {
 }) {
   const both0 = actual === 0 && budget === 0;
   const isGood = higherIsBetter ? actual >= budget : actual <= budget;
-  const color = both0 ? "#9ca3af" : isGood ? "#22c55e" : "#ef4444";
+  const color = both0 ? "#6b7280" : isGood ? "#22c55e" : "#ef4444";
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{label}</p>
       <p className="text-2xl font-bold tabular-nums" style={{ color }}>{fmt(actual)}</p>
-      <p className="text-xs text-gray-400 mt-0.5">budget {fmt(budget)}</p>
+      <p className="text-xs text-gray-600 mt-0.5">budget {fmt(budget)}</p>
     </div>
   );
 }
@@ -1146,14 +1146,14 @@ function IncomeTable({ rows, onAddRow, onUpdateLabel, onUpdateBudget, onUpdateAc
   const totalBudget = rows.reduce((s, r) => s + r.budget, 0);
   const totalActual = rows.reduce((s, r) => s + r.actual, 0);
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-700">Income</h2>
-        <button onClick={onAddRow} className="text-xs text-blue-500 hover:text-blue-700 font-medium">+ Add row</button>
+        <h2 className="text-sm font-semibold text-gray-200">Income</h2>
+        <button onClick={onAddRow} className="text-xs text-blue-400 hover:text-blue-300 font-medium">+ Add row</button>
       </div>
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-xs font-medium text-gray-400 border-b border-gray-100">
+          <tr className="text-xs font-medium text-gray-500 border-b border-[#2a2a2a]">
             <th className="text-left pb-2">Source</th>
             <th className="text-right pb-2 pr-1">Budget</th>
             <th className="text-right pb-2 pr-1">Actual</th>
@@ -1174,7 +1174,7 @@ function IncomeTable({ rows, onAddRow, onUpdateLabel, onUpdateBudget, onUpdateAc
           ))}
         </tbody>
         <tfoot>
-          <tr className="text-xs font-semibold text-gray-600 border-t border-gray-100">
+          <tr className="text-xs font-semibold text-gray-300 border-t border-[#2a2a2a]">
             <td className="pt-2">Total</td>
             <td className="text-right pt-2 pr-1 tabular-nums">{fmt(totalBudget)}</td>
             <td className="text-right pt-2 pr-1 tabular-nums">{fmt(totalActual)}</td>
@@ -1195,7 +1195,7 @@ function IncomeRow({ row, onUpdateLabel, onUpdateBudget, onUpdateActual, onDelet
   onDelete: () => void;
 }) {
   return (
-    <tr className="group border-b border-gray-50 hover:bg-gray-50/60">
+    <tr className="group border-b border-[#2a2a2a] hover:bg-[#252525]">
       <td className="py-1.5 pr-2"><EditableText value={row.label} onChange={onUpdateLabel} /></td>
       <td className="py-1.5 text-right pr-1"><EditableAmount value={row.budget} onChange={onUpdateBudget} /></td>
       <td className="py-1.5 text-right pr-1"><EditableAmount value={row.actual} onChange={onUpdateActual} /></td>
@@ -1222,14 +1222,14 @@ function ExpenseTable({ title, rows, getActual, onAddRow, onUpdateLabel, onUpdat
   const totalBudget = rows.reduce((s, r) => s + r.budget, 0);
   const totalActual = rows.reduce((s, r) => s + getActual(r), 0);
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-700">{title}</h2>
-        <button onClick={onAddRow} className="text-xs text-blue-500 hover:text-blue-700 font-medium">+ Add row</button>
+        <h2 className="text-sm font-semibold text-gray-200">{title}</h2>
+        <button onClick={onAddRow} className="text-xs text-blue-400 hover:text-blue-300 font-medium">+ Add row</button>
       </div>
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-xs font-medium text-gray-400 border-b border-gray-100">
+          <tr className="text-xs font-medium text-gray-500 border-b border-[#2a2a2a]">
             <th className="text-left pb-2">Category</th>
             <th className="text-right pb-2 pr-1">Budget</th>
             <th className="text-right pb-2 pr-1">Actual</th>
@@ -1252,7 +1252,7 @@ function ExpenseTable({ title, rows, getActual, onAddRow, onUpdateLabel, onUpdat
           ))}
         </tbody>
         <tfoot>
-          <tr className="text-xs font-semibold text-gray-600 border-t border-gray-100">
+          <tr className="text-xs font-semibold text-gray-300 border-t border-[#2a2a2a]">
             <td className="pt-2">Total</td>
             <td className="text-right pt-2 pr-1 tabular-nums">{fmt(totalBudget)}</td>
             <td className="text-right pt-2 pr-1 tabular-nums">{fmt(totalActual)}</td>
@@ -1276,7 +1276,7 @@ function ExpenseRow({ row, displayActual, onUpdateLabel, onUpdateBudget, onUpdat
 }) {
   const isDerived = row.actual === null;
   return (
-    <tr className="group border-b border-gray-50 hover:bg-gray-50/60">
+    <tr className="group border-b border-[#2a2a2a] hover:bg-[#252525]">
       <td className="py-1.5 pr-2"><EditableText value={row.label} onChange={onUpdateLabel} /></td>
       <td className="py-1.5 text-right pr-1"><EditableAmount value={row.budget} onChange={onUpdateBudget} /></td>
       <td className="py-1.5 text-right pr-1">
@@ -1291,7 +1291,7 @@ function ExpenseRow({ row, displayActual, onUpdateLabel, onUpdateBudget, onUpdat
         <select
           value={row.bucket ?? "spending"}
           onChange={e => onUpdateBucket(e.target.value as "spending" | "savings" | "investments")}
-          className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-24 border border-[#333] rounded-lg px-2 py-1 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="spending">Spending</option>
           <option value="savings">Savings</option>
@@ -1310,11 +1310,11 @@ function ExpenseRow({ row, displayActual, onUpdateLabel, onUpdateBudget, onUpdat
 function Top10Table({ title, logs }: { title: string; logs: BudgetExpenseLog[] }) {
   if (logs.length === 0) return null;
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <h2 className="text-sm font-semibold text-gray-700 mb-3">{title}</h2>
+    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+      <h2 className="text-sm font-semibold text-gray-200 mb-3">{title}</h2>
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-xs font-medium text-gray-400 border-b border-gray-100">
+          <tr className="text-xs font-medium text-gray-500 border-b border-[#2a2a2a]">
             <th className="text-left pb-2 pr-3">Vendor</th>
             <th className="text-left pb-2 pr-3">Category</th>
             <th className="text-right pb-2 pr-3">Amount</th>
@@ -1324,7 +1324,7 @@ function Top10Table({ title, logs }: { title: string; logs: BudgetExpenseLog[] }
         <tbody>
           {logs.map(l => (
             <tr key={l.id} className="border-b border-gray-50">
-              <td className="py-1.5 pr-3 text-xs text-gray-700 max-w-28 truncate">{l.vendor}</td>
+              <td className="py-1.5 pr-3 text-xs text-gray-200 max-w-28 truncate">{l.vendor}</td>
               <td className="py-1.5 pr-3 text-xs text-gray-400">{l.category}</td>
               <td className="py-1.5 pr-3 text-right text-xs font-medium text-gray-800 tabular-nums">{fmt(l.amount)}</td>
               <td className="py-1.5 text-xs text-gray-400 whitespace-nowrap">{l.card}</td>
@@ -1344,13 +1344,13 @@ function LogRow({ log, onUpdate, onDelete }: {
   onDelete: () => void;
 }) {
   return (
-    <tr className="group border-b border-gray-50 hover:bg-gray-50/60">
+    <tr className="group border-b border-[#2a2a2a] hover:bg-[#252525]">
       <td className="py-1.5 pr-4 text-xs text-gray-500 whitespace-nowrap">
         <input
           type="date"
           value={log.date}
           onChange={e => onUpdate({ date: e.target.value })}
-          className="w-32 border border-transparent rounded px-1 py-0.5 text-xs bg-transparent hover:border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-32 border border-transparent rounded px-1 py-0.5 text-xs bg-transparent text-gray-200 hover:border-[#333] focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </td>
       <td className="py-1.5 pr-4 text-xs text-gray-700 max-w-40 truncate">
@@ -1360,7 +1360,7 @@ function LogRow({ log, onUpdate, onDelete }: {
         <select
           value={log.category}
           onChange={e => onUpdate({ category: e.target.value })}
-          className="w-36 border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-36 border border-[#333] rounded-lg px-2 py-1 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {EXPENSE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
         </select>
@@ -1380,7 +1380,7 @@ function LogRow({ log, onUpdate, onDelete }: {
         <select
           value={log.card}
           onChange={e => onUpdate({ card: e.target.value, points: defaultPoints(log.category, e.target.value) })}
-          className="w-36 border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-36 border border-[#333] rounded-lg px-2 py-1 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {[...new Set([...CARDS, log.card])].map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -1410,7 +1410,7 @@ function LogRow({ log, onUpdate, onDelete }: {
 function FormField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-gray-400 mb-1">{label}</label>
       {children}
     </div>
   );
@@ -1433,14 +1433,14 @@ function EditableText({ value, onChange }: { value: string; onChange: (v: string
           if (e.key === "Escape") setEditing(false);
         }}
         autoFocus
-        className="w-full border-b border-blue-300 focus:outline-none text-xs bg-transparent py-0.5 text-gray-800"
+        className="w-full border-b border-blue-500 focus:outline-none text-xs bg-transparent py-0.5 text-gray-200"
       />
     );
   }
   return (
     <span
       onClick={() => { setDraft(value); setEditing(true); }}
-      className="cursor-pointer text-xs text-gray-700 hover:text-blue-600 transition-colors"
+      className="cursor-pointer text-xs text-gray-300 hover:text-blue-400 transition-colors"
     >
       {value}
     </span>
@@ -1474,14 +1474,14 @@ function EditableAmount({ value, onChange, dim = false, placeholder }: {
         onBlur={save}
         onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
         autoFocus
-        className="w-20 text-right border-b border-blue-300 focus:outline-none text-xs bg-transparent py-0.5 tabular-nums"
+        className="w-20 text-right border-b border-blue-500 focus:outline-none text-xs bg-transparent text-gray-200 py-0.5 tabular-nums"
       />
     );
   }
   return (
     <span
       onClick={() => { setDraft(value === 0 ? "" : String(value)); setEditing(true); }}
-      className={`cursor-pointer text-xs tabular-nums rounded px-1 py-0.5 hover:bg-gray-100 transition-colors ${dim ? "text-gray-400 italic" : "text-gray-700"}`}
+      className={`cursor-pointer text-xs tabular-nums rounded px-1 py-0.5 hover:bg-[#2a2a2a] transition-colors ${dim ? "text-gray-600 italic" : "text-gray-200"}`}
     >
       {value === 0 && placeholder ? placeholder : fmt(value)}
     </span>

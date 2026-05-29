@@ -1,705 +1,878 @@
 /**
- * PersonalOS.tsx — Personal productivity dashboard
- * Sections: Tasks/CRM, Habits, Goals, Finance, Calendar, Journal
- * Data stored in localStorage (ready for Supabase migration later)
+ * PersonalOS.tsx — Dark mode personal dashboard
+ * 3-column layout: Goals | Finance + Habits/Calendar | Hello Finn
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import BudgetPanel from "./BudgetPanel";
 import budgetData from "../data/budget.json";
 
-// ─── Types ─────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-type Priority = "high" | "medium" | "low";
-type TaskStatus = "todo" | "in_progress" | "done";
-type TaskSize = "important" | "small";
+const LS = {
+  get: <T,>(key: string, fb: T): T => {
+    try { const v = localStorage.getItem(key); return v ? (JSON.parse(v) as T) : fb; }
+    catch { return fb; }
+  },
+  set: <T,>(key: string, v: T) => localStorage.setItem(key, JSON.stringify(v)),
+};
+const uid = () => crypto.randomUUID();
+const todayStr = () => new Date().toISOString().slice(0, 10);
 
-interface Task {
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface Goal {
   id: string;
   title: string;
-  category: string;
-  priority: Priority;
-  status: TaskStatus;
-  size: TaskSize;
+  type: "weekly" | "daily";
   starred: boolean;
+  done: boolean;
   createdAt: string;
 }
 
 interface Habit {
   id: string;
-  name: string;
-  subtasks: { id: string; label: string; done: boolean }[];
+  label: string;
+  color: string;
+  frequency: number; // times per week target
 }
 
-interface DailyHabits {
-  date: string; // YYYY-MM-DD
-  completedSubtasks: string[]; // subtask IDs
-}
-
-interface Goal {
+interface PlannedHabit {
   id: string;
-  title: string;
-  period: "week" | "month";
+  habitId: string;
+  date: string; // YYYY-MM-DD
   done: boolean;
 }
 
-interface JournalEntry {
+interface CalendarEvent {
   id: string;
   date: string;
-  text: string;
+  title: string;
+  time: string;
 }
 
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-// ─── Storage helpers ────────────────────────────────────────────────────────
-
-const LS = {
-  get: <T,>(key: string, fallback: T): T => {
-    try {
-      const v = localStorage.getItem(key);
-      return v ? (JSON.parse(v) as T) : fallback;
-    } catch {
-      return fallback;
-    }
-  },
-  set: <T,>(key: string, value: T) => {
-    localStorage.setItem(key, JSON.stringify(value));
-  },
-};
-
-const todayStr = () => new Date().toISOString().slice(0, 10);
-const uid = () => crypto.randomUUID();
-
-// ─── Default data ───────────────────────────────────────────────────────────
-
-const DEFAULT_HABITS: Habit[] = [
-  {
-    id: "h1",
-    name: "Morning Workout",
-    subtasks: [
-      { id: "h1s1", label: "Warm up", done: false },
-      { id: "h1s2", label: "Main session", done: false },
-      { id: "h1s3", label: "Cool down", done: false },
-    ],
-  },
-  {
-    id: "h2",
-    name: "Supplements",
-    subtasks: [
-      { id: "h2s1", label: "Morning pills", done: false },
-      { id: "h2s2", label: "Evening pills", done: false },
-    ],
-  },
-  {
-    id: "h3",
-    name: "Creative Session",
-    subtasks: [
-      { id: "h3s1", label: "Read / research", done: false },
-      { id: "h3s2", label: "Ideate / write", done: false },
-    ],
-  },
-  {
-    id: "h4",
-    name: "Evening Wind-down",
-    subtasks: [
-      { id: "h4s1", label: "Review day", done: false },
-      { id: "h4s2", label: "Journal entry", done: false },
-      { id: "h4s3", label: "Plan tomorrow", done: false },
-    ],
-  },
+const HABIT_COLORS = [
+  "#3b82f6", "#10b981", "#f59e0b", "#ef4444",
+  "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16",
 ];
 
-// ─── Sub-components ─────────────────────────────────────────────────────────
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-function PriorityBadge({ p }: { p: Priority }) {
-  const styles: Record<Priority, string> = {
-    high: "bg-red-100 text-red-700",
-    medium: "bg-yellow-100 text-yellow-700",
-    low: "bg-green-100 text-green-700",
-  };
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${styles[p]}`}>
-      {p}
-    </span>
-  );
+function getMondayOf(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
-// ─── Sections ───────────────────────────────────────────────────────────────
+function getWeekDates(monday: Date): Date[] {
+  return DAYS.map((_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
 
-function TasksSection() {
-  const [tasks, setTasks] = useState<Task[]>(() =>
-    LS.get("pos_tasks", [] as Task[])
-  );
+function dateStr(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+// ─── Goals Box ───────────────────────────────────────────────────────────────
+
+function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) {
+  const key = `pos_goals_${type}`;
+  const [goals, setGoals] = useState<Goal[]>(() => LS.get(key, []));
+  const [panelOpen, setPanelOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newCat, setNewCat] = useState("General");
-  const [newPriority, setNewPriority] = useState<Priority>("medium");
-  const [newSize, setNewSize] = useState<TaskSize>("important");
 
-  useEffect(() => { LS.set("pos_tasks", tasks); }, [tasks]);
+  useEffect(() => { LS.set(key, goals); }, [goals, key]);
 
   const add = () => {
     if (!newTitle.trim()) return;
-    setTasks(t => [...t, {
-      id: uid(), title: newTitle.trim(), category: newCat,
-      priority: newPriority, status: "todo", size: newSize,
-      starred: false, createdAt: new Date().toISOString(),
+    setGoals(g => [...g, {
+      id: uid(), title: newTitle.trim(), type,
+      starred: false, done: false, createdAt: new Date().toISOString(),
     }]);
     setNewTitle("");
   };
 
   const toggleStar = (id: string) =>
-    setTasks(t => t.map(x => x.id === id ? { ...x, starred: !x.starred } : x));
+    setGoals(g => g.map(x => x.id === id ? { ...x, starred: !x.starred } : x));
 
-  const setStatus = (id: string, status: TaskStatus) =>
-    setTasks(t => t.map(x => x.id === id ? { ...x, status } : x));
-
-  const remove = (id: string) => setTasks(t => t.filter(x => x.id !== id));
-
-  const important = tasks.filter(t => t.size === "important");
-  const small = tasks.filter(t => t.size === "small");
-
-  const TaskRow = ({ t }: { t: Task }) => (
-    <div className={`flex items-center gap-3 border rounded-lg px-3 py-2.5 ${t.status === "done" ? "opacity-40 bg-gray-50" : "bg-white border-gray-200"}`}>
-      <button onClick={() => toggleStar(t.id)} className="text-base flex-shrink-0" title="Star to show on home page">
-        {t.starred ? "⭐" : "☆"}
-      </button>
-      <span className={`flex-1 text-sm ${t.status === "done" ? "line-through text-gray-400" : "text-gray-800"}`}>
-        {t.title}
-      </span>
-      <span className="text-xs text-gray-400 hidden sm:block">{t.category}</span>
-      <PriorityBadge p={t.priority} />
-      <select
-        className="text-xs border border-gray-200 rounded px-1 py-0.5"
-        value={t.status}
-        onChange={e => setStatus(t.id, e.target.value as TaskStatus)}
-      >
-        <option value="todo">To Do</option>
-        <option value="in_progress">In Progress</option>
-        <option value="done">Done</option>
-      </select>
-      <button onClick={() => remove(t.id)} className="text-gray-300 hover:text-red-400 text-sm flex-shrink-0">✕</button>
-    </div>
-  );
-
-  return (
-    <div className="space-y-6">
-      {/* Add task */}
-      <div className="flex gap-2 flex-wrap">
-        <input
-          className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="New task…"
-          value={newTitle}
-          onChange={e => setNewTitle(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && add()}
-        />
-        <input
-          className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
-          placeholder="Category"
-          value={newCat}
-          onChange={e => setNewCat(e.target.value)}
-        />
-        <select
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
-          value={newSize}
-          onChange={e => setNewSize(e.target.value as TaskSize)}
-        >
-          <option value="important">Important</option>
-          <option value="small">Small</option>
-        </select>
-        <select
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
-          value={newPriority}
-          onChange={e => setNewPriority(e.target.value as Priority)}
-        >
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
-        <button onClick={add} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
-          Add
-        </button>
-      </div>
-
-      {/* Two lanes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Important */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-base">🎯</span>
-            <h3 className="font-semibold text-gray-800">Important</h3>
-            <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">{important.length}</span>
-          </div>
-          <div className="space-y-2">
-            {important.length === 0 && <p className="text-sm text-gray-400 py-3 text-center border border-dashed border-gray-200 rounded-lg">No important tasks</p>}
-            {important.map(t => <TaskRow key={t.id} t={t} />)}
-          </div>
-        </div>
-
-        {/* Small */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-base">⚡</span>
-            <h3 className="font-semibold text-gray-800">Small Tasks</h3>
-            <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">{small.length}</span>
-          </div>
-          <div className="space-y-2">
-            {small.length === 0 && <p className="text-sm text-gray-400 py-3 text-center border border-dashed border-gray-200 rounded-lg">No small tasks</p>}
-            {small.map(t => <TaskRow key={t.id} t={t} />)}
-          </div>
-        </div>
-      </div>
-
-      <p className="text-xs text-gray-400">⭐ Star any task to pin it to the home page as a key priority.</p>
-    </div>
-  );
-}
-
-function HabitsSection() {
-  const [habits] = useState<Habit[]>(() =>
-    LS.get("pos_habits", DEFAULT_HABITS)
-  );
-  const [daily, setDaily] = useState<DailyHabits>(() =>
-    LS.get(`pos_daily_${todayStr()}`, { date: todayStr(), completedSubtasks: [] })
-  );
-
-  useEffect(() => { LS.set("pos_habits", habits); }, [habits]);
-  useEffect(() => { LS.set(`pos_daily_${todayStr()}`, daily); }, [daily]);
-
-  const toggleSubtask = (subtaskId: string) => {
-    setDaily(d => ({
-      ...d,
-      completedSubtasks: d.completedSubtasks.includes(subtaskId)
-        ? d.completedSubtasks.filter(id => id !== subtaskId)
-        : [...d.completedSubtasks, subtaskId],
-    }));
-  };
-
-  const totalSubtasks = habits.reduce((acc, h) => acc + h.subtasks.length, 0);
-  const completedCount = daily.completedSubtasks.length;
-  const pct = totalSubtasks === 0 ? 0 : Math.round((completedCount / totalSubtasks) * 100);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="flex-1 bg-gray-100 rounded-full h-2">
-          <div
-            className="bg-green-500 h-2 rounded-full transition-all"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <span className="text-sm font-semibold text-gray-700">{pct}% today</span>
-      </div>
-
-      <div className="space-y-3">
-        {habits.map(h => {
-          const habitDone = h.subtasks.every(s => daily.completedSubtasks.includes(s.id));
-          return (
-            <div key={h.id} className={`border rounded-xl p-4 ${habitDone ? "border-green-300 bg-green-50" : "border-gray-200 bg-white"}`}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center text-xs ${habitDone ? "bg-green-500 border-green-500 text-white" : "border-gray-300"}`}>
-                  {habitDone ? "✓" : ""}
-                </span>
-                <span className="font-medium text-sm text-gray-800">{h.name}</span>
-              </div>
-              <div className="space-y-1 pl-6">
-                {h.subtasks.map(s => {
-                  const done = daily.completedSubtasks.includes(s.id);
-                  return (
-                    <label key={s.id} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={done}
-                        onChange={() => toggleSubtask(s.id)}
-                        className="rounded"
-                      />
-                      <span className={`text-sm ${done ? "line-through text-gray-400" : "text-gray-600"}`}>
-                        {s.label}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function GoalsSection() {
-  const [goals, setGoals] = useState<Goal[]>(() =>
-    LS.get("pos_goals", [] as Goal[])
-  );
-  const [newTitle, setNewTitle] = useState("");
-  const [period, setPeriod] = useState<"week" | "month">("month");
-
-  useEffect(() => { LS.set("pos_goals", goals); }, [goals]);
-
-  const add = () => {
-    if (!newTitle.trim()) return;
-    setGoals(g => [...g, { id: uid(), title: newTitle.trim(), period, done: false }]);
-    setNewTitle("");
-  };
-
-  const toggle = (id: string) =>
+  const toggleDone = (id: string) =>
     setGoals(g => g.map(x => x.id === id ? { ...x, done: !x.done } : x));
 
   const remove = (id: string) => setGoals(g => g.filter(x => x.id !== id));
 
-  const weekly = goals.filter(g => g.period === "week");
-  const monthly = goals.filter(g => g.period === "month");
+  const starred = goals.filter(g => g.starred && !g.done);
 
-  const GoalGroup = ({ title, items }: { title: string; items: Goal[] }) => (
-    <div>
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{title}</h3>
-      {items.length === 0 && <p className="text-sm text-gray-400">None set.</p>}
-      <div className="space-y-2">
-        {items.map(g => (
-          <div key={g.id} className="flex items-center gap-3">
-            <button onClick={() => toggle(g.id)} className={`w-5 h-5 rounded border-2 flex items-center justify-center text-xs flex-shrink-0 ${g.done ? "bg-blue-600 border-blue-600 text-white" : "border-gray-300"}`}>
-              {g.done ? "✓" : ""}
+  return (
+    <div className="relative flex flex-col bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 h-full min-h-64">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{label}</span>
+        <button
+          onClick={() => setPanelOpen(true)}
+          className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-2 py-1 transition-colors"
+          title="View all"
+        >
+          All →
+        </button>
+      </div>
+
+      {/* Starred goals */}
+      <div className="flex-1 space-y-2 overflow-y-auto">
+        {starred.length === 0 && (
+          <p className="text-xs text-gray-600 text-center py-4">
+            Star goals to show them here
+          </p>
+        )}
+        {starred.map(g => (
+          <div key={g.id} className="flex items-center gap-2 group">
+            <button
+              onClick={() => toggleDone(g.id)}
+              className="w-4 h-4 rounded border border-gray-600 flex-shrink-0 flex items-center justify-center hover:border-white transition-colors"
+            >
+              {g.done && <span className="text-white text-xs">✓</span>}
             </button>
-            <span className={`flex-1 text-sm ${g.done ? "line-through text-gray-400" : "text-gray-800"}`}>{g.title}</span>
-            <button onClick={() => remove(g.id)} className="text-gray-300 hover:text-red-400 text-xs">✕</button>
+            <span className="flex-1 text-sm text-gray-200">{g.title}</span>
+            <button onClick={() => toggleStar(g.id)} className="text-yellow-400 opacity-0 group-hover:opacity-100 text-xs">★</button>
           </div>
         ))}
       </div>
-    </div>
-  );
 
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2">
-        <input
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="New goal…"
-          value={newTitle}
-          onChange={e => setNewTitle(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && add()}
-        />
-        <select
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
-          value={period}
-          onChange={e => setPeriod(e.target.value as "week" | "month")}
-        >
-          <option value="week">This week</option>
-          <option value="month">This month</option>
-        </select>
-        <button onClick={add} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">Add</button>
-      </div>
-      <GoalGroup title="This week" items={weekly} />
-      <GoalGroup title="This month" items={monthly} />
+      {/* Slide panel — all goals */}
+      {panelOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setPanelOpen(false)}>
+          <div
+            className="w-80 h-full bg-[#181818] border-l border-[#2e2e2e] flex flex-col p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-sm font-semibold text-white">All {label}</span>
+              <button onClick={() => setPanelOpen(false)} className="text-gray-500 hover:text-white text-lg">✕</button>
+            </div>
+
+            {/* Add new */}
+            <div className="flex gap-2 mb-4">
+              <input
+                className="flex-1 bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500"
+                placeholder="Add goal…"
+                value={newTitle}
+                onChange={e => setNewTitle(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && add()}
+              />
+              <button onClick={add} className="bg-white text-black px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">+</button>
+            </div>
+
+            {/* All goals list */}
+            <div className="flex-1 overflow-y-auto space-y-2">
+              {goals.length === 0 && <p className="text-xs text-gray-600 text-center py-6">No goals yet</p>}
+              {goals.map(g => (
+                <div key={g.id} className={`flex items-center gap-3 p-3 rounded-xl border ${g.done ? "opacity-40 border-transparent" : "border-[#2a2a2a]"} hover:border-[#3a3a3a] group`}>
+                  <button onClick={() => toggleDone(g.id)} className="w-4 h-4 rounded border border-gray-600 flex-shrink-0 flex items-center justify-center">
+                    {g.done && <span className="text-white text-xs">✓</span>}
+                  </button>
+                  <span className={`flex-1 text-sm ${g.done ? "line-through text-gray-600" : "text-gray-200"}`}>{g.title}</span>
+                  <button
+                    onClick={() => toggleStar(g.id)}
+                    className={`text-sm transition-colors ${g.starred ? "text-yellow-400" : "text-gray-700 group-hover:text-gray-500"}`}
+                    title="Star to show on homepage"
+                  >
+                    ★
+                  </button>
+                  <button onClick={() => remove(g.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function FinanceSection({ onOpenBudget }: { onOpenBudget: () => void }) {
-  const [revealed, setRevealed] = useState(false);
+// ─── Finance Box ─────────────────────────────────────────────────────────────
 
-  const {
-    month,
-    rawFreeSpend,
-    freeSpendRemaining,
-    variableActualSpent,
-    savingsTarget,
-    savingsActual,
-    variableExpenses,
-  } = budgetData;
+function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
+  const { savingsTarget, savingsActual } = budgetData;
 
-  const freeSpendPct = Math.max(0, Math.min(100, (freeSpendRemaining / rawFreeSpend) * 100));
-  const savingsPct = savingsTarget > 0 ? Math.min(100, (savingsActual / savingsTarget) * 100) : 0;
-  const isOverBudget = freeSpendRemaining < 0;
+  // Build cumulative savings data points for the current month
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = now.getDate();
 
-  const fmt = (n: number) =>
-    revealed ? `$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 0 })}` : "••••";
+  // Historical monthly savings (stored in localStorage, accumulates over time)
+  const [monthlyHistory] = useState<{ month: string; total: number }[]>(() =>
+    LS.get("pos_savings_history", [])
+  );
+
+  const prevTotal = monthlyHistory.reduce((sum, m) => sum + m.total, 0);
+
+  // Generate SVG path for the savings line
+  const W = 280;
+  const H = 80;
+  const maxVal = prevTotal + savingsTarget;
+  const points: [number, number][] = [];
+
+  // Past months as a flat line at the start
+  if (prevTotal > 0) {
+    points.push([0, H - (prevTotal / maxVal) * H]);
+  } else {
+    points.push([0, H]);
+  }
+
+  // This month's projected daily ticks
+  for (let d = 1; d <= daysInMonth; d++) {
+    const x = (d / daysInMonth) * W;
+    const monthProgress = d <= today
+      ? (savingsActual / savingsTarget) * (d / today) * savingsTarget
+      : (savingsActual / savingsTarget) * savingsTarget + ((d - today) / (daysInMonth - today)) * (savingsTarget - savingsActual);
+    const total = prevTotal + Math.min(monthProgress, savingsTarget);
+    const y = H - (total / maxVal) * H;
+    points.push([x, Math.max(2, y)]);
+  }
+
+  const pathD = points.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x} ${y}`).join(" ");
+
+  const currentTotal = prevTotal + savingsActual;
 
   return (
-    <div className="space-y-6">
-      {/* Main finance card — click to open full budget */}
-      <button
-        onClick={onOpenBudget}
-        className="w-full text-left bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 text-white hover:from-slate-700 hover:to-slate-800 transition-all group"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-slate-400 text-xs uppercase tracking-wider">Free to Spend · {month}</p>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className={`text-3xl font-bold ${isOverBudget ? "text-red-400" : "text-white"}`}>
-                {isOverBudget ? "-" : ""}{fmt(freeSpendRemaining)}
-              </span>
-              <span className="text-slate-400 text-sm">/ {fmt(rawFreeSpend)}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={e => { e.stopPropagation(); setRevealed(r => !r); }}
-              className="text-xs bg-white/10 px-3 py-1 rounded-full hover:bg-white/20"
-            >
-              {revealed ? "Hide" : "Reveal"}
-            </button>
-            <span className="text-slate-400 group-hover:text-white text-sm">→</span>
-          </div>
-        </div>
+    <button
+      onClick={onOpenBudget}
+      className="w-full text-left bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 hover:border-[#444] transition-colors group"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Total Saved</span>
+        <span className="text-xs text-gray-600 group-hover:text-gray-400 transition-colors">View Budget →</span>
+      </div>
+      <div className="text-2xl font-bold text-white mb-3">
+        ${currentTotal.toLocaleString()}
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="savingsGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path
+          d={`${pathD} L ${W} ${H} L 0 ${H} Z`}
+          fill="url(#savingsGrad)"
+        />
+        <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Today marker */}
+        {points[today] && (
+          <circle cx={points[today][0]} cy={points[today][1]} r="3" fill="#3b82f6" />
+        )}
+      </svg>
+      <p className="text-xs text-gray-600 mt-1">${savingsActual.toLocaleString()} this month · target ${savingsTarget.toLocaleString()}</p>
+    </button>
+  );
+}
 
-        {/* Descending free-spend bar */}
-        <div className="mb-1">
-          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${isOverBudget ? "bg-red-400" : freeSpendPct < 20 ? "bg-orange-400" : "bg-emerald-400"}`}
-              style={{ width: `${freeSpendPct}%` }}
-            />
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
-            {revealed ? `$${variableActualSpent.toLocaleString()} spent` : "•••"} of {fmt(rawFreeSpend)} budget
-          </p>
-        </div>
-      </button>
+// ─── Habits + Calendar ───────────────────────────────────────────────────────
 
-      {/* Ascending savings bar */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5">
+function HabitsCalendar() {
+  const [habits, setHabits] = useState<Habit[]>(() => LS.get("pos_habits2", []));
+  const [planned, setPlanned] = useState<PlannedHabit[]>(() => LS.get("pos_planned_habits", []));
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [newHabit, setNewHabit] = useState("");
+  const [newFreq, setNewFreq] = useState(3);
+  const [selectedHabit, setSelectedHabit] = useState<string | null>(null);
+  const [fullCalOpen, setFullCalOpen] = useState(false);
+  const [histExpanded, setHistExpanded] = useState(false);
+  const [events, setEvents] = useState<CalendarEvent[]>(() => LS.get("pos_cal_events", []));
+  const [calMonth, setCalMonth] = useState(() => {
+    const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() };
+  });
+  const [newEventDate, setNewEventDate] = useState(todayStr());
+  const [newEventTitle, setNewEventTitle] = useState("");
+  const [newEventTime, setNewEventTime] = useState("09:00");
+
+  useEffect(() => { LS.set("pos_habits2", habits); }, [habits]);
+  useEffect(() => { LS.set("pos_planned_habits", planned); }, [planned]);
+  useEffect(() => { LS.set("pos_cal_events", events); }, [events]);
+
+  const monday = getMondayOf(new Date());
+  monday.setDate(monday.getDate() + weekOffset * 7);
+  const weekDates = getWeekDates(monday);
+
+  const addHabit = () => {
+    if (!newHabit.trim()) return;
+    const color = HABIT_COLORS[habits.length % HABIT_COLORS.length];
+    setHabits(h => [...h, { id: uid(), label: newHabit.trim(), color, frequency: newFreq }]);
+    setNewHabit("");
+  };
+
+  const assignHabit = (date: string) => {
+    if (!selectedHabit) return;
+    setPlanned(p => [...p, { id: uid(), habitId: selectedHabit, date, done: false }]);
+  };
+
+  const toggleDone = (id: string) =>
+    setPlanned(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x));
+
+  const removePlan = (id: string) => setPlanned(p => p.filter(x => x.id !== id));
+  const removeHabit = (id: string) => {
+    setHabits(h => h.filter(x => x.id !== id));
+    setPlanned(p => p.filter(x => x.habitId !== id));
+  };
+
+  const habit = (id: string) => habits.find(h => h.id === id);
+
+  // Full calendar helpers
+  const addEvent = () => {
+    if (!newEventTitle.trim()) return;
+    setEvents(e => [...e, { id: uid(), date: newEventDate, title: newEventTitle.trim(), time: newEventTime }]);
+    setNewEventTitle("");
+  };
+
+  const calDays = () => {
+    const { year, month } = calMonth;
+    const first = new Date(year, month, 1);
+    const startOffset = first.getDay() === 0 ? 6 : first.getDay() - 1;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells: (number | null)[] = Array(startOffset).fill(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+    while (cells.length % 7 !== 0) cells.push(null);
+    return cells;
+  };
+
+  const monthLabel = new Date(calMonth.year, calMonth.month).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Habit chips */}
+      <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wider">Savings · {month}</p>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-bold text-gray-900">{fmt(savingsActual)}</span>
-              <span className="text-gray-400 text-sm">/ {fmt(savingsTarget)}</span>
-            </div>
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Weekly Habits</span>
+          <div className="flex items-center gap-2">
+            {selectedHabit && (
+              <button onClick={() => setSelectedHabit(null)} className="text-xs text-gray-500 hover:text-white">
+                ✕ Deselect
+              </button>
+            )}
+            <button
+              onClick={() => {
+                const weekDateStrs = new Set(weekDates.map(d => dateStr(d)));
+                setPlanned(p => p.filter(x => !weekDateStrs.has(x.date)));
+              }}
+              className="text-xs text-gray-500 hover:text-red-400 border border-[#333] rounded-lg px-2 py-1 transition-colors"
+            >
+              Clear week
+            </button>
           </div>
-          <span className="text-2xl">📈</span>
         </div>
-        <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-blue-500 rounded-full transition-all"
-            style={{ width: `${savingsPct}%` }}
+
+        <div className="flex flex-wrap gap-2 mb-3">
+          {habits.map(h => {
+            const weekDateStrs = new Set(weekDates.map(d => dateStr(d)));
+            const assignedThisWeek = planned.filter(p =>
+              p.habitId === h.id && weekDateStrs.has(p.date)
+            ).length;
+            return (
+              <div key={h.id} className="flex items-center gap-1 group">
+                <button
+                  onClick={() => setSelectedHabit(selectedHabit === h.id ? null : h.id)}
+                  className="text-xs px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1.5"
+                  style={{
+                    backgroundColor: selectedHabit === h.id ? h.color : `${h.color}22`,
+                    color: selectedHabit === h.id ? "#fff" : h.color,
+                    outline: selectedHabit === h.id ? `2px solid ${h.color}` : "none",
+                  }}
+                >
+                  {h.label}
+                  <span className="opacity-70 text-[10px]">{h.frequency - assignedThisWeek}/{h.frequency}x</span>
+                </button>
+                <button onClick={() => removeHabit(h.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
+              </div>
+            );
+          })}
+          {habits.length === 0 && <p className="text-xs text-gray-600">Add habits below to assign them to days</p>}
+        </div>
+
+        <div className="flex gap-2">
+          <input
+            className="flex-1 bg-[#252525] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500"
+            placeholder="New habit…"
+            value={newHabit}
+            onChange={e => setNewHabit(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && addHabit()}
           />
+          <select
+            className="bg-[#252525] border border-[#333] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none"
+            value={newFreq}
+            onChange={e => setNewFreq(Number(e.target.value))}
+            title="Times per week"
+          >
+            {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n}x/wk</option>)}
+          </select>
+          <button onClick={addHabit} className="bg-white text-black px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-200">+</button>
         </div>
-        <p className="text-xs text-gray-400 mt-1">{Math.round(savingsPct)}% of monthly savings goal</p>
+
+        {selectedHabit && (
+          <p className="text-xs text-gray-500 mt-2">Click a day below to assign <strong className="text-gray-300">{habit(selectedHabit)?.label}</strong></p>
+        )}
       </div>
 
-      {/* Variable expense breakdown */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">Variable Spending</h3>
-        <div className="space-y-2">
-          {variableExpenses.map((row) => {
-            const pct = row.budget > 0 ? Math.min(100, (row.actual / row.budget) * 100) : 0;
-            const over = row.actual > row.budget && row.budget > 0;
-            return (
-              <div key={row.label}>
-                <div className="flex items-center justify-between text-xs mb-0.5">
-                  <span className="text-gray-600">{row.label}</span>
-                  <span className={over ? "text-red-500 font-medium" : "text-gray-500"}>
-                    {revealed ? `$${row.actual} / $${row.budget}` : "•••"}
+      {/* Weekly calendar grid */}
+      <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+        {/* Week nav + completion bar */}
+        {(() => {
+          const weekDateStrs = new Set(weekDates.map(d => dateStr(d)));
+          const weekPlans = planned.filter(p => weekDateStrs.has(p.date));
+          const weekDone = weekPlans.filter(p => p.done).length;
+          const weekTotal = habits.reduce((s, h) => s + h.frequency, 0);
+          const pct = weekTotal === 0 ? 0 : Math.round((weekDone / weekTotal) * 100);
+          return (
+            <div className="mb-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setWeekOffset(w => w - 1)} className="text-gray-500 hover:text-white text-sm px-1">‹</button>
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+                    {dateStr(weekDates[0])} — {dateStr(weekDates[6])}
                   </span>
+                  <button onClick={() => setWeekOffset(w => w + 1)} className="text-gray-500 hover:text-white text-sm px-1">›</button>
                 </div>
-                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500">{weekDone}/{weekTotal} done · {pct}%</span>
+                  <button
+                    onClick={() => setFullCalOpen(true)}
+                    className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-2 py-1"
+                  >
+                    Full Cal →
+                  </button>
+                </div>
+              </div>
+              {weekTotal > 0 && (
+                <div className="h-1.5 bg-[#2a2a2a] rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full ${over ? "bg-red-400" : "bg-blue-400"}`}
-                    style={{ width: `${pct}%` }}
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${pct}%`, backgroundColor: pct === 100 ? "#22c55e" : "#3b82f6" }}
                   />
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        <div className="grid grid-cols-7 gap-1.5">
+          {weekDates.map((d, i) => {
+            const ds = dateStr(d);
+            const isToday = ds === todayStr();
+            const dayPlans = planned.filter(p => p.date === ds);
+            const dayEvents = events.filter(e => e.date === ds);
+
+            return (
+              <div
+                key={i}
+                onClick={() => assignHabit(ds)}
+                className={`rounded-xl p-2 min-h-24 cursor-pointer transition-colors ${
+                  selectedHabit ? "hover:bg-[#2a2a2a]" : ""
+                } ${isToday ? "border border-[#3a3a3a] bg-[#242424]" : "border border-[#262626]"}`}
+              >
+                <div className={`text-xs font-semibold mb-0.5 ${isToday ? "text-white" : "text-gray-600"}`}>{DAYS[i]}</div>
+                <div className={`text-lg font-bold mb-1.5 ${isToday ? "text-white" : "text-gray-500"}`}>{d.getDate()}</div>
+                <div className="space-y-1">
+                  {dayPlans.map(p => {
+                    const h = habit(p.habitId);
+                    if (!h) return null;
+                    return (
+                      <div
+                        key={p.id}
+                        className="group/chip relative flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium cursor-pointer transition-all"
+                        style={{
+                          backgroundColor: p.done ? `${h.color}60` : `${h.color}22`,
+                          color: h.color,
+                          textDecoration: p.done ? "line-through" : "none",
+                          opacity: p.done ? 0.7 : 1,
+                        }}
+                        onClick={e => { e.stopPropagation(); toggleDone(p.id); }}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0 border transition-all"
+                          style={{
+                            backgroundColor: p.done ? h.color : "transparent",
+                            borderColor: h.color,
+                          }}
+                        />
+                        <span className="truncate">{h.label}</span>
+                        <button
+                          className="absolute -top-1 -right-1 w-3 h-3 bg-[#1e1e1e] border border-[#333] rounded-full text-gray-500 hover:text-red-400 hidden group-hover/chip:flex items-center justify-center text-xs leading-none"
+                          onClick={e => { e.stopPropagation(); removePlan(p.id); }}
+                        >×</button>
+                      </div>
+                    );
+                  })}
+                  {dayEvents.map(ev => (
+                    <div key={ev.id} className="text-xs text-gray-500 truncate">{ev.time} {ev.title}</div>
+                  ))}
                 </div>
               </div>
             );
           })}
         </div>
-        <p className="text-xs text-gray-400 mt-3">Run <code className="bg-gray-100 px-1 rounded">python3 scripts/extract-budget.py</code> to sync latest data.</p>
       </div>
-    </div>
-  );
-}
 
-function CalendarSection() {
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const today = new Date();
-  const dayOfWeek = today.getDay();
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + mondayOffset);
+      {/* Historical completion chart */}
+      {(() => {
+        const totalFreq = habits.reduce((s, h) => s + h.frequency, 0);
+        if (totalFreq === 0 || planned.length === 0) return null;
 
-  const weekDates = days.map((_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d;
-  });
+        // Group planned entries by their Monday date key
+        const weekMap = new Map<string, { done: number }>();
+        for (const p of planned) {
+          const monday = getMondayOf(new Date(p.date + "T00:00:00"));
+          const key = dateStr(monday);
+          if (!weekMap.has(key)) weekMap.set(key, { done: 0 });
+          if (p.done) weekMap.get(key)!.done++;
+        }
 
-  const [events, setEvents] = useState<{ id: string; date: string; title: string; time: string }[]>(() =>
-    LS.get("pos_events", [])
-  );
-  const [newTitle, setNewTitle] = useState("");
-  const [newDate, setNewDate] = useState(todayStr());
-  const [newTime, setNewTime] = useState("09:00");
+        const weeks = Array.from(weekMap.entries())
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([, v]) => Math.min(100, Math.round((v.done / totalFreq) * 100)));
 
-  useEffect(() => { LS.set("pos_events", events); }, [events]);
+        if (weeks.length < 1) return null;
 
-  const add = () => {
-    if (!newTitle.trim()) return;
-    setEvents(e => [...e, { id: uid(), date: newDate, title: newTitle.trim(), time: newTime }]);
-    setNewTitle("");
-  };
+        // Convert to running average (each point = avg of all weeks so far)
+        const runningAvg = weeks.map((_, i) =>
+          Math.round(weeks.slice(0, i + 1).reduce((s, v) => s + v, 0) / (i + 1))
+        );
 
-  const remove = (id: string) => setEvents(e => e.filter(x => x.id !== id));
+        const W = 400;
+        const H = 60;
+        const pad = 8;
+        const innerW = W - pad * 2;
+        const innerH = H - pad * 2;
 
-  return (
-    <div className="space-y-6">
-      {/* Week grid */}
-      <div className="grid grid-cols-7 gap-1">
-        {weekDates.map((d, i) => {
-          const dateStr = d.toISOString().slice(0, 10);
-          const isToday = dateStr === todayStr();
-          const dayEvents = events.filter(e => e.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
-          return (
-            <div key={i} className={`rounded-xl p-2 min-h-24 ${isToday ? "bg-blue-50 border-2 border-blue-400" : "bg-gray-50 border border-gray-200"}`}>
-              <div className={`text-xs font-semibold mb-1 ${isToday ? "text-blue-600" : "text-gray-500"}`}>
-                {days[i]}
-              </div>
-              <div className={`text-lg font-bold mb-2 ${isToday ? "text-blue-700" : "text-gray-700"}`}>
-                {d.getDate()}
-              </div>
-              <div className="space-y-1">
-                {dayEvents.map(ev => (
-                  <div key={ev.id} className="group relative bg-blue-600 text-white text-xs rounded px-1.5 py-0.5 truncate">
-                    {ev.time} {ev.title}
-                    <button onClick={() => remove(ev.id)} className="absolute right-0.5 top-0.5 hidden group-hover:block text-white/70 hover:text-white">✕</button>
-                  </div>
-                ))}
+        const pts = runningAvg.map((pct, i) => {
+          const x = runningAvg.length === 1 ? pad + innerW / 2 : pad + (i / (runningAvg.length - 1)) * innerW;
+          const y = pad + innerH - (pct / 100) * innerH;
+          return [x, y] as [number, number];
+        });
+
+        const linePath = pts.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x} ${y}`).join(" ");
+        const areaPath = `${linePath} L ${pts[pts.length - 1][0]} ${pad + innerH} L ${pts[0][0]} ${pad + innerH} Z`;
+
+        return (
+          <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Completion History</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-600">{weeks.length} week{weeks.length !== 1 ? "s" : ""}</span>
+                <button
+                  onClick={() => setHistExpanded(x => !x)}
+                  className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-2 py-1 transition-colors"
+                >
+                  ⤢
+                </button>
               </div>
             </div>
-          );
-        })}
-      </div>
+            {/* Compact sparkline (always visible) */}
+            <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-14" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="histGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <line x1={pad} y1={pad + innerH / 2} x2={W - pad} y2={pad + innerH / 2} stroke="#2a2a2a" strokeWidth="1" strokeDasharray="4 4" />
+              <path d={areaPath} fill="url(#histGrad)" />
+              <path d={linePath} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              {pts.map(([x, y], i) => (
+                <circle key={i} cx={x} cy={y} r="2.5" fill="#3b82f6" />
+              ))}
+            </svg>
+            <div className="flex justify-between text-[10px] text-gray-700 mt-1">
+              <span>0%</span>
+              <span>50%</span>
+              <span>100%</span>
+            </div>
 
-      {/* Add event */}
-      <div className="flex gap-2 flex-wrap">
-        <input className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none" placeholder="Event title…" value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} />
-        <input type="date" className="border border-gray-200 rounded-lg px-3 py-2 text-sm" value={newDate} onChange={e => setNewDate(e.target.value)} />
-        <input type="time" className="border border-gray-200 rounded-lg px-3 py-2 text-sm" value={newTime} onChange={e => setNewTime(e.target.value)} />
-        <button onClick={add} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">Add</button>
-      </div>
-    </div>
-  );
-}
-
-function JournalSection() {
-  const [entries, setEntries] = useState<JournalEntry[]>(() =>
-    LS.get("pos_journal", [] as JournalEntry[])
-  );
-  const [text, setText] = useState("");
-  const [expanded, setExpanded] = useState<string | null>(null);
-
-  useEffect(() => { LS.set("pos_journal", entries); }, [entries]);
-
-  const save = () => {
-    if (!text.trim()) return;
-    setEntries(e => [{ id: uid(), date: todayStr(), text: text.trim() }, ...e]);
-    setText("");
-  };
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <textarea
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-          rows={5}
-          placeholder="What happened today? How are you feeling? What went well, what didn't?"
-          value={text}
-          onChange={e => setText(e.target.value)}
-        />
-        <button onClick={save} className="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
-          Save Entry
-        </button>
-      </div>
-
-      <div className="space-y-3">
-        {entries.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No entries yet.</p>}
-        {entries.map(e => (
-          <div key={e.id} className="border border-gray-200 rounded-xl overflow-hidden">
-            <button
-              className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
-              onClick={() => setExpanded(expanded === e.id ? null : e.id)}
-            >
-              <span className="text-sm font-medium text-gray-700">{e.date}</span>
-              <span className="text-xs text-gray-400 max-w-xs truncate">{e.text.slice(0, 60)}…</span>
-              <span className="text-gray-400 text-sm ml-2">{expanded === e.id ? "▲" : "▼"}</span>
-            </button>
-            {expanded === e.id && (
-              <div className="px-4 pb-4 text-sm text-gray-700 whitespace-pre-wrap border-t border-gray-100 pt-3">
-                {e.text}
+            {/* Expanded modal */}
+            {histExpanded && (
+              <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-8" onClick={() => setHistExpanded(false)}>
+                <div
+                  className="bg-[#181818] border border-[#2e2e2e] rounded-2xl p-8 shadow-2xl w-full max-w-3xl"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <span className="text-sm font-semibold text-white">Completion History</span>
+                      <span className="text-xs text-gray-600 ml-3">{weeks.length} week{weeks.length !== 1 ? "s" : ""} logged</span>
+                    </div>
+                    <button onClick={() => setHistExpanded(false)} className="text-gray-500 hover:text-white text-lg">✕</button>
+                  </div>
+                  {(() => {
+                    const EW = 600;
+                    const EH = 200;
+                    const ep = 28;
+                    const eiW = EW - ep * 2;
+                    const eiH = EH - ep * 2;
+                    const epts = runningAvg.map((pct, i) => {
+                      const x = runningAvg.length === 1 ? ep + eiW / 2 : ep + (i / (runningAvg.length - 1)) * eiW;
+                      const y = ep + eiH - (pct / 100) * eiH;
+                      return [x, y] as [number, number];
+                    });
+                    const eLine = epts.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x} ${y}`).join(" ");
+                    const eArea = `${eLine} L ${epts[epts.length - 1][0]} ${ep + eiH} L ${epts[0][0]} ${ep + eiH} Z`;
+                    return (
+                      <>
+                        <svg viewBox={`0 0 ${EW} ${EH}`} className="w-full" style={{ height: 220 }} preserveAspectRatio="none">
+                          <defs>
+                            <linearGradient id="histGradE" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+                              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                            </linearGradient>
+                          </defs>
+                          {[0, 25, 50, 75, 100].map(pct => {
+                            const ly = ep + eiH - (pct / 100) * eiH;
+                            return (
+                              <g key={pct}>
+                                <line x1={ep} y1={ly} x2={EW - ep} y2={ly} stroke="#252525" strokeWidth="1" strokeDasharray="4 4" />
+                                <text x={ep - 6} y={ly + 4} fontSize="9" fill="#555" textAnchor="end">{pct}%</text>
+                              </g>
+                            );
+                          })}
+                          <path d={eArea} fill="url(#histGradE)" />
+                          <path d={eLine} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                          {epts.map(([x, y], i) => (
+                            <g key={i}>
+                              <circle cx={x} cy={y} r="5" fill="#1e1e1e" stroke="#3b82f6" strokeWidth="2" />
+                              <text x={x} y={y - 12} fontSize="10" fill="#9ca3af" textAnchor="middle">{runningAvg[i]}%</text>
+                              <text x={x} y={ep + eiH + 16} fontSize="9" fill="#555" textAnchor="middle">W{i + 1}</text>
+                            </g>
+                          ))}
+                        </svg>
+                        <div className="flex gap-6 mt-4 pt-4 border-t border-[#2a2a2a]">
+                          <div><p className="text-xs text-gray-600">Current avg</p><p className="text-lg font-bold text-white">{runningAvg[runningAvg.length - 1]}%</p></div>
+                          <div><p className="text-xs text-gray-600">Best week</p><p className="text-lg font-bold text-white">{Math.max(...weeks)}%</p></div>
+                          <div><p className="text-xs text-gray-600">Latest week</p><p className="text-lg font-bold text-white">{weeks[weeks.length - 1]}%</p></div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             )}
           </div>
-        ))}
-      </div>
+        );
+      })()}
+
+      {/* Full calendar modal */}
+      {fullCalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6" onClick={() => setFullCalOpen(false)}>
+          <div className="bg-[#181818] border border-[#2e2e2e] rounded-2xl w-full max-w-2xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setCalMonth(m => {
+                  const d = new Date(m.year, m.month - 1);
+                  return { year: d.getFullYear(), month: d.getMonth() };
+                })} className="text-gray-500 hover:text-white">‹</button>
+                <span className="text-sm font-semibold text-white">{monthLabel}</span>
+                <button onClick={() => setCalMonth(m => {
+                  const d = new Date(m.year, m.month + 1);
+                  return { year: d.getFullYear(), month: d.getMonth() };
+                })} className="text-gray-500 hover:text-white">›</button>
+              </div>
+              <button onClick={() => setFullCalOpen(false)} className="text-gray-500 hover:text-white text-lg">✕</button>
+            </div>
+
+            {/* Month grid */}
+            <div className="grid grid-cols-7 gap-1 mb-5">
+              {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+                <div key={i} className="text-center text-xs text-gray-600 font-medium pb-1">{d}</div>
+              ))}
+              {calDays().map((day, i) => {
+                if (!day) return <div key={i} />;
+                const ds = `${calMonth.year}-${String(calMonth.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                const dayEvents = events.filter(e => e.date === ds);
+                const isToday = ds === todayStr();
+                return (
+                  <div key={i} className={`rounded-lg p-1.5 min-h-12 ${isToday ? "bg-[#2a2a2a] border border-[#444]" : "hover:bg-[#222]"}`}>
+                    <div className={`text-xs font-medium mb-1 ${isToday ? "text-white" : "text-gray-500"}`}>{day}</div>
+                    {dayEvents.map(ev => (
+                      <div key={ev.id} className="text-xs bg-blue-600/30 text-blue-400 rounded px-1 truncate mb-0.5">{ev.title}</div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Add event */}
+            <div className="border-t border-[#2a2a2a] pt-4">
+              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Add Event</p>
+              <div className="flex gap-2 flex-wrap">
+                <input
+                  className="flex-1 min-w-0 bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none"
+                  placeholder="Event title…"
+                  value={newEventTitle}
+                  onChange={e => setNewEventTitle(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && addEvent()}
+                />
+                <input type="date" className="bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} />
+                <input type="time" className="bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none" value={newEventTime} onChange={e => setNewEventTime(e.target.value)} />
+                <button onClick={addEvent} className="bg-white text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Main component ──────────────────────────────────────────────────────────
+// ─── Weather Box ─────────────────────────────────────────────────────────────
 
-type Section = "tasks" | "habits" | "goals" | "finance" | "calendar" | "journal" | "budget";
+const WMO_LABELS: Record<number, string> = {
+  0: "Clear", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+  45: "Foggy", 48: "Icy fog", 51: "Light drizzle", 53: "Drizzle", 55: "Heavy drizzle",
+  61: "Light rain", 63: "Rain", 65: "Heavy rain", 71: "Light snow", 73: "Snow", 75: "Heavy snow",
+  80: "Rain showers", 81: "Rain showers", 82: "Violent showers",
+  95: "Thunderstorm", 96: "Thunderstorm", 99: "Thunderstorm",
+};
 
-const SECTIONS: { id: Section; label: string; icon: string; hidden?: boolean }[] = [
-  { id: "tasks", label: "Tasks", icon: "✅" },
-  { id: "habits", label: "Habits", icon: "🔄" },
-  { id: "goals", label: "Goals", icon: "🎯" },
-  { id: "finance", label: "Finance", icon: "💰" },
-  { id: "calendar", label: "Calendar", icon: "📅" },
-  { id: "journal", label: "Journal", icon: "📓" },
-  { id: "budget", label: "Budget", icon: "📊", hidden: true },
-];
+const WMO_EMOJI: Record<number, string> = {
+  0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
+  45: "🌫️", 48: "🌫️", 51: "🌦️", 53: "🌦️", 55: "🌧️",
+  61: "🌧️", 63: "🌧️", 65: "🌧️", 71: "🌨️", 73: "🌨️", 75: "🌨️",
+  80: "🌦️", 81: "🌦️", 82: "⛈️", 95: "⛈️", 96: "⛈️", 99: "⛈️",
+};
 
-export default function PersonalOS() {
-  const [active, setActive] = useState<Section>("tasks");
+interface WeatherData {
+  temp: number;
+  feelsLike: number;
+  high: number;
+  low: number;
+  code: number;
+}
 
-  const openBudget = useCallback(() => setActive("budget"), []);
+function WeatherBox() {
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [error, setError] = useState(false);
 
-  const now = new Date();
-  const dateLabel = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-
-  const visibleSections = SECTIONS.filter(s => !s.hidden);
-  const current = SECTIONS.find(s => s.id === active)!;
+  useEffect(() => {
+    // NYC: 40.7128, -74.0060
+    fetch(
+      "https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current=temperature_2m,apparent_temperature,weather_code&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=1"
+    )
+      .then(r => r.json())
+      .then(d => setWeather({
+        temp: Math.round(d.current.temperature_2m),
+        feelsLike: Math.round(d.current.apparent_temperature),
+        high: Math.round(d.daily.temperature_2m_max[0]),
+        low: Math.round(d.daily.temperature_2m_min[0]),
+        code: d.current.weather_code,
+      }))
+      .catch(() => setError(true));
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <aside className="w-56 bg-white border-r border-gray-200 flex flex-col py-6 px-4 gap-1 flex-shrink-0">
-        <div className="mb-6 px-2">
-          <div className="text-lg font-bold text-gray-900">My OS</div>
-          <div className="text-xs text-gray-400 mt-0.5">{dateLabel}</div>
-        </div>
-        {visibleSections.map(s => (
-          <button
-            key={s.id}
-            onClick={() => setActive(s.id)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${active === s.id ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}
-          >
-            <span>{s.icon}</span>
-            {s.label}
-          </button>
-        ))}
-      </aside>
-
-      {/* Main */}
-      <main className="flex-1 p-8 overflow-y-auto">
-        {active === "budget" ? (
+    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+      <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">New York</p>
+      {error && <p className="text-xs text-gray-600">Weather unavailable</p>}
+      {!weather && !error && <p className="text-xs text-gray-600 animate-pulse">Loading…</p>}
+      {weather && (
+        <div className="flex items-center justify-between">
           <div>
-            <button onClick={() => setActive("finance")} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-4">
-              ← Back to Finance
-            </button>
-            <BudgetPanel />
+            <div className="flex items-end gap-2">
+              <span className="text-3xl font-bold text-white">{weather.temp}°</span>
+              <span className="text-sm text-gray-500 mb-1">Feels {weather.feelsLike}°</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">{WMO_LABELS[weather.code] ?? "—"}</p>
+            <p className="text-xs text-gray-600 mt-1">H:{weather.high}° L:{weather.low}°</p>
           </div>
-        ) : (
-          <>
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">
-              {current.icon} {current.label}
-            </h1>
-            {active === "tasks" && <TasksSection />}
-            {active === "habits" && <HabitsSection />}
-            {active === "goals" && <GoalsSection />}
-            {active === "finance" && <FinanceSection onOpenBudget={openBudget} />}
-            {active === "calendar" && <CalendarSection />}
-            {active === "journal" && <JournalSection />}
-          </>
-        )}
-      </main>
+          <span className="text-4xl">{WMO_EMOJI[weather.code] ?? "🌡️"}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Notes Box ───────────────────────────────────────────────────────────────
+
+function NotesBox() {
+  const [notes, setNotes] = useState(() => LS.get<string>("pos_notes", ""));
+
+  useEffect(() => { LS.set("pos_notes", notes); }, [notes]);
+
+  return (
+    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 flex flex-col flex-1">
+      <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Notes</p>
+      <textarea
+        className="flex-1 bg-transparent text-sm text-gray-300 placeholder-gray-700 resize-none focus:outline-none leading-relaxed min-h-40"
+        placeholder="Jot something down…"
+        value={notes}
+        onChange={e => setNotes(e.target.value)}
+      />
+    </div>
+  );
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+
+export default function PersonalOS() {
+  const [showBudget, setShowBudget] = useState(false);
+
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  if (showBudget) {
+    return (
+      <div className="min-h-screen bg-[#111] text-white p-8">
+        <button
+          onClick={() => setShowBudget(false)}
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition-colors"
+        >
+          ← Back
+        </button>
+        <BudgetPanel />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#111] text-white p-6">
+      <div className="grid grid-cols-[1fr_2fr_1fr] gap-5 max-w-7xl mx-auto pt-8">
+
+        {/* ── Left column: Goals ── */}
+        <div className="flex flex-col gap-5">
+          <div className="flex-1">
+            <GoalsBox type="weekly" label="Weekly Goals" />
+          </div>
+          <div className="flex-1">
+            <GoalsBox type="daily" label="Daily Goals" />
+          </div>
+        </div>
+
+        {/* ── Middle column: Finance + Habits/Calendar ── */}
+        <div className="flex flex-col gap-5">
+          <FinanceBox onOpenBudget={() => setShowBudget(true)} />
+          <HabitsCalendar />
+        </div>
+
+        {/* ── Right column: Hello + Weather + Notes ── */}
+        <div className="flex flex-col gap-5">
+          <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-6">
+            <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">{greeting}</p>
+            <h1 className="text-2xl font-bold text-white">Finn</h1>
+            <p className="text-xs text-gray-600 mt-2">
+              {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            </p>
+          </div>
+          <WeatherBox />
+          <NotesBox />
+        </div>
+
+      </div>
     </div>
   );
 }
