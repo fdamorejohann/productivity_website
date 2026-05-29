@@ -107,7 +107,7 @@ function typeInfo(type: WorkoutType) {
 // ─── WorkoutPanel ─────────────────────────────────────────────────────────────
 
 export default function WorkoutPanel() {
-  const [tab, setTab] = useState<"log" | "history" | "progress">("history");
+  const [tab, setTab] = useState<"log" | "history" | "progress">("progress");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +132,7 @@ export default function WorkoutPanel() {
           <p className="text-xs text-gray-500 mt-1">{sessions.length} sessions logged</p>
         </div>
         <div className="flex gap-2">
-          {(["history", "log", "progress"] as const).map(t => (
+          {(["progress", "log", "history"] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -630,24 +630,6 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
 
   const filteredEx = exercises.filter(e => e.name.toLowerCase().includes(exSearch.toLowerCase()));
 
-  // Monthly calendar heatmap
-  const workoutDateMap: Record<string, string> = {};
-  for (const s of sessions) workoutDateMap[s.date] = s.type ?? "lifting";
-  const now = new Date();
-  const [calYear, setCalYear] = useState(now.getFullYear());
-  const [calMonth, setCalMonth] = useState(now.getMonth()); // 0-indexed
-  const calLabel = new Date(calYear, calMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  const firstDay = new Date(calYear, calMonth, 1);
-  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  // offset so Mon=0
-  const startOffset = (firstDay.getDay() + 6) % 7;
-  const calCells: { date: string; type: string | null }[] = [];
-  for (let i = 0; i < startOffset; i++) calCells.push({ date: "", type: null });
-  for (let d = 1; d <= daysInMonth; d++) {
-    const ds = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    calCells.push({ date: ds, type: workoutDateMap[ds] ?? null });
-  }
-  const monthSessions = sessions.filter(s => s.date.startsWith(`${calYear}-${String(calMonth + 1).padStart(2, "0")}`));
 
   if (sessions.length === 0) return (
     <div>
@@ -657,45 +639,6 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
 
   return (
     <div className="space-y-4">
-      {/* Monthly calendar */}
-      <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-3 max-w-xs">
-        <div className="flex items-center justify-between mb-2">
-          <button onClick={() => { const d = new Date(calYear, calMonth - 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }} className="text-gray-500 hover:text-white w-6 h-6 flex items-center justify-center transition-colors">‹</button>
-          <div className="text-center">
-            <p className="text-xs font-medium text-white">{calLabel} <span className="text-gray-600 font-normal">· {monthSessions.length} sessions</span></p>
-          </div>
-          <button onClick={() => { const d = new Date(calYear, calMonth + 1, 1); if (d <= now) { setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); } }} className={`w-6 h-6 flex items-center justify-center transition-colors ${new Date(calYear, calMonth + 1, 1) > now ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white"}`}>›</button>
-        </div>
-        <div className="grid grid-cols-7 mb-0.5">
-          {["M","T","W","T","F","S","S"].map((d, i) => (
-            <div key={i} className="text-center text-[10px] text-gray-600 py-0.5">{d}</div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-px">
-          {calCells.map((c, i) => {
-            if (!c.date) return <div key={i} className="aspect-square" />;
-            const color = c.type ? (WORKOUT_COLORS[c.type] ?? "#ef4444") : undefined;
-            const dayNum = parseInt(c.date.slice(8));
-            const isToday = c.date === todayStr();
-            return (
-              <div key={i} title={c.type ? `${c.type === "muaythai" ? "Muay Thai" : c.type}` : undefined}
-                className="aspect-square rounded-sm flex items-center justify-center"
-                style={{ backgroundColor: color ? color + "99" : "transparent" }}>
-                <span className={`text-[10px] leading-none ${isToday ? "font-bold text-white" : color ? "text-white" : "text-gray-600"}`}>{dayNum}</span>
-              </div>
-            );
-          })}
-        </div>
-        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-2">
-          {Object.entries(WORKOUT_COLORS).map(([type, color]) => (
-            <span key={type} className="flex items-center gap-1 text-[10px] text-gray-600 capitalize">
-              <span className="w-1.5 h-1.5 rounded-sm" style={{ backgroundColor: color }} />
-              {type === "muaythai" ? "Muay Thai" : type}
-            </span>
-          ))}
-        </div>
-      </div>
-
       {/* Session list */}
       {sessions.map(s => {
         const t = typeInfo(s.type ?? "lifting");
@@ -893,6 +836,28 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
   const [view, setView] = useState<"overview" | "lift" | "cardio">("overview");
   const [cardioType, setCardioType] = useState<WorkoutType>("running");
 
+  // Monthly calendar state
+  const now = new Date();
+  const [calYear, setCalYear] = useState(now.getFullYear());
+  const [calMonth, setCalMonth] = useState(now.getMonth());
+  const workoutDateMap: Record<string, string[]> = {};
+  for (const s of sessions) {
+    const t = s.type ?? "lifting";
+    if (!workoutDateMap[s.date]) workoutDateMap[s.date] = [];
+    if (!workoutDateMap[s.date].includes(t)) workoutDateMap[s.date].push(t);
+  }
+  const calLabel = new Date(calYear, calMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const firstDay = new Date(calYear, calMonth, 1);
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const calCells: { date: string; types: string[] }[] = [];
+  for (let i = 0; i < startOffset; i++) calCells.push({ date: "", types: [] });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    calCells.push({ date: ds, types: workoutDateMap[ds] ?? [] });
+  }
+  const monthSessions = sessions.filter(s => s.date.startsWith(`${calYear}-${String(calMonth + 1).padStart(2, "0")}`));
+
   const liftingSessions = sessions.filter(s => (s.type ?? "lifting") === "lifting");
   const cardioSessions = (type: WorkoutType) => sessions.filter(s => s.type === type && s.cardio_data);
 
@@ -961,6 +926,48 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
 
     return (
       <div className="space-y-5">
+        {/* Monthly calendar */}
+        <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-3" style={{ width: 224 }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <button onClick={() => { const d = new Date(calYear, calMonth - 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }} className="text-gray-500 hover:text-white w-5 h-5 flex items-center justify-center transition-colors text-xs">‹</button>
+            <p className="text-[11px] font-medium text-white">{calLabel} <span className="text-gray-600 font-normal">· {monthSessions.length}</span></p>
+            <button onClick={() => { const d = new Date(calYear, calMonth + 1, 1); if (d <= now) { setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); } }} className={`w-5 h-5 flex items-center justify-center transition-colors text-xs ${new Date(calYear, calMonth + 1, 1) > now ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white"}`}>›</button>
+          </div>
+          <div className="grid grid-cols-7 mb-0.5">
+            {["M","T","W","T","F","S","S"].map((d, i) => (
+              <div key={i} className="text-center text-[9px] text-gray-600">{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-px">
+            {calCells.map((c, i) => {
+              if (!c.date) return <div key={i} style={{ height: 28 }} />;
+              const dayNum = parseInt(c.date.slice(8));
+              const isToday = c.date === todayStr();
+              const hasWorkout = c.types.length > 0;
+              return (
+                <div key={i} style={{ height: 28 }} className="flex flex-col items-center justify-center gap-px">
+                  <span className={`text-[10px] leading-none ${isToday ? "font-bold text-white" : hasWorkout ? "text-gray-300" : "text-gray-600"}`}>{dayNum}</span>
+                  {hasWorkout && (
+                    <div className="flex gap-px">
+                      {c.types.map(t => (
+                        <span key={t} className="w-1 h-1 rounded-full" style={{ backgroundColor: WORKOUT_COLORS[t] ?? "#ef4444" }} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-2">
+            {Object.entries(WORKOUT_COLORS).map(([type, color]) => (
+              <span key={type} className="flex items-center gap-1 text-[9px] text-gray-600 capitalize">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+                {type === "muaythai" ? "Muay Thai" : type}
+              </span>
+            ))}
+          </div>
+        </div>
+
         {/* Lifting exercise cards */}
         {hasLifts && (
           <div>
