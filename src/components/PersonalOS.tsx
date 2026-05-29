@@ -1168,8 +1168,13 @@ function WhoopBox() {
       .catch(() => setLoading(false));
   }, []);
 
-  const sleepHours = data?.sleep?.stage_summary?.total_in_bed_time_milli
-    ? msToHours(data.sleep.stage_summary.total_in_bed_time_milli) : null;
+  const sleepHours = data?.sleep?.stage_summary
+    ? msToHours(
+        data.sleep.stage_summary.total_light_sleep_time_milli +
+        data.sleep.stage_summary.total_slow_wave_sleep_time_milli +
+        data.sleep.stage_summary.total_rem_sleep_time_milli
+      )
+    : null;
 
   return (
     <>
