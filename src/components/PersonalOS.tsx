@@ -242,9 +242,19 @@ function makePath(vals: number[], maxVal: number, W: number, H: number): string 
   }).join(" ");
 }
 
+type FinanceTab = "total" | "savings" | "investments" | "leftover";
+
+const FINANCE_TABS: { key: FinanceTab; label: string; color: string }[] = [
+  { key: "total",       label: "Total",    color: "#ffffff" },
+  { key: "savings",     label: "Savings",  color: "#22c55e" },
+  { key: "investments", label: "Investing", color: "#a78bfa" },
+  { key: "leftover",    label: "Leftover", color: "#3b82f6" },
+];
+
 function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   const [rows, setRows] = useState<SummaryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<FinanceTab>("total");
 
   useEffect(() => {
     db.summary.list().then((data: SummaryRow[]) => {
@@ -254,53 +264,62 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   }, []);
 
   const sortedMonths = [...new Set(rows.map(r => r.month))].sort();
-  const savingsLine = buildCumulativeLine(rows, "savings", sortedMonths);
-  const investLine  = buildCumulativeLine(rows, "investments", sortedMonths);
+  const savingsLine  = buildCumulativeLine(rows, "savings", sortedMonths);
+  const investLine   = buildCumulativeLine(rows, "investments", sortedMonths);
   const leftoverLine = buildCumulativeLine(rows, "leftover", sortedMonths);
-  const total = (savingsLine.at(-1) ?? 0) + (investLine.at(-1) ?? 0) + (leftoverLine.at(-1) ?? 0);
+  const totalLine    = savingsLine.map((v, i) => v + investLine[i] + leftoverLine[i]);
+
+  const lineMap: Record<FinanceTab, number[]> = {
+    total: totalLine, savings: savingsLine, investments: investLine, leftover: leftoverLine,
+  };
+
+  const activeLine = lineMap[tab];
+  const activeColor = FINANCE_TABS.find(t => t.key === tab)!.color;
+  const activeValue = activeLine.at(-1) ?? 0;
 
   const W = 280;
   const H = 80;
-  const maxVal = Math.max(...savingsLine, ...investLine, ...leftoverLine, 1);
-
-  const savingsPath  = makePath(savingsLine, maxVal, W, H);
-  const investPath   = makePath(investLine, maxVal, W, H);
-  const leftoverPath = makePath(leftoverLine, maxVal, W, H);
-
-  const lastX = W;
-  const dot = (line: number[]) => {
-    const y = H - ((line.at(-1) ?? 0) / maxVal) * (H - 4);
-    return { x: lastX, y };
-  };
+  const maxVal = Math.max(...activeLine, 1);
+  const activePath = makePath(activeLine, maxVal, W, H);
+  const lastY = H - (activeValue / maxVal) * (H - 4);
 
   return (
-    <button
-      onClick={onOpenBudget}
-      className="w-full text-left bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 hover:border-[#444] transition-colors group"
-    >
+    <div className="w-full bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Total Saved</span>
-        <span className="text-xs text-gray-600 group-hover:text-gray-400 transition-colors">View Budget →</span>
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+          {FINANCE_TABS.find(t => t.key === tab)!.label}
+        </span>
+        <button onClick={onOpenBudget} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">View Budget →</button>
       </div>
-      <div className={`text-2xl font-bold mb-2 ${total < 0 ? "text-red-400" : "text-white"}`}>
-        {loading ? "—" : `${total < 0 ? "-" : ""}$${Math.abs(total).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+      <div className="text-2xl font-bold mb-2" style={{ color: activeColor }}>
+        {loading ? "—" : `${activeValue < 0 ? "-" : ""}$${Math.abs(activeValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
-        <path d={savingsPath}  fill="none" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d={investPath}   fill="none" stroke="#a78bfa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d={leftoverPath} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        {sortedMonths.length > 0 && <>
-          <circle cx={dot(savingsLine).x}  cy={dot(savingsLine).y}  r="3" fill="#22c55e" />
-          <circle cx={dot(investLine).x}   cy={dot(investLine).y}   r="3" fill="#a78bfa" />
-          <circle cx={dot(leftoverLine).x} cy={dot(leftoverLine).y} r="3" fill="#3b82f6" />
-        </>}
+        <defs>
+          <linearGradient id="finGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={activeColor} stopOpacity="0.2" />
+            <stop offset="100%" stopColor={activeColor} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {activeLine.length > 1 && (
+          <path d={`${activePath} L ${W} ${H} L 0 ${H} Z`} fill="url(#finGrad)" />
+        )}
+        <path d={activePath} fill="none" stroke={activeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {sortedMonths.length > 0 && <circle cx={W} cy={lastY} r="3" fill={activeColor} />}
       </svg>
       <div className="flex gap-3 mt-2">
-        <span className="text-xs text-green-400">● Savings</span>
-        <span className="text-xs text-purple-400">● Investing</span>
-        <span className="text-xs text-blue-400">● Leftover</span>
+        {FINANCE_TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`text-xs font-medium transition-colors ${tab === t.key ? "opacity-100" : "opacity-40 hover:opacity-70"}`}
+            style={{ color: t.color }}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
-    </button>
+    </div>
   );
 }
 
