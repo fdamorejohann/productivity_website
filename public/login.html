@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enter Passcode</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #1e1e1e;
+      border: 1px solid #2e2e2e;
+      border-radius: 1.25rem;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+    }
+    .lock { font-size: 2.5rem; margin-bottom: 1.25rem; }
+    h1 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; }
+    p { font-size: 0.8rem; color: #6b7280; margin-bottom: 1.75rem; }
+    input {
+      width: 100%;
+      background: #252525;
+      border: 1px solid #333;
+      border-radius: 0.75rem;
+      padding: 0.75rem 1rem;
+      font-size: 1.1rem;
+      color: #fff;
+      text-align: center;
+      letter-spacing: 0.25em;
+      outline: none;
+      margin-bottom: 1rem;
+    }
+    input:focus { border-color: #555; }
+    button {
+      width: 100%;
+      background: #fff;
+      color: #000;
+      border: none;
+      border-radius: 0.75rem;
+      padding: 0.75rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    button:hover { background: #e5e5e5; }
+    .error {
+      color: #ef4444;
+      font-size: 0.8rem;
+      margin-top: 0.75rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="lock">🔒</div>
+    <h1>Personal OS</h1>
+    <p>Enter your passcode to continue</p>
+    <input type="password" id="pw" placeholder="••••••" autofocus
+      onkeydown="if(event.key==='Enter') submit()" />
+    <button onclick="submit()">Unlock</button>
+    <div class="error" id="err">Incorrect passcode</div>
+  </div>
+
+  <script>
+    async function submit() {
+      const pw = document.getElementById("pw").value;
+      const err = document.getElementById("err");
+      err.style.display = "none";
+
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pw }),
+      });
+
+      if (res.ok) {
+        const params = new URLSearchParams(window.location.search);
+        window.location.href = params.get("from") || "/";
+      } else {
+        err.style.display = "block";
+        document.getElementById("pw").value = "";
+        document.getElementById("pw").focus();
+      }
+    }
+  </script>
+</body>
+</html>
