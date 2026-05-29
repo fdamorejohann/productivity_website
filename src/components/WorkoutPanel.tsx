@@ -926,31 +926,25 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
 
     return (
       <div className="space-y-5">
-        {/* Monthly calendar */}
-        <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-3" style={{ width: 224 }}>
-          <div className="flex items-center justify-between mb-1.5">
-            <button onClick={() => { const d = new Date(calYear, calMonth - 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }} className="text-gray-500 hover:text-white w-5 h-5 flex items-center justify-center transition-colors text-xs">‹</button>
-            <p className="text-[11px] font-medium text-white">{calLabel} <span className="text-gray-600 font-normal">· {monthSessions.length}</span></p>
-            <button onClick={() => { const d = new Date(calYear, calMonth + 1, 1); if (d <= now) { setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); } }} className={`w-5 h-5 flex items-center justify-center transition-colors text-xs ${new Date(calYear, calMonth + 1, 1) > now ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white"}`}>›</button>
+        {/* Monthly calendar — full width, 10 cols */}
+        <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <button onClick={() => { const d = new Date(calYear, calMonth - 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }} className="text-gray-500 hover:text-white w-6 h-6 flex items-center justify-center transition-colors">‹</button>
+            <p className="text-sm font-medium text-white">{calLabel} <span className="text-gray-500 font-normal text-xs">· {monthSessions.length} sessions</span></p>
+            <button onClick={() => { const d = new Date(calYear, calMonth + 1, 1); if (d <= now) { setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); } }} className={`w-6 h-6 flex items-center justify-center transition-colors ${new Date(calYear, calMonth + 1, 1) > now ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white"}`}>›</button>
           </div>
-          <div className="grid grid-cols-7 mb-0.5">
-            {["M","T","W","T","F","S","S"].map((d, i) => (
-              <div key={i} className="text-center text-[9px] text-gray-600">{d}</div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-px">
-            {calCells.map((c, i) => {
-              if (!c.date) return <div key={i} style={{ height: 28 }} />;
-              const dayNum = parseInt(c.date.slice(8));
-              const isToday = c.date === todayStr();
-              const hasWorkout = c.types.length > 0;
+          <div className="grid grid-cols-10 gap-1">
+            {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
+              const ds = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+              const types = workoutDateMap[ds] ?? [];
+              const isToday = ds === todayStr();
               return (
-                <div key={i} style={{ height: 28 }} className="flex flex-col items-center justify-center gap-px">
-                  <span className={`text-[10px] leading-none ${isToday ? "font-bold text-white" : hasWorkout ? "text-gray-300" : "text-gray-600"}`}>{dayNum}</span>
-                  {hasWorkout && (
-                    <div className="flex gap-px">
-                      {c.types.map(t => (
-                        <span key={t} className="w-1 h-1 rounded-full" style={{ backgroundColor: WORKOUT_COLORS[t] ?? "#ef4444" }} />
+                <div key={d} className={`rounded-lg p-1.5 flex flex-col items-center gap-1 ${isToday ? "bg-[#2e2e2e]" : types.length > 0 ? "bg-[#252525]" : ""}`}>
+                  <span className={`text-xs leading-none ${isToday ? "font-bold text-white" : types.length > 0 ? "text-gray-300" : "text-gray-600"}`}>{d}</span>
+                  {types.length > 0 && (
+                    <div className="flex gap-0.5 flex-wrap justify-center">
+                      {types.map(t => (
+                        <span key={t} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: WORKOUT_COLORS[t] ?? "#ef4444" }} />
                       ))}
                     </div>
                   )}
@@ -958,9 +952,9 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
               );
             })}
           </div>
-          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-2">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3">
             {Object.entries(WORKOUT_COLORS).map(([type, color]) => (
-              <span key={type} className="flex items-center gap-1 text-[9px] text-gray-600 capitalize">
+              <span key={type} className="flex items-center gap-1 text-[10px] text-gray-600 capitalize">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
                 {type === "muaythai" ? "Muay Thai" : type}
               </span>
@@ -975,7 +969,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
             <div className="grid grid-cols-2 gap-3">
               {liftingEntries.map(([exId, pts]) => {
                 const exName = exercises.find(e => e.id === exId)?.name ?? exId;
-                const values = pts.map(p => p.maxWeight).filter(v => v > 0);
+                const values = pts.map(p => p.best1RM).filter(v => v > 0);
                 const best = values.length ? Math.max(...values) : 0;
                 const first = values[0] ?? 0;
                 const last = values[values.length - 1] ?? 0;
@@ -990,7 +984,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
                       </span>
                     </div>
                     <Sparkline values={values} color="#3b82f6" isAmrap={false} />
-                    <p className="text-xs text-gray-500 mt-2">Best: <span className="text-white">{best} lbs</span> · {pts.length} sessions</p>
+                    <p className="text-xs text-gray-500 mt-2">Est. 1RM: <span className="text-white">{best} lbs</span> · {pts.length} sessions</p>
                   </button>
                 );
               })}
@@ -1060,7 +1054,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
     const pts = selectedExercise ? history.get(selectedExercise) ?? [] : [];
     const exName = exercises.find(e => e.id === selectedExercise)?.name ?? "—";
     const isAmrap = pts.every(p => p.isAmrap);
-    const values = isAmrap ? pts.map(p => p.maxReps) : pts.map(p => p.maxWeight);
+    const values = isAmrap ? pts.map(p => p.maxReps) : pts.map(p => p.best1RM);
     const maxVal = values.length ? Math.max(...values) : 1;
     const first = values[0] ?? 0;
     const last = values[values.length - 1] ?? 0;
@@ -1088,8 +1082,8 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
 
         <div className="grid grid-cols-4 gap-3">
           {[
-            { label: isAmrap ? "Best AMRAP" : "Best set", value: `${maxVal} ${unit}` },
-            { label: "Est. 1RM", value: isAmrap ? "N/A" : `${best1RM} lbs` },
+            { label: isAmrap ? "Best AMRAP" : "Est. 1RM", value: `${maxVal} ${unit}` },
+            { label: "All-time best", value: isAmrap ? "N/A" : `${best1RM} lbs` },
             { label: "Progress", value: first ? `+${last - first} ${unit}` : "—" },
             { label: "Sessions", value: String(pts.length) },
           ].map(({ label, value }) => (
@@ -1102,7 +1096,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
 
         <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-4">
-            {exName} — {isAmrap ? "Max reps per session" : "Max weight per session"}
+            {exName} — {isAmrap ? "Max reps per session" : "Est. 1RM per session"}
           </p>
           {pts.length < 2 ? (
             <p className="text-gray-600 text-sm">Need at least 2 sessions to show a trend.</p>
@@ -1156,8 +1150,8 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
                   {isAmrap
                     ? <span className="text-xs text-gray-500">Max reps <span style={{ color }}>{p.maxReps}</span></span>
                     : <>
-                      <span className="text-xs text-gray-500">Max <span className="text-white">{p.maxWeight} lbs</span></span>
-                      <span className="text-xs text-gray-500">1RM <span className="text-blue-400">{p.best1RM} lbs</span></span>
+                      <span className="text-xs text-gray-500">Est. 1RM <span className="text-blue-400">{p.best1RM} lbs</span></span>
+                      <span className="text-xs text-gray-500">Max weight <span className="text-white">{p.maxWeight} lbs</span></span>
                     </>
                   }
                 </div>
