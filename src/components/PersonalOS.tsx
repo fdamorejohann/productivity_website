@@ -236,10 +236,12 @@ function monthSavingsAndLeftover(d: MonthBudgetSnap): number {
     return d.logs.filter(l => l.category.toLowerCase() === lbl).reduce((s, l) => s + l.amount, 0);
   };
   const incomeActual = d.income.reduce((s, r) => s + (r.actual ?? 0), 0);
-  const spendingActual = d.expenses.filter(r => r.bucket === "spending" && r.label !== "work").reduce((s, r) => s + expActual(r), 0);
+  // All expenses except "work" (reimbursed), subtract all buckets to get true leftover
+  const allExpenses = d.expenses.filter(r => r.label !== "work").reduce((s, r) => s + expActual(r), 0);
   const rebates = d.logs.filter(l => l.category === "Rebates").reduce((s, l) => s + l.amount, 0);
   const savingsActual = d.expenses.filter(r => r.bucket === "savings").reduce((s, r) => s + expActual(r), 0);
-  const leftover = incomeActual - spendingActual + rebates;
+  // leftover = income - ALL expenses + rebates (matches Budget page "Leftover" card)
+  const leftover = incomeActual - allExpenses + rebates;
   return savingsActual + leftover;
 }
 
@@ -277,13 +279,14 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   const total = points.length > 0 ? points[points.length - 1].cumulative : 0;
   const W = 280;
   const H = 80;
-  const minVal = Math.min(0, ...points.map(p => p.cumulative));
-  const maxVal = Math.max(...points.map(p => p.cumulative), 1);
-  const range = maxVal - minVal || 1;
+  // Always start from 0
+  const allPts = [{ month: "start", cumulative: 0 }, ...points];
+  const maxVal = Math.max(...allPts.map(p => p.cumulative), 1);
+  const range = maxVal || 1;
 
-  const svgPoints: [number, number][] = points.map((p, i) => [
-    points.length === 1 ? W : (i / (points.length - 1)) * W,
-    H - ((p.cumulative - minVal) / range) * (H - 4),
+  const svgPoints: [number, number][] = allPts.map((p, i) => [
+    (i / (allPts.length - 1)) * W,
+    H - (p.cumulative / range) * (H - 4),
   ]);
 
   const pathD = svgPoints.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x} ${y}`).join(" ");
