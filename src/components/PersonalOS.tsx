@@ -3,9 +3,10 @@
  * 3-column layout: Goals | Finance + Habits/Calendar | Hello Finn
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import BudgetPanel from "./BudgetPanel";
 import budgetData from "../data/budget.json";
+import { db } from "../lib/db";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -87,33 +88,44 @@ function dateStr(d: Date) {
 // ─── Goals Box ───────────────────────────────────────────────────────────────
 
 function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) {
-  const key = `pos_goals_${type}`;
-  const [goals, setGoals] = useState<Goal[]>(() => LS.get(key, []));
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [panelOpen, setPanelOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newColor, setNewColor] = useState(GOAL_COLORS[0]);
 
-  useEffect(() => { LS.set(key, goals); }, [goals, key]);
+  useEffect(() => {
+    db.goals.list().then((all: Goal[]) => setGoals(all.filter((g: Goal) => g.type === type)));
+  }, [type]);
 
-  const add = () => {
+  const add = async () => {
     if (!newTitle.trim()) return;
-    setGoals(g => [...g, {
-      id: uid(), title: newTitle.trim(), type,
-      starred: false, done: false, color: newColor, createdAt: new Date().toISOString(),
-    }]);
+    const goal = { id: uid(), title: newTitle.trim(), type, starred: false, done: false, color: newColor, created_at: new Date().toISOString() };
+    const saved = await db.goals.upsert(goal);
+    setGoals(g => [...g, saved]);
     setNewTitle("");
   };
 
-  const setColor = (id: string, color: string) =>
+  const setColor = async (id: string, color: string) => {
     setGoals(g => g.map(x => x.id === id ? { ...x, color } : x));
+    await db.goals.update(id, { color });
+  };
 
-  const toggleStar = (id: string) =>
+  const toggleStar = async (id: string) => {
+    const goal = goals.find(g => g.id === id)!;
     setGoals(g => g.map(x => x.id === id ? { ...x, starred: !x.starred } : x));
+    await db.goals.update(id, { starred: !goal.starred });
+  };
 
-  const toggleDone = (id: string) =>
+  const toggleDone = async (id: string) => {
+    const goal = goals.find(g => g.id === id)!;
     setGoals(g => g.map(x => x.id === id ? { ...x, done: !x.done } : x));
+    await db.goals.update(id, { done: !goal.done });
+  };
 
-  const remove = (id: string) => setGoals(g => g.filter(x => x.id !== id));
+  const remove = async (id: string) => {
+    setGoals(g => g.filter(x => x.id !== id));
+    await db.goals.delete(id);
+  };
 
   const starred = goals.filter(g => g.starred && !g.done);
 
@@ -304,15 +316,15 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
 // ─── Habits + Calendar ───────────────────────────────────────────────────────
 
 function HabitsCalendar() {
-  const [habits, setHabits] = useState<Habit[]>(() => LS.get("pos_habits2", []));
-  const [planned, setPlanned] = useState<PlannedHabit[]>(() => LS.get("pos_planned_habits", []));
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [planned, setPlanned] = useState<PlannedHabit[]>([]);
   const [weekOffset, setWeekOffset] = useState(0);
   const [newHabit, setNewHabit] = useState("");
   const [newFreq, setNewFreq] = useState(3);
   const [selectedHabit, setSelectedHabit] = useState<string | null>(null);
   const [fullCalOpen, setFullCalOpen] = useState(false);
   const [histExpanded, setHistExpanded] = useState(false);
-  const [events, setEvents] = useState<CalendarEvent[]>(() => LS.get("pos_cal_events", []));
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [calMonth, setCalMonth] = useState(() => {
     const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() };
   });
@@ -320,41 +332,57 @@ function HabitsCalendar() {
   const [newEventTitle, setNewEventTitle] = useState("");
   const [newEventTime, setNewEventTime] = useState("09:00");
 
-  useEffect(() => { LS.set("pos_habits2", habits); }, [habits]);
-  useEffect(() => { LS.set("pos_planned_habits", planned); }, [planned]);
-  useEffect(() => { LS.set("pos_cal_events", events); }, [events]);
+  useEffect(() => {
+    db.habits.list().then((h: Habit[]) => setHabits(h));
+    db.planned.list().then((p: PlannedHabit[]) => setPlanned(p.map((x: PlannedHabit & { habit_id?: string }) => ({ ...x, habitId: x.habit_id ?? x.habitId }))));
+    db.events.list().then((e: CalendarEvent[]) => setEvents(e));
+  }, []);
 
   const monday = getMondayOf(new Date());
   monday.setDate(monday.getDate() + weekOffset * 7);
   const weekDates = getWeekDates(monday);
 
-  const addHabit = () => {
+  const addHabit = async () => {
     if (!newHabit.trim()) return;
     const color = HABIT_COLORS[habits.length % HABIT_COLORS.length];
-    setHabits(h => [...h, { id: uid(), label: newHabit.trim(), color, frequency: newFreq }]);
+    const habit = { id: uid(), label: newHabit.trim(), color, frequency: newFreq };
+    const saved = await db.habits.upsert(habit);
+    setHabits(h => [...h, saved]);
     setNewHabit("");
   };
 
-  const assignHabit = (date: string) => {
+  const assignHabit = async (date: string) => {
     if (!selectedHabit) return;
-    setPlanned(p => [...p, { id: uid(), habitId: selectedHabit, date, done: false }]);
+    const plan = { id: uid(), habit_id: selectedHabit, date, done: false };
+    const saved = await db.planned.upsert(plan);
+    setPlanned(p => [...p, { ...saved, habitId: saved.habit_id }]);
   };
 
-  const toggleDone = (id: string) =>
+  const toggleDone = async (id: string) => {
+    const plan = planned.find(x => x.id === id)!;
     setPlanned(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x));
+    await db.planned.update(id, { done: !plan.done });
+  };
 
-  const removePlan = (id: string) => setPlanned(p => p.filter(x => x.id !== id));
-  const removeHabit = (id: string) => {
+  const removePlan = async (id: string) => {
+    setPlanned(p => p.filter(x => x.id !== id));
+    await db.planned.delete(id);
+  };
+
+  const removeHabit = async (id: string) => {
     setHabits(h => h.filter(x => x.id !== id));
     setPlanned(p => p.filter(x => x.habitId !== id));
+    await db.habits.delete(id);
   };
 
   const habit = (id: string) => habits.find(h => h.id === id);
 
   // Full calendar helpers
-  const addEvent = () => {
+  const addEvent = async () => {
     if (!newEventTitle.trim()) return;
-    setEvents(e => [...e, { id: uid(), date: newEventDate, title: newEventTitle.trim(), time: newEventTime }]);
+    const event = { id: uid(), date: newEventDate, title: newEventTitle.trim(), time: newEventTime };
+    const saved = await db.events.upsert(event);
+    setEvents(e => [...e, saved]);
     setNewEventTitle("");
   };
 
@@ -384,9 +412,11 @@ function HabitsCalendar() {
               </button>
             )}
             <button
-              onClick={() => {
+              onClick={async () => {
                 const weekDateStrs = new Set(weekDates.map(d => dateStr(d)));
+                const toDelete = planned.filter(x => weekDateStrs.has(x.date));
                 setPlanned(p => p.filter(x => !weekDateStrs.has(x.date)));
+                await Promise.all(toDelete.map(x => db.planned.delete(x.id)));
               }}
               className="text-xs text-gray-500 hover:text-red-400 border border-[#333] rounded-lg px-2 py-1 transition-colors"
             >
@@ -865,9 +895,18 @@ function WeatherBox() {
 // ─── Notes Box ───────────────────────────────────────────────────────────────
 
 function NotesBox() {
-  const [notes, setNotes] = useState(() => LS.get<string>("pos_notes", ""));
+  const [notes, setNotes] = useState("");
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => { LS.set("pos_notes", notes); }, [notes]);
+  useEffect(() => {
+    db.notes.get().then((d: { content: string }) => setNotes(d.content ?? ""));
+  }, []);
+
+  const handleChange = (val: string) => {
+    setNotes(val);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => db.notes.save(val), 1000);
+  };
 
   return (
     <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 flex flex-col flex-1">
@@ -876,7 +915,7 @@ function NotesBox() {
         className="flex-1 bg-transparent text-sm text-gray-300 placeholder-gray-700 resize-none focus:outline-none leading-relaxed min-h-40"
         placeholder="Jot something down…"
         value={notes}
-        onChange={e => setNotes(e.target.value)}
+        onChange={e => handleChange(e.target.value)}
       />
     </div>
   );
