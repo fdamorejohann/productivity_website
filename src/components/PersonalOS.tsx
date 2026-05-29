@@ -5,18 +5,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import BudgetPanel from "./BudgetPanel";
-import budgetData from "../data/budget.json";
 import { db } from "../lib/db";
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-const LS = {
-  get: <T,>(key: string, fb: T): T => {
-    try { const v = localStorage.getItem(key); return v ? (JSON.parse(v) as T) : fb; }
-    catch { return fb; }
-  },
-  set: <T,>(key: string, v: T) => localStorage.setItem(key, JSON.stringify(v)),
-};
 const uid = () => crypto.randomUUID();
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -234,50 +223,70 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
 
 // ─── Finance Box ─────────────────────────────────────────────────────────────
 
+interface MonthBudgetSnap {
+  income: { actual: number }[];
+  expenses: { bucket: string; actual: number | null; label: string }[];
+  logs: { category: string; amount: number }[];
+}
+
+function monthSavingsAndLeftover(d: MonthBudgetSnap): number {
+  const totalIncome = d.income.reduce((s, r) => s + (r.actual ?? 0), 0);
+  const expActual = (row: { actual: number | null; label: string }) => {
+    if (row.actual !== null) return row.actual;
+    const lbl = row.label.toLowerCase();
+    return d.logs.filter(l => l.category.toLowerCase() === lbl).reduce((s, l) => s + l.amount, 0);
+  };
+  const totalSpending = d.expenses
+    .filter(r => r.bucket === "spending")
+    .reduce((s, r) => s + expActual(r), 0);
+  return totalIncome - totalSpending;
+}
+
 function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
-  const { savingsTarget, savingsActual, freeSpendRemaining } = budgetData;
+  const [points, setPoints] = useState<{ month: string; cumulative: number }[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Build cumulative savings data points for the current month
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = now.getDate();
+  useEffect(() => {
+    async function load() {
+      // Load all months up to current
+      const now = new Date();
+      const months: string[] = [];
+      for (let y = 2026; y <= now.getFullYear(); y++) {
+        const startM = y === 2026 ? 5 : 1; // start from May 2026
+        const endM = y === now.getFullYear() ? now.getMonth() + 1 : 12;
+        for (let m = startM; m <= endM; m++) {
+          months.push(`${y}-${String(m).padStart(2, "0")}`);
+        }
+      }
+      let cumulative = 0;
+      const pts: { month: string; cumulative: number }[] = [];
+      for (const month of months) {
+        const data = await db.budget.get(month);
+        if (data) {
+          cumulative += monthSavingsAndLeftover(data as MonthBudgetSnap);
+          pts.push({ month, cumulative });
+        }
+      }
+      setPoints(pts);
+      setLoading(false);
+    }
+    load();
+  }, []);
 
-  // Historical monthly savings (stored in localStorage, accumulates over time)
-  const [monthlyHistory] = useState<{ month: string; total: number }[]>(() =>
-    LS.get("pos_savings_history", [])
-  );
-
-  const prevTotal = monthlyHistory.reduce((sum, m) => sum + m.total, 0);
-
-  // Generate SVG path for the savings line
+  const total = points.length > 0 ? points[points.length - 1].cumulative : 0;
   const W = 280;
   const H = 80;
-  const maxVal = prevTotal + savingsTarget;
-  const points: [number, number][] = [];
+  const minVal = Math.min(0, ...points.map(p => p.cumulative));
+  const maxVal = Math.max(...points.map(p => p.cumulative), 1);
+  const range = maxVal - minVal || 1;
 
-  // Past months as a flat line at the start
-  if (prevTotal > 0) {
-    points.push([0, H - (prevTotal / maxVal) * H]);
-  } else {
-    points.push([0, H]);
-  }
+  const svgPoints: [number, number][] = points.map((p, i) => [
+    points.length === 1 ? W : (i / (points.length - 1)) * W,
+    H - ((p.cumulative - minVal) / range) * (H - 4),
+  ]);
 
-  // This month's projected daily ticks
-  for (let d = 1; d <= daysInMonth; d++) {
-    const x = (d / daysInMonth) * W;
-    const monthProgress = d <= today
-      ? (savingsActual / savingsTarget) * (d / today) * savingsTarget
-      : (savingsActual / savingsTarget) * savingsTarget + ((d - today) / (daysInMonth - today)) * (savingsTarget - savingsActual);
-    const total = prevTotal + Math.min(monthProgress, savingsTarget);
-    const y = H - (total / maxVal) * H;
-    points.push([x, Math.max(2, y)]);
-  }
-
-  const pathD = points.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x} ${y}`).join(" ");
-
-  const currentTotal = prevTotal + savingsActual + freeSpendRemaining;
+  const pathD = svgPoints.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x} ${y}`).join(" ");
+  const lastPt = svgPoints[svgPoints.length - 1];
 
   return (
     <button
@@ -288,27 +297,29 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Total Saved</span>
         <span className="text-xs text-gray-600 group-hover:text-gray-400 transition-colors">View Budget →</span>
       </div>
-      <div className={`text-2xl font-bold mb-3 ${currentTotal < 0 ? "text-red-400" : "text-white"}`}>
-        {currentTotal < 0 ? "-" : ""}${Math.abs(currentTotal).toLocaleString()}
+      <div className={`text-2xl font-bold mb-3 ${total < 0 ? "text-red-400" : "text-white"}`}>
+        {loading ? "—" : `${total < 0 ? "-" : ""}$${Math.abs(total).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="savingsGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path
-          d={`${pathD} L ${W} ${H} L 0 ${H} Z`}
-          fill="url(#savingsGrad)"
-        />
-        <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {/* Today marker */}
-        {points[today] && (
-          <circle cx={points[today][0]} cy={points[today][1]} r="3" fill="#3b82f6" />
-        )}
-      </svg>
-      <p className="text-xs text-gray-600 mt-1">${savingsActual.toLocaleString()} saved · {freeSpendRemaining >= 0 ? "$" + freeSpendRemaining.toLocaleString() + " leftover" : "-$" + Math.abs(freeSpendRemaining).toLocaleString() + " overspent"}</p>
+      {svgPoints.length >= 1 && (
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="savingsGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {svgPoints.length > 1 && (
+            <path d={`${pathD} L ${W} ${H} L 0 ${H} Z`} fill="url(#savingsGrad)" />
+          )}
+          {svgPoints.length > 1 && (
+            <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          )}
+          {lastPt && <circle cx={lastPt[0]} cy={lastPt[1]} r="3" fill="#3b82f6" />}
+        </svg>
+      )}
+      <p className="text-xs text-gray-600 mt-1">
+        {points.length} month{points.length !== 1 ? "s" : ""} tracked
+      </p>
     </button>
   );
 }
