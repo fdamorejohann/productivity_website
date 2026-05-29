@@ -597,7 +597,7 @@ function HabitsCalendar() {
               <div
                 key={i}
                 onClick={() => assignHabit(ds)}
-                className={`rounded-xl p-2 min-h-40 cursor-pointer transition-colors ${
+                className={`rounded-xl p-2 min-h-48 cursor-pointer transition-colors ${
                   selectedHabit ? "hover:bg-[#2a2a2a]" : ""
                 } ${isToday ? "border border-[#3a3a3a] bg-[#242424]" : "border border-[#262626]"}`}
               >
@@ -626,7 +626,7 @@ function HabitsCalendar() {
                             borderColor: h.color,
                           }}
                         />
-                        <span className="truncate">{h.label}</span>
+                        <span className="break-words min-w-0">{h.label}</span>
                         <button
                           className="absolute -top-1 -right-1 w-3 h-3 bg-[#1e1e1e] border border-[#333] rounded-full text-gray-500 hover:text-red-400 hidden group-hover/chip:flex items-center justify-center text-xs leading-none"
                           onClick={e => { e.stopPropagation(); removePlan(p.id); }}
@@ -1442,7 +1442,7 @@ export default function PersonalOS() {
 
   return (
     <div className="min-h-screen bg-[#111] text-white p-6">
-      <div className="grid grid-cols-[1fr_2fr_1fr] gap-5 max-w-7xl mx-auto pt-8">
+      <div className="grid grid-cols-[1fr_3fr_1fr] gap-5 max-w-7xl mx-auto pt-8">
 
         {/* ── Left column: Goals ── */}
         <div className="flex flex-col gap-5">
