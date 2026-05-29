@@ -630,23 +630,24 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
 
   const filteredEx = exercises.filter(e => e.name.toLowerCase().includes(exSearch.toLowerCase()));
 
-  // Heatmap data from sessions prop
+  // Monthly calendar heatmap
   const workoutDateMap: Record<string, string> = {};
   for (const s of sessions) workoutDateMap[s.date] = s.type ?? "lifting";
-  const HMAP_WEEKS = 16;
-  const today = new Date();
-  const todayDay = today.getDay() === 0 ? 6 : today.getDay() - 1;
-  const heatCells: { date: string; type: string | null }[] = [];
-  for (let w = HMAP_WEEKS - 1; w >= 0; w--) {
-    for (let d = 0; d < 7; d++) {
-      const offset = w * 7 + (6 - todayDay) - d;
-      const dt = new Date(today);
-      dt.setDate(today.getDate() - offset);
-      if (dt > today) { heatCells.push({ date: "", type: null }); continue; }
-      const ds = dt.toISOString().slice(0, 10);
-      heatCells.push({ date: ds, type: workoutDateMap[ds] ?? null });
-    }
+  const now = new Date();
+  const [calYear, setCalYear] = useState(now.getFullYear());
+  const [calMonth, setCalMonth] = useState(now.getMonth()); // 0-indexed
+  const calLabel = new Date(calYear, calMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const firstDay = new Date(calYear, calMonth, 1);
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  // offset so Mon=0
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const calCells: { date: string; type: string | null }[] = [];
+  for (let i = 0; i < startOffset; i++) calCells.push({ date: "", type: null });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    calCells.push({ date: ds, type: workoutDateMap[ds] ?? null });
   }
+  const monthSessions = sessions.filter(s => s.date.startsWith(`${calYear}-${String(calMonth + 1).padStart(2, "0")}`));
 
   if (sessions.length === 0) return (
     <div>
@@ -656,25 +657,44 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
 
   return (
     <div className="space-y-4">
-      {/* Heatmap */}
-      <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+      {/* Monthly calendar */}
+      <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-4">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs text-gray-500 uppercase tracking-widest">Activity</p>
-          <span className="text-xs text-gray-600">{sessions.length} sessions total</span>
+          <button onClick={() => { const d = new Date(calYear, calMonth - 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }} className="text-gray-500 hover:text-white px-2 py-1 transition-colors">‹</button>
+          <div className="text-center">
+            <p className="text-sm font-medium text-white">{calLabel}</p>
+            <p className="text-xs text-gray-600">{monthSessions.length} sessions</p>
+          </div>
+          <button onClick={() => { const d = new Date(calYear, calMonth + 1, 1); if (d <= now) { setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); } }} className={`px-2 py-1 transition-colors ${new Date(calYear, calMonth + 1, 1) > now ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white"}`}>›</button>
         </div>
-        <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${HMAP_WEEKS}, 1fr)` }}>
-          {heatCells.map((c, i) => {
-            const color = c.type ? (WORKOUT_COLORS[c.type] ?? "#ef4444") : "#252525";
+        {/* Day headers */}
+        <div className="grid grid-cols-7 mb-1">
+          {["M","T","W","T","F","S","S"].map((d, i) => (
+            <div key={i} className="text-center text-xs text-gray-600">{d}</div>
+          ))}
+        </div>
+        {/* Day cells */}
+        <div className="grid grid-cols-7 gap-0.5">
+          {calCells.map((c, i) => {
+            if (!c.date) return <div key={i} />;
+            const color = c.type ? (WORKOUT_COLORS[c.type] ?? "#ef4444") : "transparent";
+            const dayNum = parseInt(c.date.slice(8));
+            const isToday = c.date === todayStr();
             return (
-              <div key={i} title={c.date ? (c.type ? `${c.date} — ${c.type}` : c.date) : ""}
-                style={{ backgroundColor: color }} className="aspect-square rounded-[2px]" />
+              <div key={i} title={c.type ? `${c.date} — ${c.type === "muaythai" ? "Muay Thai" : c.type}` : c.date}
+                className="aspect-square rounded flex items-center justify-center relative"
+                style={{ backgroundColor: c.type ? color + "33" : "transparent" }}>
+                {c.type && <div className="absolute inset-0.5 rounded" style={{ backgroundColor: color, opacity: 0.7 }} />}
+                <span className={`relative text-xs z-10 ${isToday ? "font-bold text-white" : c.type ? "text-white" : "text-gray-600"}`}>{dayNum}</span>
+              </div>
             );
           })}
         </div>
+        {/* Legend */}
         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3">
           {Object.entries(WORKOUT_COLORS).map(([type, color]) => (
             <span key={type} className="flex items-center gap-1 text-xs text-gray-600 capitalize">
-              <span className="w-2 h-2 rounded-[2px]" style={{ backgroundColor: color }} />
+              <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: color }} />
               {type === "muaythai" ? "Muay Thai" : type}
             </span>
           ))}
