@@ -862,8 +862,10 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
   const cardioSessions = (type: WorkoutType) => sessions.filter(s => s.type === type && s.cardio_data);
 
   // Build per-exercise history
+  type HistoryPoint = { date: string; maxWeight: number; best1RM: number; maxReps: number; isAmrap: boolean; sets: WorkoutSet[] };
+
   const exerciseHistory = () => {
-    const map = new Map<string, { date: string; maxWeight: number; best1RM: number; maxReps: number; isAmrap: boolean }[]>();
+    const map = new Map<string, HistoryPoint[]>();
     const sorted = [...liftingSessions].sort((a, b) => a.date.localeCompare(b.date));
     for (const s of sorted) {
       const byEx = new Map<string, WorkoutSet[]>();
@@ -881,6 +883,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
           best1RM: best1RMForSession(sets),
           maxReps: maxRepsForExercise(amrapSets),
           isAmrap: !hasWeight && amrapSets.length > 0,
+          sets,
         });
       });
     }
@@ -1054,6 +1057,8 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
     );
   };
 
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
+
   const renderLift = () => {
     const pts = selectedExercise ? history.get(selectedExercise) ?? [] : [];
     const exName = exercises.find(e => e.id === selectedExercise)?.name ?? "—";
@@ -1147,23 +1152,51 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
           )}
         </div>
 
-        <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-4">Session History</p>
-          <div className="space-y-2">
-            {[...pts].reverse().map((p, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-[#2a2a2a] last:border-0">
-                <span className="text-sm text-gray-400">{formatDate(p.date)}</span>
-                <div className="flex gap-4">
-                  {isAmrap
-                    ? <span className="text-xs text-gray-500">Max reps <span style={{ color }}>{p.maxReps}</span></span>
-                    : <>
-                      <span className="text-xs text-gray-500">Est. 1RM <span className="text-blue-400">{p.best1RM} lbs</span></span>
-                      <span className="text-xs text-gray-500">Max weight <span className="text-white">{p.maxWeight} lbs</span></span>
-                    </>
-                  }
+        <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl overflow-hidden">
+          <p className="text-xs text-gray-500 uppercase tracking-wider p-5 pb-3">Session History</p>
+          <div>
+            {[...pts].reverse().map((p, i) => {
+              const key = p.date + i;
+              const isOpen = expandedSession === key;
+              return (
+                <div key={key} className="border-t border-[#2a2a2a]">
+                  <button
+                    className="w-full flex items-center justify-between px-5 py-3 hover:bg-[#242424] transition-colors text-left"
+                    onClick={() => setExpandedSession(isOpen ? null : key)}
+                  >
+                    <span className="text-sm text-gray-300">{formatDate(p.date)}</span>
+                    <div className="flex items-center gap-4">
+                      {isAmrap
+                        ? <span className="text-xs text-gray-500">Max reps <span style={{ color }}>{p.maxReps}</span></span>
+                        : <>
+                          <span className="text-xs text-gray-500">Est. 1RM <span className="text-blue-400">{p.best1RM} lbs</span></span>
+                          <span className="text-xs text-gray-500">Max <span className="text-white">{p.maxWeight} lbs</span></span>
+                        </>
+                      }
+                      <span className="text-gray-600 text-xs">{isOpen ? "▲" : "▼"}</span>
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="px-5 pb-4 bg-[#191919]">
+                      <div className="grid grid-cols-[2rem_1fr_1fr_4rem] gap-x-3 gap-y-1 mt-1">
+                        <span className="text-xs text-gray-600">Set</span>
+                        <span className="text-xs text-gray-600">Weight</span>
+                        <span className="text-xs text-gray-600">Reps</span>
+                        <span className="text-xs text-gray-600">Type</span>
+                        {p.sets.sort((a, b) => a.set_number - b.set_number).map((st, si) => (
+                          <>
+                            <span key={st.id + "n"} className="text-xs text-gray-500">{si + 1}</span>
+                            <span key={st.id + "w"} className="text-xs text-white">{st.is_amrap ? "—" : `${st.weight_lbs ?? "—"} lbs`}</span>
+                            <span key={st.id + "r"} className="text-xs text-white">{st.reps ?? "—"}</span>
+                            <span key={st.id + "t"} className="text-xs" style={{ color: st.is_amrap ? "#a78bfa" : "#6b7280" }}>{st.is_amrap ? "AMRAP" : ""}</span>
+                          </>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
