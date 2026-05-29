@@ -62,7 +62,16 @@ interface DndQuest {
   notes: string;
 }
 
-type CampaignTab = "sessions" | "players" | "npcs" | "locations" | "lore" | "quests";
+interface DndConcept {
+  id: string;
+  campaign_id: string;
+  type: string;
+  name: string;
+  content: string;
+  tags: string;
+}
+
+type CampaignTab = "sessions" | "players" | "npcs" | "locations" | "lore" | "quests" | "concepts";
 
 const TAB_CONFIG: { key: CampaignTab; label: string; emoji: string }[] = [
   { key: "sessions",  label: "Sessions",        emoji: "📜" },
@@ -71,7 +80,10 @@ const TAB_CONFIG: { key: CampaignTab; label: string; emoji: string }[] = [
   { key: "locations", label: "Locations",        emoji: "🗺️" },
   { key: "lore",      label: "World Building",   emoji: "📚" },
   { key: "quests",    label: "Quests",           emoji: "⚔️" },
+  { key: "concepts",  label: "Concepts",         emoji: "📝" },
 ];
+
+const CONCEPT_TYPES = ["Monster", "Item", "Spell", "Trap", "Puzzle", "Mechanic", "Other"];
 
 const LORE_CATEGORIES = ["Factions", "History", "Religion", "Magic", "Geography", "Politics", "Other"];
 const LOCATION_TYPES = ["City", "Town", "Village", "Dungeon", "Wilderness", "Building", "Region", "Other"];
@@ -219,6 +231,7 @@ function CampaignView({ campaign, onBack, onDelete }: { campaign: Campaign; onBa
   const [sessions, setSessions] = useState<DndSession[]>([]);
   const [lore, setLore] = useState<DndLore[]>([]);
   const [quests, setQuests] = useState<DndQuest[]>([]);
+  const [concepts, setConcepts] = useState<DndConcept[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -228,12 +241,14 @@ function CampaignView({ campaign, onBack, onDelete }: { campaign: Campaign; onBa
       db.dnd.sessions.list(campaign.id),
       db.dnd.lore.list(campaign.id),
       db.dnd.quests.list(campaign.id),
-    ]).then(([chars, locs, sess, lor, q]) => {
+      db.dnd.concepts.list(campaign.id),
+    ]).then(([chars, locs, sess, lor, q, con]) => {
       setCharacters(chars as DndCharacter[]);
       setLocations(locs as DndLocation[]);
       setSessions(sess as DndSession[]);
       setLore(lor as DndLore[]);
       setQuests(q as DndQuest[]);
+      setConcepts(con as DndConcept[]);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [campaign.id]);
@@ -275,6 +290,7 @@ function CampaignView({ campaign, onBack, onDelete }: { campaign: Campaign; onBa
           {tab === "locations" && <LocationsTab campaignId={campaign.id} locations={locations} setLocations={setLocations} />}
           {tab === "lore"      && <LoreTab campaignId={campaign.id} lore={lore} setLore={setLore} />}
           {tab === "quests"    && <QuestsTab campaignId={campaign.id} quests={quests} setQuests={setQuests} />}
+          {tab === "concepts"  && <ConceptsTab campaignId={campaign.id} concepts={concepts} setConcepts={setConcepts} />}
         </>
       )}
     </div>
@@ -719,6 +735,109 @@ function QuestForm({ campaignId, initial, onClose, onSave }: { campaignId: strin
         <Field label="Notes"><textarea className={`${INPUT} resize-none`} rows={2} placeholder="Leads, clues, rewards…" value={notes} onChange={e => setNotes(e.target.value)} /></Field>
       </div>
       <SaveBar onClose={onClose} onSave={save} saving={saving} disabled={!title.trim()} />
+    </Modal>
+  );
+}
+
+// ─── Concepts Tab ─────────────────────────────────────────────────────────────
+
+const CONCEPT_TYPE_COLORS: Record<string, string> = {
+  Monster: "#ef4444", Item: "#f59e0b", Spell: "#8b5cf6",
+  Trap: "#f97316", Puzzle: "#06b6d4", Mechanic: "#10b981", Other: "#6b7280",
+};
+
+function ConceptsTab({ campaignId, concepts, setConcepts }: { campaignId: string; concepts: DndConcept[]; setConcepts: React.Dispatch<React.SetStateAction<DndConcept[]>> }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<DndConcept | null>(null);
+  const [filterType, setFilterType] = useState("All");
+
+  const types = ["All", ...Array.from(new Set(concepts.map(c => c.type).filter(Boolean)))];
+  const filtered = filterType === "All" ? concepts : concepts.filter(c => c.type === filterType);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex gap-1 flex-wrap">
+          {types.map(t => (
+            <button key={t} onClick={() => setFilterType(t)}
+              className={`text-xs px-2 py-1 rounded-lg transition-colors ${filterType === t ? "bg-white text-black font-medium" : "text-gray-500 hover:text-white border border-[#2e2e2e]"}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => { setEditing(null); setShowForm(true); }} className="text-xs text-gray-400 hover:text-white border border-[#2e2e2e] rounded-lg px-3 py-1.5 transition-colors">+ New Concept</button>
+      </div>
+
+      {filtered.length === 0 && <EmptyState emoji="📝" text="No concepts yet" sub="Document monsters, items, spells, traps, and other ideas" />}
+
+      <div className="grid grid-cols-2 gap-3">
+        {filtered.map(c => {
+          const color = CONCEPT_TYPE_COLORS[c.type] ?? "#6b7280";
+          return (
+            <div key={c.id} className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl overflow-hidden">
+              <button className="w-full text-left px-4 py-3 hover:bg-[#242424] transition-colors" onClick={() => setExpanded(expanded === c.id ? null : c.id)}>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-white font-medium text-sm">{c.name}</p>
+                  <span className="text-xs px-2 py-0.5 rounded-full shrink-0 font-medium" style={{ backgroundColor: color + "22", color }}>{c.type || "Other"}</span>
+                </div>
+                {c.content && <p className="text-xs text-gray-600 mt-1 line-clamp-2">{c.content}</p>}
+                {c.tags && <p className="text-xs text-gray-700 mt-1">{c.tags}</p>}
+              </button>
+              {expanded === c.id && (
+                <div className="px-4 pb-4 border-t border-[#2a2a2a] pt-3">
+                  {c.content && <p className="text-sm text-gray-300 whitespace-pre-wrap">{c.content}</p>}
+                  {c.tags && <p className="text-xs text-gray-600 mt-2">Tags: {c.tags}</p>}
+                  <div className="flex gap-3 mt-3">
+                    <button onClick={() => { setEditing(c); setShowForm(true); }} className="text-xs text-gray-400 hover:text-white border border-[#333] rounded-lg px-3 py-1.5 transition-colors">Edit</button>
+                    <button onClick={async () => { await db.dnd.concepts.delete(c.id); setConcepts(p => p.filter(x => x.id !== c.id)); }} className="text-xs text-gray-600 hover:text-red-400 transition-colors">Delete</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {showForm && (
+        <ConceptForm campaignId={campaignId} initial={editing}
+          onClose={() => { setShowForm(false); setEditing(null); }}
+          onSave={(c) => { setConcepts(p => editing ? p.map(x => x.id === c.id ? c : x) : [...p, c]); setShowForm(false); setEditing(null); setExpanded(c.id); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ConceptForm({ campaignId, initial, onClose, onSave }: { campaignId: string; initial: DndConcept | null; onClose: () => void; onSave: (c: DndConcept) => void }) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [type, setType] = useState(initial?.type ?? "Monster");
+  const [content, setContent] = useState(initial?.content ?? "");
+  const [tags, setTags] = useState(initial?.tags ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    const c = await db.dnd.concepts.upsert({ id: initial?.id ?? uid(), campaign_id: campaignId, name, type, content, tags }) as DndConcept;
+    onSave(c);
+  };
+
+  return (
+    <Modal title={initial ? "Edit Concept" : "New Concept"} onClose={onClose}>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Name *"><input autoFocus className={INPUT} placeholder="Beholder, Vorpal Sword…" value={name} onChange={e => setName(e.target.value)} /></Field>
+          <Field label="Type">
+            <select className={INPUT} value={type} onChange={e => setType(e.target.value)}>
+              {CONCEPT_TYPES.map(t => <option key={t}>{t}</option>)}
+            </select>
+          </Field>
+        </div>
+        <Field label="Notes"><textarea className={`${INPUT} resize-none`} rows={6} placeholder="Stats, description, how it works, ideas for using it…" value={content} onChange={e => setContent(e.target.value)} /></Field>
+        <Field label="Tags"><input className={INPUT} placeholder="boss, undead, rare…" value={tags} onChange={e => setTags(e.target.value)} /></Field>
+      </div>
+      <SaveBar onClose={onClose} onSave={save} saving={saving} disabled={!name.trim()} />
     </Modal>
   );
 }

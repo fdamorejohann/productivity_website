@@ -21,6 +21,7 @@ export default async function handler(req, res) {
     case "dnd-sessions":     return handleDndTable(req, res, "dnd_sessions", "campaign_id");
     case "dnd-lore":         return handleDndTable(req, res, "dnd_lore", "campaign_id");
     case "dnd-quests":       return handleDndTable(req, res, "dnd_quests", "campaign_id");
+    case "dnd-concepts":     return handleDndTable(req, res, "dnd_concepts", "campaign_id");
     default:                 return res.status(404).json({ error: "Not found" });
   }
 }

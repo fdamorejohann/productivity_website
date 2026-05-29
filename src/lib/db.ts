@@ -95,5 +95,10 @@ export const db = {
       upsert: (row: unknown) => api.post("/api/data/dnd-quests", row),
       delete: (id: string) => api.delete("/api/data/dnd-quests", { id }),
     },
+    concepts: {
+      list: (campaign_id: string) => api.get(`/api/data/dnd-concepts?campaign_id=${campaign_id}`),
+      upsert: (row: unknown) => api.post("/api/data/dnd-concepts", row),
+      delete: (id: string) => api.delete("/api/data/dnd-concepts", { id }),
+    },
   },
 };
