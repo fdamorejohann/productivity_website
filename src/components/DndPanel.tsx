@@ -956,7 +956,7 @@ function CombatTab() {
 
       {/* Column headers */}
       {sorted.length > 0 && (
-        <div className="grid grid-cols-[2rem_1fr_3.5rem_3.5rem_3.5rem_7rem_1.5rem] gap-2 px-3 pb-1">
+        <div className="grid grid-cols-[2rem_1fr_3.5rem_3.5rem_3.5rem_9rem_1.5rem] gap-2 px-3 pb-1">
           <span className="text-xs text-gray-600 text-center">Init</span>
           <span className="text-xs text-gray-600">Name</span>
           <span className="text-xs text-gray-600 text-center">AC</span>
@@ -974,7 +974,7 @@ function CombatTab() {
           const isDead = c.hp === 0;
           const hpColor = c.hp / c.maxHp > 0.5 ? "#22c55e" : c.hp / c.maxHp > 0.25 ? "#f59e0b" : "#ef4444";
           return (
-            <div key={c.id} className={`grid grid-cols-[2rem_1fr_3.5rem_3.5rem_3.5rem_7rem_1.5rem] gap-2 items-center px-3 py-2.5 rounded-xl border transition-all ${isActive ? "border-amber-500 bg-amber-500/5" : "border-[#2e2e2e] bg-[#1e1e1e]"} ${isDead ? "opacity-40" : ""}`}>
+            <div key={c.id} className={`grid grid-cols-[2rem_1fr_3.5rem_3.5rem_3.5rem_9rem_1.5rem] gap-2 items-center px-3 py-2.5 rounded-xl border transition-all ${isActive ? "border-amber-500 bg-amber-500/5" : "border-[#2e2e2e] bg-[#1e1e1e]"} ${isDead ? "opacity-40" : ""}`}>
               {/* Initiative */}
               <span className={`text-xs font-bold text-center ${isActive ? "text-amber-400" : "text-gray-400"}`}>{c.initiative}</span>
               {/* Name + badges */}
@@ -994,7 +994,7 @@ function CombatTab() {
                 <button onClick={() => adjustHp(c.id, 1)} className="w-5 h-5 rounded bg-green-500/10 text-green-400 text-xs hover:bg-green-500/20 transition-colors leading-none">+</button>
                 <input
                   type="number"
-                  className="w-10 text-center bg-[#252525] border border-[#333] rounded px-1 py-0.5 text-xs text-white focus:outline-none"
+                  className="w-16 text-center bg-[#252525] border border-[#333] rounded px-1 py-0.5 text-xs text-white focus:outline-none"
                   placeholder="—"
                   value={dmgInput[c.id] ?? ""}
                   onChange={e => setDmgInput(p => ({ ...p, [c.id]: e.target.value }))}
