@@ -1040,46 +1040,37 @@ function DefunctWidget() {
       <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Defunct</span>
-          <span className="text-[10px] text-gray-600">daily jazz</span>
+          {playing && (
+            <button onClick={() => setPlaying(null)} className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors">■ stop</button>
+          )}
         </div>
+
+        {/* Inline player */}
+        {playing ? (
+          <div className="rounded-xl overflow-hidden mb-3" style={{ aspectRatio: "16/9" }}>
+            <iframe
+              width="100%" height="100%"
+              src={`https://www.youtube.com/embed/${playing.id}?autoplay=1`}
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+              className="w-full h-full"
+            />
+          </div>
+        ) : null}
+
         <button
           onClick={pickRandom}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2 bg-[#2a2a2a] hover:bg-[#333] border border-[#333] rounded-xl py-3 text-sm font-medium text-gray-200 transition-colors disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2 bg-[#2a2a2a] hover:bg-[#333] border border-[#333] rounded-xl py-2.5 text-sm font-medium text-gray-200 transition-colors disabled:opacity-50"
         >
-          {loading ? "Loading…" : "▶  Play Random Video"}
+          {loading ? "Loading…" : playing ? "⟳  Next random" : "▶  Play Random Video"}
         </button>
+
         {playing && (
-          <div className="mt-3 text-xs text-gray-500 truncate" title={playing.title}>{playing.title}</div>
+          <div className="mt-2 text-xs text-gray-600 truncate" title={playing.title}>{playing.title}</div>
         )}
       </div>
 
-      {/* Video modal */}
-      {playing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => setPlaying(null)}>
-          <div className="relative w-full max-w-3xl mx-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-300 truncate pr-4">{playing.title}</span>
-              <div className="flex gap-2 flex-shrink-0">
-                <button
-                  onClick={pickRandom}
-                  className="text-xs text-gray-400 hover:text-white border border-[#444] rounded-lg px-3 py-1.5 transition-colors"
-                >⟳ Next random</button>
-                <button onClick={() => setPlaying(null)} className="text-gray-400 hover:text-white text-lg leading-none">✕</button>
-              </div>
-            </div>
-            <div className="aspect-video rounded-xl overflow-hidden">
-              <iframe
-                width="100%" height="100%"
-                src={`https://www.youtube.com/embed/${playing.id}?autoplay=1`}
-                allow="autoplay; encrypted-media"
-                allowFullScreen
-                className="w-full h-full"
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
