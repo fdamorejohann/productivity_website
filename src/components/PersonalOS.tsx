@@ -1015,28 +1015,25 @@ interface YtVideo { id: string; title: string; thumb: string; }
 
 function DefunctWidget({ playing, onPlay }: { playing: YtVideo | null; onPlay: (v: YtVideo) => void }) {
   const [videos, setVideos] = useState<YtVideo[]>([]);
-  const [loading, setLoading] = useState(false);
 
-  async function pickRandom() {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/data/yt-feed?channelId=UCjl8BKz02KHTncEcuEzFeSw");
-      const data: YtVideo[] = await res.json();
-      if (data.length > 0) {
-        setVideos(data);
-        const pick = data[Math.floor(Math.random() * data.length)];
-        onPlay(pick);
-        window.open(`https://www.youtube.com/watch?v=${pick.id}`, "_blank");
-        setLoading(false);
-        return;
-      }
-    } catch {}
-    if (videos.length > 0) {
-      const pick = videos[Math.floor(Math.random() * videos.length)];
-      onPlay(pick);
-      window.open(`https://www.youtube.com/watch?v=${pick.id}`, "_blank");
+  // Pre-fetch video list on mount so pickRandom can be synchronous
+  useEffect(() => {
+    fetch("/api/data/yt-feed?channelId=UCjl8BKz02KHTncEcuEzFeSw")
+      .then(r => r.json())
+      .then((data: YtVideo[]) => { if (Array.isArray(data) && data.length > 0) setVideos(data); })
+      .catch(() => {});
+  }, []);
+
+  function pickRandom() {
+    if (videos.length === 0) {
+      // Fallback: open channel page if not loaded yet
+      window.open("https://www.youtube.com/@Defunctxx/videos", "_blank");
+      return;
     }
-    setLoading(false);
+    const pick = videos[Math.floor(Math.random() * videos.length)];
+    onPlay(pick);
+    // Open synchronously — no await, so popup blocker won't fire
+    window.open(`https://www.youtube.com/watch?v=${pick.id}`, "_blank");
   }
 
   return (
@@ -1047,10 +1044,9 @@ function DefunctWidget({ playing, onPlay }: { playing: YtVideo | null; onPlay: (
       </div>
       <button
         onClick={pickRandom}
-        disabled={loading}
-        className="w-full flex items-center justify-center gap-2 bg-[#2a2a2a] hover:bg-[#333] border border-[#333] rounded-xl py-2.5 text-sm font-medium text-gray-200 transition-colors disabled:opacity-50"
+        className="w-full flex items-center justify-center gap-2 bg-[#2a2a2a] hover:bg-[#333] border border-[#333] rounded-xl py-2.5 text-sm font-medium text-gray-200 transition-colors"
       >
-        {loading ? "Loading…" : "▶  Play Random Video"}
+        ▶&nbsp; Play Random Video
       </button>
       {playing && (
         <div className="mt-2 text-xs text-gray-600 truncate" title={playing.title}>{playing.title}</div>
