@@ -557,6 +557,31 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
   );
 }
 
+// ─── Daily Budget Card ────────────────────────────────────────────────────────
+
+function DailyBudgetCard({ leftoverActual, month }: { leftoverActual: number; month: string }) {
+  const [year, mo] = month.split("-").map(Number);
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === mo;
+  const daysInMonth = new Date(year, mo, 0).getDate();
+  const daysLeft = isCurrentMonth ? daysInMonth - today.getDate() + 1 : 1;
+  const perDay = daysLeft > 0 ? leftoverActual / daysLeft : leftoverActual;
+  const positive = perDay >= 0;
+
+  return (
+    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+      <div className="text-xs text-gray-500 mb-1">Daily spending budget</div>
+      <div className={`text-3xl font-bold tabular-nums mb-1 ${positive ? "text-emerald-400" : "text-red-400"}`}>
+        {positive ? "" : "−"}{fmt(Math.abs(perDay))}
+        <span className="text-base font-normal text-gray-500 ml-1">/ day</span>
+      </div>
+      <div className="text-xs text-gray-600">
+        {fmt(leftoverActual)} leftover ÷ {daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining
+      </div>
+    </div>
+  );
+}
+
 // ─── Budget Map ───────────────────────────────────────────────────────────────
 
 interface BudgetMapProps {
@@ -1155,7 +1180,13 @@ export default function BudgetPanel() {
           onDeleteRow={(id) => upd(d => ({ ...d, income: d.income.filter(r => r.id !== id) }))}
         />
 
-        <SpendPieChart entries={spendEntries} logs={data.logs} />
+        <div className="flex flex-col gap-6">
+          <DailyBudgetCard
+            leftoverActual={leftoverActual}
+            month={month}
+          />
+          <SpendPieChart entries={spendEntries} logs={data.logs} />
+        </div>
       </div>
 
       {/* Expense tables — 3 columns */}
