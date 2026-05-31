@@ -416,6 +416,145 @@ function buildImportPreview(
   });
 }
 
+// ─── Leftover Chart ───────────────────────────────────────────────────────────
+
+interface LeftoverChartProps {
+  month: string;          // "YYYY-MM"
+  logs: BudgetExpenseLog[];
+  startingBalance: number; // income - fixed - savings (before variable spend)
+  budgetTarget: number;    // the planned leftover
+}
+
+function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverChartProps) {
+  const [year, mo] = month.split("-").map(Number);
+  const daysInMonth = new Date(year, mo, 0).getDate();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const isCurrentMonth = new Date().getFullYear() === year && new Date().getMonth() + 1 === mo;
+  const lastDay = isCurrentMonth ? Math.min(new Date().getDate(), daysInMonth) : daysInMonth;
+
+  // Build cumulative spend per day
+  const spendByDay = new Map<number, number>();
+  for (const l of logs) {
+    if (!l.date.startsWith(month)) continue;
+    const d = parseInt(l.date.slice(8), 10);
+    spendByDay.set(d, (spendByDay.get(d) ?? 0) + effectiveCost(l));
+  }
+
+  // Build points: day 0 = startingBalance, then each day subtract cumulative
+  const points: { day: number; value: number }[] = [];
+  let running = startingBalance;
+  points.push({ day: 0, value: startingBalance });
+  for (let d = 1; d <= lastDay; d++) {
+    running -= spendByDay.get(d) ?? 0;
+    points.push({ day: d, value: running });
+  }
+
+  if (points.length < 2) {
+    return (
+      <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+        <h2 className="text-sm font-semibold text-gray-200 mb-2">Leftover Balance</h2>
+        <div className="flex items-center justify-center h-24 text-sm text-gray-500">No spending logged yet</div>
+      </div>
+    );
+  }
+
+  const W = 560, H = 140, PAD = { top: 12, right: 16, bottom: 28, left: 52 };
+  const innerW = W - PAD.left - PAD.right;
+  const innerH = H - PAD.top - PAD.bottom;
+
+  const allVals = points.map(p => p.value).concat(budgetTarget);
+  const minV = Math.min(...allVals);
+  const maxV = Math.max(...allVals);
+  const range = maxV - minV || 1;
+
+  const xScale = (day: number) => (day / daysInMonth) * innerW;
+  const yScale = (v: number) => innerH - ((v - minV) / range) * innerH;
+
+  const linePath = points.map((p, i) =>
+    `${i === 0 ? "M" : "L"} ${xScale(p.day).toFixed(1)} ${yScale(p.value).toFixed(1)}`
+  ).join(" ");
+
+  const areaPath = linePath + ` L ${xScale(lastDay).toFixed(1)} ${innerH} L 0 ${innerH} Z`;
+
+  const targetY = yScale(budgetTarget).toFixed(1);
+
+  // X axis labels — every 5 days
+  const xLabels: number[] = [];
+  for (let d = 5; d <= daysInMonth; d += 5) xLabels.push(d);
+
+  // Y axis labels
+  const yTicks = [minV, (minV + maxV) / 2, maxV];
+
+  const lastPoint = points[points.length - 1];
+  const isPositive = lastPoint.value >= 0;
+
+  return (
+    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-gray-200">Leftover Balance</h2>
+        <span className={`text-sm font-semibold tabular-nums ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
+          {isPositive ? "+" : ""}{fmt(lastPoint.value)} today
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }}>
+        <defs>
+          <linearGradient id="leftoverGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <g transform={`translate(${PAD.left},${PAD.top})`}>
+          {/* Grid lines */}
+          {yTicks.map((v, i) => (
+            <g key={i}>
+              <line x1={0} y1={yScale(v)} x2={innerW} y2={yScale(v)} stroke="#2a2a2a" strokeWidth={1} />
+              <text x={-6} y={yScale(v) + 4} textAnchor="end" fontSize={9} fill="#6b7280" className="tabular-nums">
+                {v >= 0 ? "" : "−"}{fmt(Math.abs(v)).replace("$", "$")}
+              </text>
+            </g>
+          ))}
+          {/* Budget target line */}
+          <line x1={0} y1={targetY} x2={innerW} y2={targetY} stroke="#6b7280" strokeWidth={1} strokeDasharray="4 3" />
+          <text x={innerW + 3} y={Number(targetY) + 4} fontSize={8} fill="#6b7280">target</text>
+          {/* Zero line if in view */}
+          {minV < 0 && maxV > 0 && (
+            <line x1={0} y1={yScale(0)} x2={innerW} y2={yScale(0)} stroke="#374151" strokeWidth={1} />
+          )}
+          {/* Area fill */}
+          <path d={areaPath} fill="url(#leftoverGrad)" transform={`translate(0,0)`} />
+          {/* Line */}
+          <path d={linePath} fill="none" stroke={isPositive ? "#10b981" : "#ef4444"} strokeWidth={2} strokeLinejoin="round" />
+          {/* Today dot */}
+          {isCurrentMonth && (
+            <circle
+              cx={xScale(lastPoint.day)}
+              cy={yScale(lastPoint.value)}
+              r={3.5}
+              fill={isPositive ? "#10b981" : "#ef4444"}
+            />
+          )}
+          {/* X axis labels */}
+          {xLabels.map(d => (
+            <text key={d} x={xScale(d)} y={innerH + 16} textAnchor="middle" fontSize={9} fill="#6b7280">
+              {d}
+            </text>
+          ))}
+          {/* X axis line */}
+          <line x1={0} y1={innerH} x2={innerW} y2={innerH} stroke="#2a2a2a" strokeWidth={1} />
+          {/* Today vertical marker */}
+          {isCurrentMonth && todayStr.startsWith(month) && (
+            <line
+              x1={xScale(lastPoint.day)} y1={0}
+              x2={xScale(lastPoint.day)} y2={innerH}
+              stroke="#374151" strokeWidth={1} strokeDasharray="3 3"
+            />
+          )}
+        </g>
+      </svg>
+    </div>
+  );
+}
+
 // ─── Budget Map ───────────────────────────────────────────────────────────────
 
 interface BudgetMapProps {
@@ -986,6 +1125,14 @@ export default function BudgetPanel() {
         </div>
       </div>
 
+      {/* Leftover balance chart */}
+      <LeftoverChart
+        month={month}
+        logs={data.logs}
+        startingBalance={incomeActual - fixedActualTotal - savingsActual}
+        budgetTarget={leftoverBudget}
+      />
+
       {/* Budget Map */}
       <BudgetMapPanel
         incomeBudget={incomeBudget}
@@ -1009,8 +1156,8 @@ export default function BudgetPanel() {
         <SpendPieChart entries={spendEntries} logs={data.logs} />
       </div>
 
-      {/* Fixed + Variable expense tables */}
-      <div className="grid grid-cols-2 gap-6 items-start">
+      {/* Expense tables — 3 columns */}
+      <div className="grid grid-cols-3 gap-6 items-start">
         <ExpenseTable
           title="Fixed Expenses"
           rows={fixedRows}
@@ -1031,10 +1178,6 @@ export default function BudgetPanel() {
           onUpdateActual={expHandlers.updateActual}
           onDeleteRow={expHandlers.deleteRow}
         />
-      </div>
-
-      {/* Savings & Investing table */}
-      <div className="grid grid-cols-2 gap-6 items-start">
         <ExpenseTable
           title="Savings & Investing"
           rows={savingsRows}
