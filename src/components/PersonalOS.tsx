@@ -1009,6 +1009,168 @@ interface WeatherData {
   hourly: { time: string; temp: number; code: number }[];
 }
 
+// ─── Reddit Widget ────────────────────────────────────────────────────────────
+
+interface SiteUsageRow { site: string; date: string; seconds: number; visits: number; }
+
+function RedditWidget() {
+  const [rows, setRows] = useState<SiteUsageRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/data/site-usage?site=reddit.com")
+      .then(r => r.json())
+      .then((d: SiteUsageRow[]) => { setRows(Array.isArray(d) ? d.slice(0, 14) : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  function fmtTime(s: number) {
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.floor(s / 60)}m`;
+    return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const todayRow = rows.find(r => r.date === today);
+  const weekTotal = rows.filter(r => {
+    const d = new Date(r.date);
+    const now = new Date();
+    const diff = (now.getTime() - d.getTime()) / 86400000;
+    return diff < 7;
+  }).reduce((s, r) => s + r.seconds, 0);
+
+  // Build last 7 days bar chart
+  const days: { date: string; seconds: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const ds = d.toISOString().slice(0, 10);
+    const row = rows.find(r => r.date === ds);
+    days.push({ date: ds, seconds: row?.seconds ?? 0 });
+  }
+  const maxSec = Math.max(...days.map(d => d.seconds), 1);
+
+  return (
+    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Reddit Usage</span>
+        <span className="text-[10px] text-gray-600">7-day</span>
+      </div>
+      {loading ? (
+        <div className="text-xs text-gray-600 py-3 text-center">Loading…</div>
+      ) : rows.length === 0 ? (
+        <div className="text-xs text-gray-600 py-3 text-center">No data yet — install the extension to start tracking</div>
+      ) : (
+        <>
+          <div className="flex gap-1 items-end h-12 mb-2">
+            {days.map(d => {
+              const pct = (d.seconds / maxSec) * 100;
+              const isToday = d.date === today;
+              return (
+                <div key={d.date} className="flex-1 flex flex-col items-center gap-1" title={`${d.date}: ${fmtTime(d.seconds)}`}>
+                  <div
+                    className={`w-full rounded-sm transition-all ${isToday ? "bg-orange-500" : "bg-[#2e2e2e]"}`}
+                    style={{ height: `${Math.max(2, pct)}%` }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-[10px] text-gray-600 mb-3">
+            {days.map(d => (
+              <span key={d.date}>{["S","M","T","W","T","F","S"][new Date(d.date + "T12:00:00").getDay()]}</span>
+            ))}
+          </div>
+          <div className="flex justify-between text-xs">
+            <div>
+              <div className="text-gray-500">Today</div>
+              <div className="font-semibold text-orange-400">{fmtTime(todayRow?.seconds ?? 0)}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-gray-500">This week</div>
+              <div className="font-semibold text-gray-200">{fmtTime(weekTotal)}</div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Defunct / YouTube Widget ─────────────────────────────────────────────────
+
+interface YtVideo { id: string; title: string; thumb: string; }
+
+function DefunctWidget() {
+  const [videos, setVideos] = useState<YtVideo[]>([]);
+  const [playing, setPlaying] = useState<YtVideo | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function pickRandom() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/data/yt-feed?channelId=UCjl8BKz02KHTncEcuEzFeSw");
+      const data: YtVideo[] = await res.json();
+      if (data.length > 0) {
+        const pick = data[Math.floor(Math.random() * data.length)];
+        setVideos(data);
+        setPlaying(pick);
+      }
+    } catch { /* fallback to cached */ }
+    if (videos.length > 0) {
+      setPlaying(videos[Math.floor(Math.random() * videos.length)]);
+    }
+    setLoading(false);
+  }
+
+  return (
+    <>
+      <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Defunct</span>
+          <span className="text-[10px] text-gray-600">daily jazz</span>
+        </div>
+        <button
+          onClick={pickRandom}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-2 bg-[#2a2a2a] hover:bg-[#333] border border-[#333] rounded-xl py-3 text-sm font-medium text-gray-200 transition-colors disabled:opacity-50"
+        >
+          {loading ? "Loading…" : "▶  Play Random Video"}
+        </button>
+        {playing && (
+          <div className="mt-3 text-xs text-gray-500 truncate" title={playing.title}>{playing.title}</div>
+        )}
+      </div>
+
+      {/* Video modal */}
+      {playing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => setPlaying(null)}>
+          <div className="relative w-full max-w-3xl mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-300 truncate pr-4">{playing.title}</span>
+              <div className="flex gap-2 flex-shrink-0">
+                <button
+                  onClick={pickRandom}
+                  className="text-xs text-gray-400 hover:text-white border border-[#444] rounded-lg px-3 py-1.5 transition-colors"
+                >⟳ Next random</button>
+                <button onClick={() => setPlaying(null)} className="text-gray-400 hover:text-white text-lg leading-none">✕</button>
+              </div>
+            </div>
+            <div className="aspect-video rounded-xl overflow-hidden">
+              <iframe
+                width="100%" height="100%"
+                src={`https://www.youtube.com/embed/${playing.id}?autoplay=1`}
+                allow="autoplay; encrypted-media"
+                allowFullScreen
+                className="w-full h-full"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function WeatherBox() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [error, setError] = useState(false);
@@ -1524,7 +1686,7 @@ export default function PersonalOS() {
     <div className="min-h-screen bg-[#111] text-white p-6">
       <div className="grid grid-cols-[1fr_3fr_1fr] gap-5 max-w-7xl mx-auto pt-8">
 
-        {/* ── Left column: Goals ── */}
+        {/* ── Left column: Goals + Reddit + Defunct ── */}
         <div className="flex flex-col gap-5">
           <div className="flex-1">
             <GoalsBox type="weekly" label="Weekly Goals" />
@@ -1532,6 +1694,8 @@ export default function PersonalOS() {
           <div className="flex-1">
             <GoalsBox type="daily" label="Daily Goals" />
           </div>
+          <RedditWidget />
+          <DefunctWidget />
         </div>
 
         {/* ── Middle column: Finance + Habits/Calendar ── */}

@@ -22,6 +22,8 @@ export default async function handler(req, res) {
     case "dnd-lore":         return handleDndTable(req, res, "dnd_lore", "campaign_id");
     case "dnd-quests":       return handleDndTable(req, res, "dnd_quests", "campaign_id");
     case "dnd-concepts":     return handleDndTable(req, res, "dnd_concepts", "campaign_id");
+    case "yt-feed":          return handleYtFeed(req, res);
+    case "site-usage":       return handleSiteUsage(req, res);
     default:                 return res.status(404).json({ error: "Not found" });
   }
 }
@@ -320,6 +322,64 @@ async function handleSets(req, res) {
     const { error } = await supabase.from("workout_sets").delete().eq("id", id);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ ok: true });
+  }
+  res.status(405).end();
+}
+
+// ─── YouTube RSS feed proxy ────────────────────────────────────────────────────
+async function handleYtFeed(req, res) {
+  if (req.method !== "GET") return res.status(405).end();
+  const channelId = req.query.channelId || "UCjl8BKz02KHTncEcuEzFeSw"; // Defunctxx
+  try {
+    const r = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
+    const xml = await r.text();
+    const videos = [];
+    const entries = xml.split("<entry>").slice(1);
+    for (const entry of entries) {
+      const idMatch = entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/);
+      const titleMatch = entry.match(/<title>([^<]+)<\/title>/);
+      if (idMatch && titleMatch) {
+        videos.push({
+          id: idMatch[1],
+          title: titleMatch[1],
+          thumb: `https://i.ytimg.com/vi/${idMatch[1]}/mqdefault.jpg`,
+        });
+      }
+    }
+    res.setHeader("Cache-Control", "s-maxage=3600");
+    return res.json(videos);
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// ─── Site Usage (Reddit tracker) ──────────────────────────────────────────────
+async function handleSiteUsage(req, res) {
+  if (req.method === "GET") {
+    const { site } = req.query;
+    let query = supabase.from("site_usage").select("*").order("date", { ascending: false }).limit(60);
+    if (site) query = query.eq("site", site);
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+  if (req.method === "POST") {
+    const { site, date, seconds, visits } = req.body;
+    const { data: existing } = await supabase
+      .from("site_usage").select("*").eq("site", site).eq("date", date).single();
+    if (existing) {
+      const { data, error } = await supabase
+        .from("site_usage")
+        .update({ seconds: existing.seconds + seconds, visits: existing.visits + visits })
+        .eq("site", site).eq("date", date).select();
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json(data[0]);
+    } else {
+      const { data, error } = await supabase
+        .from("site_usage").insert({ site, date, seconds, visits }).select();
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json(data[0]);
+    }
   }
   res.status(405).end();
 }

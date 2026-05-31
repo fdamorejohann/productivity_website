@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Reddit Time Tracker",
+  "version": "1.0",
+  "description": "Tracks time spent on Reddit and syncs to your dashboard.",
+  "permissions": ["tabs", "storage", "alarms", "idle"],
+  "host_permissions": ["*://*.reddit.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Reddit Tracker"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "reddit-tracker@finndamorejohann",
+      "strict_min_version": "109.0"
+    }
+  }
+}

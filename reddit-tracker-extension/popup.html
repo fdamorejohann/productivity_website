@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body { font-family: -apple-system, sans-serif; width: 220px; padding: 16px; background: #111; color: #e5e7eb; margin: 0; }
+    h2 { font-size: 13px; font-weight: 600; margin: 0 0 12px; color: #f9fafb; }
+    .row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+    .label { color: #9ca3af; }
+    .value { font-weight: 600; tabular-nums; }
+    .live { display: flex; align-items: center; gap-6px; font-size: 11px; color: #f87171; margin-top: 10px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #f87171; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.3 } }
+    .muted { color: #4b5563; font-size: 11px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Reddit Tracker</h2>
+  <div id="content"><div class="muted">Loading…</div></div>
+  <script src="popup.js"></script>
+</body>
+</html>
