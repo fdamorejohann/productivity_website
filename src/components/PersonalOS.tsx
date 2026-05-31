@@ -1024,12 +1024,18 @@ function DefunctWidget({ playing, onPlay }: { playing: YtVideo | null; onPlay: (
       const data: YtVideo[] = await res.json();
       if (data.length > 0) {
         setVideos(data);
-        onPlay(data[Math.floor(Math.random() * data.length)]);
+        const pick = data[Math.floor(Math.random() * data.length)];
+        onPlay(pick);
+        window.open(`https://www.youtube.com/watch?v=${pick.id}`, "_blank");
         setLoading(false);
         return;
       }
     } catch {}
-    if (videos.length > 0) onPlay(videos[Math.floor(Math.random() * videos.length)]);
+    if (videos.length > 0) {
+      const pick = videos[Math.floor(Math.random() * videos.length)];
+      onPlay(pick);
+      window.open(`https://www.youtube.com/watch?v=${pick.id}`, "_blank");
+    }
     setLoading(false);
   }
 
@@ -1044,32 +1050,11 @@ function DefunctWidget({ playing, onPlay }: { playing: YtVideo | null; onPlay: (
         disabled={loading}
         className="w-full flex items-center justify-center gap-2 bg-[#2a2a2a] hover:bg-[#333] border border-[#333] rounded-xl py-2.5 text-sm font-medium text-gray-200 transition-colors disabled:opacity-50"
       >
-        {loading ? "Loading…" : playing ? "⟳  Next random" : "▶  Play Random Video"}
+        {loading ? "Loading…" : "▶  Play Random Video"}
       </button>
       {playing && (
         <div className="mt-2 text-xs text-gray-600 truncate" title={playing.title}>{playing.title}</div>
       )}
-    </div>
-  );
-}
-
-function YtFloatingPlayer({ playing, onStop }: { playing: YtVideo | null; onStop: () => void }) {
-  if (!playing) return null;
-  return (
-    <div className="fixed bottom-5 right-5 z-50 w-72 bg-[#1a1a1a] border border-[#2e2e2e] rounded-2xl shadow-2xl overflow-hidden">
-      <div style={{ aspectRatio: "16/9" }}>
-        <iframe
-          width="100%" height="100%"
-          src={`https://www.youtube.com/embed/${playing.id}?autoplay=1`}
-          allow="autoplay; encrypted-media"
-          allowFullScreen
-          className="w-full h-full"
-        />
-      </div>
-      <div className="flex items-center gap-2 px-3 py-2">
-        <span className="flex-1 text-xs text-gray-400 truncate">{playing.title}</span>
-        <button onClick={onStop} className="text-gray-600 hover:text-white text-xs transition-colors">■</button>
-      </div>
     </div>
   );
 }
@@ -1560,7 +1545,6 @@ export default function PersonalOS() {
       <div className="min-h-screen bg-[#111] text-white p-8">
         <button onClick={() => setShowDnd(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition-colors">← Back</button>
         <DndPanel />
-        <YtFloatingPlayer playing={ytPlaying} onStop={() => setYtPlaying(null)} />
       </div>
     );
   }
@@ -1570,7 +1554,6 @@ export default function PersonalOS() {
       <div className="min-h-screen bg-[#111] text-white p-8">
         <button onClick={() => setShowWorkout(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition-colors">← Back</button>
         <WorkoutPanel />
-        <YtFloatingPlayer playing={ytPlaying} onStop={() => setYtPlaying(null)} />
       </div>
     );
   }
@@ -1585,7 +1568,6 @@ export default function PersonalOS() {
           ← Back
         </button>
         <BudgetPanel />
-        <YtFloatingPlayer playing={ytPlaying} onStop={() => setYtPlaying(null)} />
       </div>
     );
   }
@@ -1637,7 +1619,6 @@ export default function PersonalOS() {
         </div>
 
       </div>
-      <YtFloatingPlayer playing={ytPlaying} onStop={() => setYtPlaying(null)} />
     </div>
   );
 }
