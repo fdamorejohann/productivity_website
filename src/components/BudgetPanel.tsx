@@ -564,7 +564,8 @@ function DailyBudgetCard({ leftoverActual, month }: { leftoverActual: number; mo
   const today = new Date();
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === mo;
   const daysInMonth = new Date(year, mo, 0).getDate();
-  const daysLeft = isCurrentMonth ? daysInMonth - today.getDate() + 1 : 1;
+  const isFutureMonth = new Date(year, mo - 1, 1) > today;
+  const daysLeft = isCurrentMonth ? daysInMonth - today.getDate() + 1 : daysInMonth;
   const perDay = daysLeft > 0 ? leftoverActual / daysLeft : leftoverActual;
   const positive = perDay >= 0;
 
@@ -576,7 +577,8 @@ function DailyBudgetCard({ leftoverActual, month }: { leftoverActual: number; mo
         <span className="text-base font-normal text-gray-500 ml-1">/ day</span>
       </div>
       <div className="text-xs text-gray-600">
-        {fmt(leftoverActual)} leftover ÷ {daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining
+        {fmt(leftoverActual)} leftover ÷ {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+        {isCurrentMonth ? " remaining" : isFutureMonth ? " in month" : " in month"}
       </div>
     </div>
   );
