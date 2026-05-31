@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import BudgetPanel from "./BudgetPanel";
 import WorkoutPanel from "./WorkoutPanel";
 import DndPanel from "./DndPanel";
@@ -1016,7 +1017,6 @@ interface YtVideo { id: string; title: string; thumb: string; }
 function DefunctWidget({ playing, onPlay }: { playing: YtVideo | null; onPlay: (v: YtVideo) => void }) {
   const [videos, setVideos] = useState<YtVideo[]>([]);
 
-  // Pre-fetch video list on mount so pickRandom can be synchronous
   useEffect(() => {
     fetch("/api/data/yt-feed?channelId=UCjl8BKz02KHTncEcuEzFeSw")
       .then(r => r.json())
@@ -1025,33 +1025,53 @@ function DefunctWidget({ playing, onPlay }: { playing: YtVideo | null; onPlay: (
   }, []);
 
   function pickRandom() {
-    if (videos.length === 0) {
-      // Fallback: open channel page if not loaded yet
-      window.open("https://www.youtube.com/@Defunctxx/videos", "_blank");
-      return;
-    }
-    const pick = videos[Math.floor(Math.random() * videos.length)];
-    onPlay(pick);
-    // Open synchronously — no await, so popup blocker won't fire
-    window.open(`https://www.youtube.com/watch?v=${pick.id}`, "_blank");
+    const pool = videos.length > 0 ? videos : null;
+    if (!pool) return;
+    onPlay(pool[Math.floor(Math.random() * pool.length)]);
   }
 
   return (
     <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Defunct</span>
-        <span className="text-[10px] text-gray-600">daily jazz</span>
+        {playing && (
+          <button onClick={() => onPlay(videos[Math.floor(Math.random() * videos.length)])} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors">⟳ next</button>
+        )}
       </div>
       <button
         onClick={pickRandom}
-        className="w-full flex items-center justify-center gap-2 bg-[#2a2a2a] hover:bg-[#333] border border-[#333] rounded-xl py-2.5 text-sm font-medium text-gray-200 transition-colors"
+        disabled={videos.length === 0}
+        className="w-full flex items-center justify-center gap-2 bg-[#2a2a2a] hover:bg-[#333] border border-[#333] rounded-xl py-2.5 text-sm font-medium text-gray-200 transition-colors disabled:opacity-40"
       >
-        ▶&nbsp; Play Random Video
+        {playing ? "⟳  Next random" : "▶  Play Random Video"}
       </button>
       {playing && (
         <div className="mt-2 text-xs text-gray-600 truncate" title={playing.title}>{playing.title}</div>
       )}
     </div>
+  );
+}
+
+function YtPortalPlayer({ playing, onStop }: { playing: YtVideo | null; onStop: () => void }) {
+  if (!playing) return null;
+  return createPortal(
+    <div className="fixed bottom-5 right-5 z-[9999] w-72 bg-[#1a1a1a] border border-[#2e2e2e] rounded-2xl shadow-2xl overflow-hidden">
+      <div style={{ aspectRatio: "16/9" }}>
+        <iframe
+          key={playing.id}
+          width="100%" height="100%"
+          src={`https://www.youtube.com/embed/${playing.id}?autoplay=1`}
+          allow="autoplay; encrypted-media"
+          allowFullScreen
+          className="w-full h-full"
+        />
+      </div>
+      <div className="flex items-center gap-2 px-3 py-2">
+        <span className="flex-1 text-xs text-gray-400 truncate">{playing.title}</span>
+        <button onClick={onStop} className="text-gray-600 hover:text-white text-xs px-1 transition-colors" title="Stop">■</button>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -1535,6 +1555,9 @@ export default function PersonalOS() {
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  // Portal player — always mounted, survives panel navigation
+  const ytPortal = <YtPortalPlayer playing={ytPlaying} onStop={() => setYtPlaying(null)} />;
 
   if (showDnd) {
     return (
