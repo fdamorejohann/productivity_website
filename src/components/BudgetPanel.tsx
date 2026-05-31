@@ -432,12 +432,14 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
   const isCurrentMonth = new Date().getFullYear() === year && new Date().getMonth() + 1 === mo;
   const lastDay = isCurrentMonth ? Math.min(new Date().getDate(), daysInMonth) : daysInMonth;
 
-  // Build cumulative spend per day
+  // Build net spend per day: skip "work" (income), rebates are negative (line goes up)
   const spendByDay = new Map<number, number>();
   for (const l of logs) {
     if (!l.date.startsWith(month)) continue;
+    if (l.category === "work") continue; // income, not spending
     const d = parseInt(l.date.slice(8), 10);
-    spendByDay.set(d, (spendByDay.get(d) ?? 0) + effectiveCost(l));
+    const cost = l.category === "Rebates" ? -effectiveCost(l) : effectiveCost(l);
+    spendByDay.set(d, (spendByDay.get(d) ?? 0) + cost);
   }
 
   // Build points: day 0 = startingBalance, then each day subtract cumulative
