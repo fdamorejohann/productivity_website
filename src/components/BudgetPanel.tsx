@@ -602,6 +602,91 @@ export default function BudgetPanel() {
     });
   }
 
+  function exportForClaude() {
+    if (!data) return;
+    const label = formatMonthLabel(month);
+    const eAct = (r: BudgetExpenseRow) => expActual(r, data.logs);
+
+    const lines: string[] = [];
+    lines.push(`# Financial Report — ${label}`);
+    lines.push(`_Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}_`);
+    lines.push("");
+
+    // Summary
+    lines.push("## Summary");
+    lines.push(`| | Budget | Actual |`);
+    lines.push(`|---|---:|---:|`);
+    lines.push(`| **Income** | ${fmt(incomeBudget)} | ${fmt(incomeActual)} |`);
+    lines.push(`| **Fixed Expenses** | ${fmt(fixedBudgetTotal)} | ${fmt(fixedActualTotal)} |`);
+    lines.push(`| **Variable Expenses** | ${fmt(variableBudgetTotal)} | ${fmt(variableActualTotal)} |`);
+    lines.push(`| **Leftover** | ${fmt(leftoverBudget)} | ${fmt(leftoverActual)} |`);
+    lines.push(`| **Savings** | ${fmt(savingsBudget)} | ${fmt(savingsActual)} |`);
+    lines.push(`| **Investments** | ${fmt(investingBudget)} | ${fmt(investingActual)} |`);
+    lines.push("");
+
+    // Income breakdown
+    lines.push("## Income Breakdown");
+    lines.push(`| Source | Budget | Actual |`);
+    lines.push(`|---|---:|---:|`);
+    for (const r of data.income) {
+      if (r.budget > 0 || r.actual > 0) lines.push(`| ${r.label} | ${fmt(r.budget)} | ${fmt(r.actual)} |`);
+    }
+    lines.push("");
+
+    // Fixed expenses
+    lines.push("## Fixed Expenses");
+    lines.push(`| Category | Budget | Actual | Status |`);
+    lines.push(`|---|---:|---:|---|`);
+    for (const r of fixedRows) {
+      const actual = eAct(r);
+      const status = actual <= r.budget ? "✅" : "⚠️ over";
+      lines.push(`| ${r.label} | ${fmt(r.budget)} | ${fmt(actual)} | ${status} |`);
+    }
+    lines.push("");
+
+    // Variable expenses
+    lines.push("## Variable Expenses");
+    lines.push(`| Category | Budget | Actual | Difference |`);
+    lines.push(`|---|---:|---:|---:|`);
+    for (const r of variableRows) {
+      const actual = eAct(r);
+      const diff = r.budget - actual;
+      const flag = actual > r.budget ? `⚠️ ${fmt(Math.abs(diff))} over` : diff > 0 ? `✅ ${fmt(diff)} under` : "—";
+      lines.push(`| ${r.label} | ${fmt(r.budget)} | ${fmt(actual)} | ${flag} |`);
+    }
+    lines.push("");
+
+    // Top spending
+    if (spendEntries.length > 0) {
+      lines.push("## Top Spending Categories (from logs)");
+      lines.push(`| Category | Spent |`);
+      lines.push(`|---|---:|`);
+      for (const [cat, amt] of spendEntries) lines.push(`| ${cat} | ${fmt(amt)} |`);
+      lines.push("");
+    }
+
+    // Recent expenses (last 20)
+    const recentLogs = [...data.logs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20);
+    if (recentLogs.length > 0) {
+      lines.push("## Recent Expenses (last 20)");
+      lines.push(`| Date | Vendor | Category | Amount |`);
+      lines.push(`|---|---|---|---:|`);
+      for (const l of recentLogs) lines.push(`| ${l.date} | ${l.vendor} | ${l.category} | ${fmt(effectiveCost(l))} |`);
+      lines.push("");
+    }
+
+    lines.push("---");
+    lines.push("_Paste this report into your Finance Advisor Claude project to discuss your habits, strategies, and goals._");
+
+    const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `finance-${month}-for-claude.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function exportCsv() {
     if (!data) return;
     const headers = ["Date", "Vendor", "Category", "Amount", "Owed", "Effective Cost", "Pts Multiplier", "Pts Earned", "Card"];
@@ -666,6 +751,7 @@ export default function BudgetPanel() {
           onNewMonth={createNextMonth}
           onResetMonth={createMonth}
           onExport={exportCsv}
+          onExportForClaude={exportForClaude}
         />
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="text-5xl mb-4">📅</div>
@@ -721,6 +807,7 @@ export default function BudgetPanel() {
         onNewMonth={createNextMonth}
         onResetMonth={resetCurrentMonth}
         onExport={exportCsv}
+        onExportForClaude={exportForClaude}
       />
 
       {/* Summary cards */}
@@ -1099,7 +1186,7 @@ function ImportStatusBadge({ status, reason }: { status: ImportStatus; reason?: 
 
 // ─── BudgetHeader ─────────────────────────────────────────────────────────────
 
-function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onNewMonth, onResetMonth, onExport }: {
+function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onNewMonth, onResetMonth, onExport, onExportForClaude }: {
   month: string;
   isCurrentMonth: boolean;
   showNewMonth: boolean;
@@ -1108,6 +1195,7 @@ function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onN
   onNewMonth: () => void;
   onResetMonth: () => void;
   onExport: () => void;
+  onExportForClaude: () => void;
 }) {
   return (
     <div className="flex items-center justify-between">
@@ -1120,6 +1208,9 @@ function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onN
         )}
         <button onClick={onExport} className="px-3 py-1.5 text-sm font-medium text-gray-300 border border-[#333] rounded-lg hover:bg-[#2a2a2a] transition-colors">
           Export CSV
+        </button>
+        <button onClick={onExportForClaude} className="px-3 py-1.5 text-sm font-medium text-purple-300 border border-purple-800 rounded-lg hover:bg-purple-900/30 transition-colors">
+          Export for Claude
         </button>
         <button onClick={onResetMonth} className="px-3 py-1.5 text-sm font-medium text-red-400 border border-red-900 rounded-lg hover:bg-red-900/30 transition-colors">
           Reset Month
