@@ -405,6 +405,163 @@ function buildImportPreview(
   });
 }
 
+// ─── Budget Map ───────────────────────────────────────────────────────────────
+
+interface BudgetMapProps {
+  incomeBudget: number;
+  fixedBudget: number;
+  variableBudget: number;
+  leftoverBudget: number;
+}
+
+function BudgetMapPanel({ incomeBudget, fixedBudget, variableBudget, leftoverBudget }: BudgetMapProps) {
+  const total = incomeBudget || 1;
+  const fixedPct  = Math.round((fixedBudget / total) * 100);
+  const varPct    = Math.round((variableBudget / total) * 100);
+  const leftPct   = Math.max(0, 100 - fixedPct - varPct);
+  const leftoverPositive = leftoverBudget >= 0;
+  return (
+    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+      <h2 className="text-sm font-semibold text-gray-200 mb-4">Budget Map</h2>
+      {/* Stacked bar */}
+      <div className="flex rounded-lg overflow-hidden h-8 mb-4 text-xs font-medium">
+        <div className="flex items-center justify-center bg-blue-600 text-white truncate px-2" style={{ width: `${fixedPct}%` }}>
+          Fixed {fixedPct}%
+        </div>
+        <div className="flex items-center justify-center bg-violet-600 text-white truncate px-2" style={{ width: `${varPct}%` }}>
+          Variable {varPct}%
+        </div>
+        <div className={`flex items-center justify-center truncate px-2 ${leftoverPositive ? "bg-emerald-600" : "bg-red-600"} text-white`} style={{ width: `${leftPct}%` }}>
+          Left {leftPct}%
+        </div>
+      </div>
+      {/* Flow */}
+      <div className="flex items-center gap-2 text-sm">
+        <div className="text-center">
+          <div className="text-xs text-gray-500 mb-1">Income</div>
+          <div className="bg-[#2a2a2a] rounded-lg px-3 py-2 font-semibold text-white tabular-nums">{fmt(incomeBudget)}</div>
+        </div>
+        <div className="text-gray-600 text-lg">→</div>
+        <div className="text-center">
+          <div className="text-xs text-gray-500 mb-1">Fixed</div>
+          <div className="bg-blue-900/40 rounded-lg px-3 py-2 font-semibold text-blue-300 tabular-nums">−{fmt(fixedBudget)}</div>
+        </div>
+        <div className="text-gray-600 text-lg">→</div>
+        <div className="text-center">
+          <div className="text-xs text-gray-500 mb-1">Variable</div>
+          <div className="bg-violet-900/40 rounded-lg px-3 py-2 font-semibold text-violet-300 tabular-nums">−{fmt(variableBudget)}</div>
+        </div>
+        <div className="text-gray-600 text-lg">→</div>
+        <div className="text-center">
+          <div className="text-xs text-gray-500 mb-1">Leftover</div>
+          <div className={`rounded-lg px-3 py-2 font-semibold tabular-nums ${leftoverPositive ? "bg-emerald-900/40 text-emerald-300" : "bg-red-900/40 text-red-400"}`}>
+            {leftoverPositive ? "+" : ""}{fmt(leftoverBudget)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Spend Pie Chart ──────────────────────────────────────────────────────────
+
+const PIE_COLORS = [
+  "#3b82f6","#8b5cf6","#10b981","#f59e0b","#ef4444",
+  "#06b6d4","#f97316","#ec4899","#84cc16","#a855f7",
+];
+
+interface SpendPieChartProps {
+  entries: [string, number][];
+  logs: BudgetExpenseLog[];
+}
+
+function SpendPieChart({ entries, logs }: SpendPieChartProps) {
+  const [selected, setSelected] = useState<string | null>(null);
+
+  if (entries.length === 0) {
+    return (
+      <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+        <h2 className="text-sm font-semibold text-gray-200 mb-4">Top Spend Categories</h2>
+        <div className="flex items-center justify-center h-32 text-sm text-gray-400">No spending logged yet</div>
+      </div>
+    );
+  }
+
+  const total = entries.reduce((s, [, v]) => s + v, 0);
+  // Build pie slices
+  const size = 180;
+  const cx = size / 2, cy = size / 2, r = 75, inner = 40;
+  let angle = -Math.PI / 2;
+  const slices = entries.map(([cat, val], i) => {
+    const frac = val / total;
+    const startAngle = angle;
+    angle += frac * 2 * Math.PI;
+    const endAngle = angle;
+    const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle),   y2 = cy + r * Math.sin(endAngle);
+    const ix1 = cx + inner * Math.cos(startAngle), iy1 = cy + inner * Math.sin(startAngle);
+    const ix2 = cx + inner * Math.cos(endAngle),   iy2 = cy + inner * Math.sin(endAngle);
+    const large = frac > 0.5 ? 1 : 0;
+    const d = `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${inner} ${inner} 0 ${large} 0 ${ix1} ${iy1} Z`;
+    return { cat, val, frac, d, color: PIE_COLORS[i % PIE_COLORS.length] };
+  });
+
+  const topLogs = selected
+    ? [...logs].filter(l => l.category === selected).sort((a, b) => effectiveCost(b) - effectiveCost(a)).slice(0, 10)
+    : [];
+
+  return (
+    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+      <h2 className="text-sm font-semibold text-gray-200 mb-4">Top Spend Categories</h2>
+      <div className="flex gap-4 items-start">
+        {/* Pie */}
+        <svg width={size} height={size} className="flex-shrink-0">
+          {slices.map(s => (
+            <path
+              key={s.cat}
+              d={s.d}
+              fill={s.color}
+              opacity={selected && selected !== s.cat ? 0.35 : 1}
+              className="cursor-pointer transition-opacity"
+              onClick={() => setSelected(selected === s.cat ? null : s.cat)}
+            />
+          ))}
+        </svg>
+        {/* Legend */}
+        <div className="space-y-1.5 min-w-0 flex-1">
+          {slices.map(s => (
+            <div
+              key={s.cat}
+              className={`flex items-center gap-2 text-xs cursor-pointer rounded px-1 py-0.5 transition-colors ${selected === s.cat ? "bg-[#2e2e2e]" : "hover:bg-[#252525]"}`}
+              onClick={() => setSelected(selected === s.cat ? null : s.cat)}
+            >
+              <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: s.color }} />
+              <span className="text-gray-300 truncate">{s.cat}</span>
+              <span className="ml-auto text-gray-500 tabular-nums flex-shrink-0">{fmt(s.val)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Selected category top 10 */}
+      {selected && topLogs.length > 0 && (
+        <div className="mt-4 border-t border-[#2e2e2e] pt-3">
+          <div className="text-xs font-semibold text-gray-400 mb-2">Top purchases — {selected}</div>
+          <div className="space-y-1">
+            {topLogs.map((l, i) => (
+              <div key={l.id} className="flex items-center gap-2 text-xs">
+                <span className="text-gray-600 w-4 tabular-nums">{i + 1}.</span>
+                <span className="text-gray-300 truncate flex-1">{l.vendor}</span>
+                <span className="text-gray-500 tabular-nums">{l.date}</span>
+                <span className="text-gray-200 tabular-nums font-medium">{fmt(effectiveCost(l))}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── BudgetPanel ──────────────────────────────────────────────────────────────
 
 export default function BudgetPanel() {
@@ -545,7 +702,6 @@ export default function BudgetPanel() {
     }
   }
   const spendEntries = [...spendMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const maxSpend = Math.max(...spendEntries.map(([, v]) => v), 1);
 
   // Top 10
   const foodLogs = data
@@ -826,6 +982,14 @@ export default function BudgetPanel() {
         </div>
       </div>
 
+      {/* Budget Map */}
+      <BudgetMapPanel
+        incomeBudget={incomeBudget}
+        fixedBudget={fixedBudgetTotal}
+        variableBudget={variableBudgetTotal}
+        leftoverBudget={leftoverBudget}
+      />
+
       {/* Income + Top Spend chart */}
       <div className="grid grid-cols-2 gap-6 items-start">
         <IncomeTable
@@ -837,28 +1001,7 @@ export default function BudgetPanel() {
           onDeleteRow={(id) => upd(d => ({ ...d, income: d.income.filter(r => r.id !== id) }))}
         />
 
-        <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
-          <h2 className="text-sm font-semibold text-gray-200 mb-4">Top Spend Categories</h2>
-          {spendEntries.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-sm text-gray-400">
-              No spending logged yet
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {spendEntries.map(([cat, amt]) => (
-                <div key={cat}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-medium text-gray-700">{cat}</span>
-                    <span className="text-gray-500 tabular-nums">{fmt(amt)}</span>
-                  </div>
-                  <div className="bg-[#2a2a2a] rounded-full h-2 overflow-hidden">
-                    <div className="h-full rounded-full bg-blue-400 transition-all" style={{ width: `${Math.max(4, (amt / maxSpend) * 100)}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <SpendPieChart entries={spendEntries} logs={data.logs} />
       </div>
 
       {/* Fixed + Variable expense tables */}
