@@ -14,8 +14,7 @@ interface BudgetIncomeRow {
 interface BudgetExpenseRow {
   id: string;
   label: string;
-  type: "fixed" | "variable";
-  bucket: "spending" | "savings" | "investments";
+  type: "fixed" | "variable" | "savings";
   budget: number;
   actual: number | null; // null = derive from log; number = manual override
 }
@@ -66,7 +65,6 @@ const CHART_EXCLUDE = new Set([
   "Rent", "Savings", "Emergency Savings", "Roth IRA", "Seperate Account", "work", "Rebates",
 ]);
 
-const FOOD_CATS = new Set(["Food and drink", "Groceries"]);
 const NO_POINTS_CATS = new Set(["Rebates"]);
 const FOOD_DINING_CATS = new Set(["Food and drink", "Groceries"]);
 
@@ -107,24 +105,24 @@ function defaultMonth(): MonthBudget {
       { id: uid(), label: "Other 2", budget: 0, actual: 0 },
     ],
     expenses: [
-      { id: uid(), label: "Rent",             type: "fixed",    bucket: "spending", budget: 2000, actual: 2000 },
-      { id: uid(), label: "Roth IRA",         type: "fixed",    bucket: "investments", budget: 400,  actual: 400 },
-      { id: uid(), label: "Subscriptions",    type: "fixed",    bucket: "spending", budget: 135,  actual: 135 },
-      { id: uid(), label: "Phone Bill",       type: "fixed",    bucket: "spending", budget: 80,   actual: 80 },
-      { id: uid(), label: "Gym Membership",   type: "fixed",    bucket: "spending", budget: 400,  actual: 400 },
-      { id: uid(), label: "Internet",         type: "fixed",    bucket: "spending", budget: 0,    actual: 0 },
-      { id: uid(), label: "MTA",              type: "fixed",    bucket: "spending", budget: 150,  actual: 150 },
-      { id: uid(), label: "Savings",          type: "fixed",    bucket: "savings",  budget: 1500, actual: 1500 },
-      { id: uid(), label: "Seperate Account", type: "fixed",    bucket: "savings",  budget: 1000, actual: 1000 },
-      { id: uid(), label: "Groceries",        type: "variable", bucket: "spending", budget: 400,  actual: null },
-      { id: uid(), label: "Food and drink",   type: "variable", bucket: "spending", budget: 190,  actual: null },
-      { id: uid(), label: "Ubers",            type: "variable", bucket: "spending", budget: 150,  actual: null },
-      { id: uid(), label: "Fun",              type: "variable", bucket: "spending", budget: 125,  actual: null },
-      { id: uid(), label: "Travel Fund",      type: "variable", bucket: "spending", budget: 250,  actual: null },
-      { id: uid(), label: "Emergency Savings",type: "variable", bucket: "savings",  budget: 300,  actual: null },
-      { id: uid(), label: "Investing",        type: "variable", bucket: "investments", budget: 200,  actual: null },
-      { id: uid(), label: "misc",             type: "variable", bucket: "spending", budget: 60,   actual: null },
-      { id: uid(), label: "work",             type: "variable", bucket: "spending", budget: 0,    actual: null },
+      { id: uid(), label: "Rent",             type: "fixed",   budget: 2000, actual: 2000 },
+      { id: uid(), label: "Subscriptions",    type: "fixed",   budget: 135,  actual: 135 },
+      { id: uid(), label: "Phone Bill",       type: "fixed",   budget: 80,   actual: 80 },
+      { id: uid(), label: "Gym Membership",   type: "fixed",   budget: 400,  actual: 400 },
+      { id: uid(), label: "Internet",         type: "fixed",   budget: 0,    actual: 0 },
+      { id: uid(), label: "MTA",              type: "fixed",   budget: 150,  actual: 150 },
+      { id: uid(), label: "Savings",          type: "savings", budget: 1500, actual: 1500 },
+      { id: uid(), label: "Seperate Account", type: "savings", budget: 1000, actual: 1000 },
+      { id: uid(), label: "Roth IRA",         type: "savings", budget: 400,  actual: 400 },
+      { id: uid(), label: "Investing",        type: "savings", budget: 200,  actual: null },
+      { id: uid(), label: "Emergency Savings",type: "savings", budget: 300,  actual: null },
+      { id: uid(), label: "Groceries",        type: "variable", budget: 400,  actual: null },
+      { id: uid(), label: "Food and drink",   type: "variable", budget: 190,  actual: null },
+      { id: uid(), label: "Ubers",            type: "variable", budget: 150,  actual: null },
+      { id: uid(), label: "Fun",              type: "variable", budget: 125,  actual: null },
+      { id: uid(), label: "Travel Fund",      type: "variable", budget: 250,  actual: null },
+      { id: uid(), label: "misc",             type: "variable", budget: 60,   actual: null },
+      { id: uid(), label: "work",             type: "variable", budget: 0,    actual: null },
     ],
     logs: [],
   };
@@ -142,14 +140,27 @@ function normalizeCategoryName(category: string): string {
   return exact ?? category;
 }
 
+const SAVINGS_LABELS = new Set(["Savings", "Seperate Account", "Emergency Savings", "Roth IRA", "Investing"]);
+
 function migrateMonthBudget(data: MonthBudget): MonthBudget {
   return {
     income: data.income,
-    expenses: data.expenses.map(row => ({
-      ...row,
-      label: normalizeCategoryName(row.label),
-      bucket: row.bucket ?? (["Roth IRA", "Investing"].includes(normalizeCategoryName(row.label)) ? "investments" : ["Savings", "Seperate Account", "Emergency Savings"].includes(normalizeCategoryName(row.label)) ? "savings" : "spending"),
-    })).filter((row, index, rows) => rows.findIndex(r => r.label === row.label && r.type === row.type) === index),
+    expenses: data.expenses.map(row => {
+      const label = normalizeCategoryName(row.label);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const oldRow = row as any;
+      // Derive new type: if old bucket was savings/investments, or label matches known savings labels → "savings"
+      let type: "fixed" | "variable" | "savings" = row.type === "savings" ? "savings" : row.type;
+      if (type !== "savings") {
+        const oldBucket: string | undefined = oldRow.bucket;
+        if (oldBucket === "savings" || oldBucket === "investments" || SAVINGS_LABELS.has(label)) {
+          type = "savings";
+        }
+      }
+      const { bucket: _b, ...rest } = oldRow as { bucket?: unknown } & BudgetExpenseRow;
+      void _b;
+      return { ...rest, label, type } as BudgetExpenseRow;
+    }).filter((row, index, rows) => rows.findIndex(r => r.label === row.label && r.type === row.type) === index),
     logs: data.logs.map(log => ({
       ...log,
       category: normalizeCategoryName(log.category),
@@ -162,7 +173,7 @@ function fromTemplate(tmpl: MonthBudget): MonthBudget {
   const normalized = migrateMonthBudget(tmpl);
   return {
     income: normalized.income.map(r => ({ ...r, id: uid(), actual: 0 })),
-    expenses: normalized.expenses.map(r => ({ ...r, id: uid(), actual: r.type === "fixed" ? r.budget : null })),
+    expenses: normalized.expenses.map(r => ({ ...r, id: uid(), actual: (r.type === "fixed" || r.type === "savings") ? r.budget : null })),
     logs: [],
   };
 }
@@ -411,14 +422,16 @@ interface BudgetMapProps {
   incomeBudget: number;
   fixedBudget: number;
   variableBudget: number;
+  savingsBudget: number;
   leftoverBudget: number;
 }
 
-function BudgetMapPanel({ incomeBudget, fixedBudget, variableBudget, leftoverBudget }: BudgetMapProps) {
+function BudgetMapPanel({ incomeBudget, fixedBudget, variableBudget, savingsBudget, leftoverBudget }: BudgetMapProps) {
   const total = incomeBudget || 1;
-  const fixedPct  = Math.round((fixedBudget / total) * 100);
-  const varPct    = Math.round((variableBudget / total) * 100);
-  const leftPct   = Math.max(0, 100 - fixedPct - varPct);
+  const fixedPct   = Math.round((fixedBudget / total) * 100);
+  const varPct     = Math.round((variableBudget / total) * 100);
+  const savingsPct = Math.round((savingsBudget / total) * 100);
+  const leftPct    = Math.max(0, 100 - fixedPct - varPct - savingsPct);
   const leftoverPositive = leftoverBudget >= 0;
   return (
     <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
@@ -431,12 +444,15 @@ function BudgetMapPanel({ incomeBudget, fixedBudget, variableBudget, leftoverBud
         <div className="flex items-center justify-center bg-violet-600 text-white truncate px-2" style={{ width: `${varPct}%` }}>
           Variable {varPct}%
         </div>
+        <div className="flex items-center justify-center bg-teal-600 text-white truncate px-2" style={{ width: `${savingsPct}%` }}>
+          Savings {savingsPct}%
+        </div>
         <div className={`flex items-center justify-center truncate px-2 ${leftoverPositive ? "bg-emerald-600" : "bg-red-600"} text-white`} style={{ width: `${leftPct}%` }}>
           Left {leftPct}%
         </div>
       </div>
       {/* Flow */}
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-2 text-sm flex-wrap">
         <div className="text-center">
           <div className="text-xs text-gray-500 mb-1">Income</div>
           <div className="bg-[#2a2a2a] rounded-lg px-3 py-2 font-semibold text-white tabular-nums">{fmt(incomeBudget)}</div>
@@ -450,6 +466,11 @@ function BudgetMapPanel({ incomeBudget, fixedBudget, variableBudget, leftoverBud
         <div className="text-center">
           <div className="text-xs text-gray-500 mb-1">Variable</div>
           <div className="bg-violet-900/40 rounded-lg px-3 py-2 font-semibold text-violet-300 tabular-nums">−{fmt(variableBudget)}</div>
+        </div>
+        <div className="text-gray-600 text-lg">→</div>
+        <div className="text-center">
+          <div className="text-xs text-gray-500 mb-1">Savings & Investing</div>
+          <div className="bg-teal-900/40 rounded-lg px-3 py-2 font-semibold text-teal-300 tabular-nums">−{fmt(savingsBudget)}</div>
         </div>
         <div className="text-gray-600 text-lg">→</div>
         <div className="text-center">
@@ -615,11 +636,9 @@ export default function BudgetPanel() {
       const rebates = data.logs.filter(l => l.category === "Rebates").reduce((s, l) => s + effectiveCost(l), 0);
       const varAct = variableRows.reduce((s, r) => s + eAct(r), 0) - rebates;
       const leftover = incomeAct - fixedAct - varAct;
-      const savings = data.expenses.filter(r => r.bucket === "savings").reduce((s, r) => s + eAct(r), 0);
-      const investments = data.expenses.filter(r => r.bucket === "investments").reduce((s, r) => s + eAct(r), 0);
+      const savings = data.expenses.filter(r => r.type === "savings").reduce((s, r) => s + eAct(r), 0);
       db.summary.upsert(month, "leftover", leftover);
       db.summary.upsert(month, "savings", savings);
-      db.summary.upsert(month, "investments", investments);
     }, 800);
   }, [data, month]);
 
@@ -703,13 +722,6 @@ export default function BudgetPanel() {
   }
   const spendEntries = [...spendMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
 
-  // Top 10
-  const foodLogs = data
-    ? [...data.logs].filter(l => FOOD_CATS.has(l.category)).sort((a, b) => b.amount - a.amount).slice(0, 10)
-    : [];
-  const drinkLogs = data
-    ? [...data.logs].filter(l => l.category === "Food and drink").sort((a, b) => b.amount - a.amount).slice(0, 10)
-    : [];
 
   // Add form state
   const [vendor, setVendor] = useState("");
@@ -776,8 +788,7 @@ export default function BudgetPanel() {
     lines.push(`| **Fixed Expenses** | ${fmt(fixedBudgetTotal)} | ${fmt(fixedActualTotal)} |`);
     lines.push(`| **Variable Expenses** | ${fmt(variableBudgetTotal)} | ${fmt(variableActualTotal)} |`);
     lines.push(`| **Leftover** | ${fmt(leftoverBudget)} | ${fmt(leftoverActual)} |`);
-    lines.push(`| **Savings** | ${fmt(savingsBudget)} | ${fmt(savingsActual)} |`);
-    lines.push(`| **Investments** | ${fmt(investingBudget)} | ${fmt(investingActual)} |`);
+    lines.push(`| **Savings & Investing** | ${fmt(savingsBudget)} | ${fmt(savingsActual)} |`);
     lines.push("");
 
     // Income breakdown
@@ -889,8 +900,6 @@ export default function BudgetPanel() {
       upd(d => ({ ...d, expenses: d.expenses.map(r => r.id === id ? { ...r, budget } : r) })),
     updateActual: (id: string, actual: number | null) =>
       upd(d => ({ ...d, expenses: d.expenses.map(r => r.id === id ? { ...r, actual } : r) })),
-    updateBucket: (id: string, bucket: "spending" | "savings" | "investments") =>
-      upd(d => ({ ...d, expenses: d.expenses.map(r => r.id === id ? { ...r, bucket } : r) })),
     deleteRow: (id: string) =>
       upd(d => ({ ...d, expenses: d.expenses.filter(r => r.id !== id) })),
   };
@@ -936,19 +945,15 @@ export default function BudgetPanel() {
   const rebateActual = data.logs.filter(l => l.category === "Rebates").reduce((s, l) => s + effectiveCost(l), 0);
   const variableActualTotal = variableNoWork.reduce((s, r) => s + expActual(r, data.logs), 0) - rebateActual;
 
-  const leftoverBudget = incomeBudget - fixedBudgetTotal - variableBudgetTotal;
-  const leftoverActual = incomeActual - fixedActualTotal - variableActualTotal;
+  const savingsRows = data.expenses.filter(r => r.type === "savings");
+  const savingsBudget = savingsRows.reduce((s, r) => s + r.budget, 0);
+  const savingsActual = savingsRows.reduce((s, r) => s + expActual(r, data.logs), 0);
 
-  const savingsExpRows = data.expenses.filter(r => r.bucket === "savings");
-  const savingsBudget = savingsExpRows.reduce((s, r) => s + r.budget, 0);
-  const savingsActual = savingsExpRows.reduce((s, r) => s + expActual(r, data.logs), 0);
+  const leftoverBudget = incomeBudget - fixedBudgetTotal - variableBudgetTotal - savingsBudget;
+  const leftoverActual = incomeActual - fixedActualTotal - variableActualTotal - savingsActual;
 
-  const investingExpRows = data.expenses.filter(r => r.bucket === "investments");
-  const investingBudget = investingExpRows.reduce((s, r) => s + r.budget, 0);
-  const investingActual = investingExpRows.reduce((s, r) => s + expActual(r, data.logs), 0);
-
-  const totalBudget = savingsBudget + investingBudget + leftoverBudget;
-  const totalActual = savingsActual + investingActual + leftoverActual;
+  const totalBudget = savingsBudget + leftoverBudget;
+  const totalActual = savingsActual + leftoverActual;
 
 
   return (
@@ -974,10 +979,9 @@ export default function BudgetPanel() {
           <SummaryCard label="Variable Expenses" actual={variableActualTotal} budget={variableBudgetTotal} higherIsBetter={false} />
         </div>
 
-        <div className="grid grid-cols-4 gap-4 pl-8">
+        <div className="grid grid-cols-3 gap-4 pl-8">
           <SummaryCard label="Leftover" actual={leftoverActual} budget={leftoverBudget} higherIsBetter />
-          <SummaryCard label="Savings" actual={savingsActual} budget={savingsBudget} higherIsBetter />
-          <SummaryCard label="Investments" actual={investingActual} budget={investingBudget} higherIsBetter />
+          <SummaryCard label="Savings & Investing" actual={savingsActual} budget={savingsBudget} higherIsBetter />
           <SummaryCard label="Total" actual={totalActual} budget={totalBudget} higherIsBetter />
         </div>
       </div>
@@ -987,6 +991,7 @@ export default function BudgetPanel() {
         incomeBudget={incomeBudget}
         fixedBudget={fixedBudgetTotal}
         variableBudget={variableBudgetTotal}
+        savingsBudget={savingsBudget}
         leftoverBudget={leftoverBudget}
       />
 
@@ -1010,33 +1015,38 @@ export default function BudgetPanel() {
           title="Fixed Expenses"
           rows={fixedRows}
           getActual={r => expActual(r, data.logs)}
-          onAddRow={() => upd(d => ({ ...d, expenses: [...d.expenses, { id: uid(), label: "Expense", type: "fixed", bucket: "spending", budget: 0, actual: 0 }] }))}
+          onAddRow={() => upd(d => ({ ...d, expenses: [...d.expenses, { id: uid(), label: "Expense", type: "fixed", budget: 0, actual: 0 }] }))}
           onUpdateLabel={expHandlers.updateLabel}
           onUpdateBudget={expHandlers.updateBudget}
           onUpdateActual={expHandlers.updateActual}
-          onUpdateBucket={expHandlers.updateBucket}
           onDeleteRow={expHandlers.deleteRow}
         />
         <ExpenseTable
           title="Variable Expenses"
           rows={variableRows}
           getActual={r => expActual(r, data.logs)}
-          onAddRow={() => upd(d => ({ ...d, expenses: [...d.expenses, { id: uid(), label: "Expense", type: "variable", bucket: "spending", budget: 0, actual: null }] }))}
+          onAddRow={() => upd(d => ({ ...d, expenses: [...d.expenses, { id: uid(), label: "Expense", type: "variable", budget: 0, actual: null }] }))}
           onUpdateLabel={expHandlers.updateLabel}
           onUpdateBudget={expHandlers.updateBudget}
           onUpdateActual={expHandlers.updateActual}
-          onUpdateBucket={expHandlers.updateBucket}
           onDeleteRow={expHandlers.deleteRow}
         />
       </div>
 
-      {/* Top 10 Food + Drinks — only once logs exist */}
-      {(foodLogs.length > 0 || drinkLogs.length > 0) && (
-        <div className="grid grid-cols-2 gap-6 items-start">
-          <Top10Table title="Top 10 Most Expensive Food + Groceries" logs={foodLogs} />
-          <Top10Table title="Top 10 Most Expensive Food and Drink" logs={drinkLogs} />
-        </div>
-      )}
+      {/* Savings & Investing table */}
+      <div className="grid grid-cols-2 gap-6 items-start">
+        <ExpenseTable
+          title="Savings & Investing"
+          rows={savingsRows}
+          getActual={r => expActual(r, data.logs)}
+          onAddRow={() => upd(d => ({ ...d, expenses: [...d.expenses, { id: uid(), label: "Expense", type: "savings", budget: 0, actual: null }] }))}
+          onUpdateLabel={expHandlers.updateLabel}
+          onUpdateBudget={expHandlers.updateBudget}
+          onUpdateActual={expHandlers.updateActual}
+          onDeleteRow={expHandlers.deleteRow}
+        />
+      </div>
+
 
       {/* Import CSV */}
       <ImportCsvPanel
@@ -1463,7 +1473,7 @@ function IncomeRow({ row, onUpdateLabel, onUpdateBudget, onUpdateActual, onDelet
 
 // ─── ExpenseTable ─────────────────────────────────────────────────────────────
 
-function ExpenseTable({ title, rows, getActual, onAddRow, onUpdateLabel, onUpdateBudget, onUpdateActual, onUpdateBucket, onDeleteRow }: {
+function ExpenseTable({ title, rows, getActual, onAddRow, onUpdateLabel, onUpdateBudget, onUpdateActual, onDeleteRow }: {
   title: string;
   rows: BudgetExpenseRow[];
   getActual: (row: BudgetExpenseRow) => number;
@@ -1471,7 +1481,6 @@ function ExpenseTable({ title, rows, getActual, onAddRow, onUpdateLabel, onUpdat
   onUpdateLabel: (id: string, v: string) => void;
   onUpdateBudget: (id: string, v: number) => void;
   onUpdateActual: (id: string, v: number | null) => void;
-  onUpdateBucket: (id: string, v: "spending" | "savings" | "investments") => void;
   onDeleteRow: (id: string) => void;
 }) {
   const totalBudget = rows.reduce((s, r) => s + r.budget, 0);
@@ -1500,7 +1509,6 @@ function ExpenseTable({ title, rows, getActual, onAddRow, onUpdateLabel, onUpdat
               onUpdateLabel={v => onUpdateLabel(row.id, v)}
               onUpdateBudget={v => onUpdateBudget(row.id, v)}
               onUpdateActual={v => onUpdateActual(row.id, v)}
-              onUpdateBucket={v => onUpdateBucket(row.id, v)}
               onClearActual={() => onUpdateActual(row.id, null)}
               onDelete={() => onDeleteRow(row.id)}
             />
@@ -1519,13 +1527,12 @@ function ExpenseTable({ title, rows, getActual, onAddRow, onUpdateLabel, onUpdat
   );
 }
 
-function ExpenseRow({ row, displayActual, onUpdateLabel, onUpdateBudget, onUpdateActual, onUpdateBucket, onClearActual, onDelete }: {
+function ExpenseRow({ row, displayActual, onUpdateLabel, onUpdateBudget, onUpdateActual, onClearActual, onDelete }: {
   row: BudgetExpenseRow;
   displayActual: number;
   onUpdateLabel: (v: string) => void;
   onUpdateBudget: (v: number) => void;
   onUpdateActual: (v: number) => void;
-  onUpdateBucket: (v: "spending" | "savings" | "investments") => void;
   onClearActual: () => void;
   onDelete: () => void;
 }) {
@@ -1549,17 +1556,6 @@ function ExpenseRow({ row, displayActual, onUpdateLabel, onUpdateBudget, onUpdat
           )}
         </div>
       </td>
-      <td className="py-1.5 pr-1">
-        <select
-          value={row.bucket ?? "spending"}
-          onChange={e => onUpdateBucket(e.target.value as "spending" | "savings" | "investments")}
-          className="w-24 border border-[#333] rounded-lg px-2 py-1 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="spending">Spending</option>
-          <option value="savings">Savings</option>
-          <option value="investments">Investments</option>
-        </select>
-      </td>
       <td className="py-1.5 text-right">
         <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-base leading-none">×</button>
       </td>
@@ -1567,36 +1563,6 @@ function ExpenseRow({ row, displayActual, onUpdateLabel, onUpdateBudget, onUpdat
   );
 }
 
-// ─── Top10Table ───────────────────────────────────────────────────────────────
-
-function Top10Table({ title, logs }: { title: string; logs: BudgetExpenseLog[] }) {
-  if (logs.length === 0) return null;
-  return (
-    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
-      <h2 className="text-sm font-semibold text-gray-200 mb-3">{title}</h2>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-xs font-medium text-gray-500 border-b border-[#2a2a2a]">
-            <th className="text-left pb-2 pr-3">Vendor</th>
-            <th className="text-left pb-2 pr-3">Category</th>
-            <th className="text-right pb-2 pr-3">Amount</th>
-            <th className="text-left pb-2">Card</th>
-          </tr>
-        </thead>
-        <tbody>
-          {logs.map(l => (
-            <tr key={l.id} className="border-b border-gray-50">
-              <td className="py-1.5 pr-3 text-xs text-gray-200 max-w-28 truncate">{l.vendor}</td>
-              <td className="py-1.5 pr-3 text-xs text-gray-400">{l.category}</td>
-              <td className="py-1.5 pr-3 text-right text-xs font-medium text-gray-800 tabular-nums">{fmt(l.amount)}</td>
-              <td className="py-1.5 text-xs text-gray-400 whitespace-nowrap">{l.card}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 // ─── LogRow ───────────────────────────────────────────────────────────────────
 
