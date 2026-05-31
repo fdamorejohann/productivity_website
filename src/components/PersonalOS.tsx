@@ -1013,9 +1013,8 @@ interface WeatherData {
 
 interface YtVideo { id: string; title: string; thumb: string; }
 
-function DefunctWidget() {
+function DefunctWidget({ playing, onPlay }: { playing: YtVideo | null; onPlay: (v: YtVideo) => void }) {
   const [videos, setVideos] = useState<YtVideo[]>([]);
-  const [playing, setPlaying] = useState<YtVideo | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function pickRandom() {
@@ -1024,56 +1023,57 @@ function DefunctWidget() {
       const res = await fetch("/api/data/yt-feed?channelId=UCjl8BKz02KHTncEcuEzFeSw");
       const data: YtVideo[] = await res.json();
       if (data.length > 0) {
-        const pick = data[Math.floor(Math.random() * data.length)];
         setVideos(data);
-        setPlaying(pick);
+        onPlay(data[Math.floor(Math.random() * data.length)]);
+        setLoading(false);
+        return;
       }
-    } catch { /* fallback to cached */ }
-    if (videos.length > 0) {
-      setPlaying(videos[Math.floor(Math.random() * videos.length)]);
-    }
+    } catch {}
+    if (videos.length > 0) onPlay(videos[Math.floor(Math.random() * videos.length)]);
     setLoading(false);
   }
 
   return (
-    <>
-      <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Defunct</span>
-          {playing && (
-            <button onClick={() => setPlaying(null)} className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors">■ stop</button>
-          )}
-        </div>
-
-        {/* Inline player */}
-        {playing ? (
-          <div className="rounded-xl overflow-hidden mb-3" style={{ aspectRatio: "16/9" }}>
-            <iframe
-              width="100%" height="100%"
-              src={`https://www.youtube.com/embed/${playing.id}?autoplay=1`}
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-              className="w-full h-full"
-            />
-          </div>
-        ) : null}
-
-        <button
-          onClick={pickRandom}
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-2 bg-[#2a2a2a] hover:bg-[#333] border border-[#333] rounded-xl py-2.5 text-sm font-medium text-gray-200 transition-colors disabled:opacity-50"
-        >
-          {loading ? "Loading…" : playing ? "⟳  Next random" : "▶  Play Random Video"}
-        </button>
-
-        {playing && (
-          <div className="mt-2 text-xs text-gray-600 truncate" title={playing.title}>{playing.title}</div>
-        )}
+    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Defunct</span>
+        <span className="text-[10px] text-gray-600">daily jazz</span>
       </div>
-
-    </>
+      <button
+        onClick={pickRandom}
+        disabled={loading}
+        className="w-full flex items-center justify-center gap-2 bg-[#2a2a2a] hover:bg-[#333] border border-[#333] rounded-xl py-2.5 text-sm font-medium text-gray-200 transition-colors disabled:opacity-50"
+      >
+        {loading ? "Loading…" : playing ? "⟳  Next random" : "▶  Play Random Video"}
+      </button>
+      {playing && (
+        <div className="mt-2 text-xs text-gray-600 truncate" title={playing.title}>{playing.title}</div>
+      )}
+    </div>
   );
 }
+
+function YtFloatingPlayer({ playing, onStop }: { playing: YtVideo | null; onStop: () => void }) {
+  if (!playing) return null;
+  return (
+    <div className="fixed bottom-5 right-5 z-50 w-72 bg-[#1a1a1a] border border-[#2e2e2e] rounded-2xl shadow-2xl overflow-hidden">
+      <div style={{ aspectRatio: "16/9" }}>
+        <iframe
+          width="100%" height="100%"
+          src={`https://www.youtube.com/embed/${playing.id}?autoplay=1`}
+          allow="autoplay; encrypted-media"
+          allowFullScreen
+          className="w-full h-full"
+        />
+      </div>
+      <div className="flex items-center gap-2 px-3 py-2">
+        <span className="flex-1 text-xs text-gray-400 truncate">{playing.title}</span>
+        <button onClick={onStop} className="text-gray-600 hover:text-white text-xs transition-colors">■</button>
+      </div>
+    </div>
+  );
+}
+
 
 function WeatherBox() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -1549,6 +1549,7 @@ export default function PersonalOS() {
   const [showBible, setShowBible] = useState(false);
   const [showWorkout, setShowWorkout] = useState(false);
   const [showDnd, setShowDnd] = useState(false);
+  const [ytPlaying, setYtPlaying] = useState<YtVideo | null>(null);
 
   const now = new Date();
   const hour = now.getHours();
@@ -1559,6 +1560,7 @@ export default function PersonalOS() {
       <div className="min-h-screen bg-[#111] text-white p-8">
         <button onClick={() => setShowDnd(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition-colors">← Back</button>
         <DndPanel />
+        <YtFloatingPlayer playing={ytPlaying} onStop={() => setYtPlaying(null)} />
       </div>
     );
   }
@@ -1568,6 +1570,7 @@ export default function PersonalOS() {
       <div className="min-h-screen bg-[#111] text-white p-8">
         <button onClick={() => setShowWorkout(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition-colors">← Back</button>
         <WorkoutPanel />
+        <YtFloatingPlayer playing={ytPlaying} onStop={() => setYtPlaying(null)} />
       </div>
     );
   }
@@ -1582,6 +1585,7 @@ export default function PersonalOS() {
           ← Back
         </button>
         <BudgetPanel />
+        <YtFloatingPlayer playing={ytPlaying} onStop={() => setYtPlaying(null)} />
       </div>
     );
   }
@@ -1598,7 +1602,7 @@ export default function PersonalOS() {
           <div className="flex-1">
             <GoalsBox type="daily" label="Daily Goals" />
           </div>
-          <DefunctWidget />
+          <DefunctWidget playing={ytPlaying} onPlay={setYtPlaying} />
         </div>
 
         {/* ── Middle column: Finance + Habits/Calendar ── */}
@@ -1633,6 +1637,7 @@ export default function PersonalOS() {
         </div>
 
       </div>
+      <YtFloatingPlayer playing={ytPlaying} onStop={() => setYtPlaying(null)} />
     </div>
   );
 }
