@@ -120,6 +120,7 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
   };
 
   const starred = goals.filter(g => g.starred && !g.done);
+  const done = goals.filter(g => g.done);
 
   return (
     <div className="relative flex flex-col bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 h-full min-h-64">
@@ -137,7 +138,7 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
 
       {/* Starred goals */}
       <div className="flex-1 space-y-2 overflow-y-auto">
-        {starred.length === 0 && (
+        {starred.length === 0 && done.length === 0 && (
           <p className="text-xs text-gray-600 text-center py-4">
             Star goals to show them here
           </p>
@@ -147,15 +148,40 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
             <button
               onClick={() => toggleDone(g.id)}
               className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center hover:opacity-80 transition-opacity"
-              style={{ borderColor: g.color || "#6b7280", backgroundColor: g.done ? (g.color || "#6b7280") : "transparent" }}
-            >
-              {g.done && <span className="text-white text-xs">✓</span>}
-            </button>
+              style={{ borderColor: g.color || "#6b7280", backgroundColor: "transparent" }}
+            />
             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: g.color || "#6b7280" }} />
             <span className="flex-1 text-sm text-gray-200">{g.title}</span>
             <button onClick={() => toggleStar(g.id)} className="text-yellow-400 opacity-0 group-hover:opacity-100 text-xs">★</button>
           </div>
         ))}
+
+        {/* Completed divider + list */}
+        {done.length > 0 && (
+          <div className="pt-2">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex-1 h-px bg-[#2e2e2e]" />
+              <span className="text-[10px] text-gray-600 uppercase tracking-widest">Completed</span>
+              <div className="flex-1 h-px bg-[#2e2e2e]" />
+            </div>
+            <div className="space-y-2">
+              {done.map(g => (
+                <div key={g.id} className="flex items-center gap-2 group opacity-50 hover:opacity-70 transition-opacity">
+                  <button
+                    onClick={() => toggleDone(g.id)}
+                    className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center hover:opacity-80"
+                    style={{ borderColor: g.color || "#6b7280", backgroundColor: g.color || "#6b7280" }}
+                  >
+                    <span className="text-white text-[10px]">✓</span>
+                  </button>
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: g.color || "#6b7280" }} />
+                  <span className="flex-1 text-sm text-gray-400 line-through">{g.title}</span>
+                  <button onClick={() => remove(g.id)} className="text-gray-600 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Slide panel — all goals */}
@@ -193,15 +219,13 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
             {/* All goals list */}
             <div className="flex-1 overflow-y-auto space-y-2">
               {goals.length === 0 && <p className="text-xs text-gray-600 text-center py-6">No goals yet</p>}
-              {goals.map(g => (
-                <div key={g.id} className={`flex flex-col gap-2 p-3 rounded-xl border ${g.done ? "opacity-40 border-transparent" : "border-[#2a2a2a]"} hover:border-[#3a3a3a] group`}>
+              {goals.filter(g => !g.done).map(g => (
+                <div key={g.id} className="flex flex-col gap-2 p-3 rounded-xl border border-[#2a2a2a] hover:border-[#3a3a3a] group">
                   <div className="flex items-center gap-3">
                     <button onClick={() => toggleDone(g.id)}
                       className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center"
-                      style={{ borderColor: g.color || "#6b7280", backgroundColor: g.done ? (g.color || "#6b7280") : "transparent" }}>
-                      {g.done && <span className="text-white text-xs">✓</span>}
-                    </button>
-                    <span className={`flex-1 text-sm ${g.done ? "line-through text-gray-600" : "text-gray-200"}`}>{g.title}</span>
+                      style={{ borderColor: g.color || "#6b7280", backgroundColor: "transparent" }} />
+                    <span className="flex-1 text-sm text-gray-200">{g.title}</span>
                     <button onClick={() => toggleStar(g.id)}
                       className={`text-sm transition-colors ${g.starred ? "text-yellow-400" : "text-gray-700 group-hover:text-gray-500"}`}>★</button>
                     <button onClick={() => remove(g.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
@@ -216,6 +240,32 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
                   </div>
                 </div>
               ))}
+
+              {/* Completed section in panel */}
+              {goals.some(g => g.done) && (
+                <div className="pt-2">
+                  <div className="flex items-center gap-2 my-3">
+                    <div className="flex-1 h-px bg-[#2e2e2e]" />
+                    <span className="text-[10px] text-gray-600 uppercase tracking-widest">Completed</span>
+                    <div className="flex-1 h-px bg-[#2e2e2e]" />
+                  </div>
+                  <div className="space-y-2">
+                    {goals.filter(g => g.done).map(g => (
+                      <div key={g.id} className="flex flex-col gap-2 p-3 rounded-xl border border-transparent hover:border-[#2a2a2a] group opacity-50 hover:opacity-70 transition-opacity">
+                        <div className="flex items-center gap-3">
+                          <button onClick={() => toggleDone(g.id)}
+                            className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center"
+                            style={{ borderColor: g.color || "#6b7280", backgroundColor: g.color || "#6b7280" }}>
+                            <span className="text-white text-[10px]">✓</span>
+                          </button>
+                          <span className="flex-1 text-sm text-gray-500 line-through">{g.title}</span>
+                          <button onClick={() => remove(g.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

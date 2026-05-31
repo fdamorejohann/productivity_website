@@ -81,7 +81,7 @@ function defaultPoints(category: string, card: string): number {
   return CARD_POINTS[card]?.default(category) ?? 1;
 }
 function pointsOptions(card: string): number[] {
-  return CARD_POINTS[card]?.options ?? [1];
+  return [0, ...(CARD_POINTS[card]?.options ?? [1])];
 }
 function effectiveCost(log: BudgetExpenseLog): number {
   return log.owed !== undefined ? log.owed : log.amount;
