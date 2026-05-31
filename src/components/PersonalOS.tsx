@@ -1694,7 +1694,6 @@ export default function PersonalOS() {
           <div className="flex-1">
             <GoalsBox type="daily" label="Daily Goals" />
           </div>
-          <RedditWidget />
           <DefunctWidget />
         </div>
 
