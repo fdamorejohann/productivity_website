@@ -1564,6 +1564,7 @@ export default function PersonalOS() {
       <div className="min-h-screen bg-[#111] text-white p-8">
         <button onClick={() => setShowDnd(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition-colors">← Back</button>
         <DndPanel />
+        {ytPortal}
       </div>
     );
   }
@@ -1573,6 +1574,7 @@ export default function PersonalOS() {
       <div className="min-h-screen bg-[#111] text-white p-8">
         <button onClick={() => setShowWorkout(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition-colors">← Back</button>
         <WorkoutPanel />
+        {ytPortal}
       </div>
     );
   }
@@ -1587,6 +1589,7 @@ export default function PersonalOS() {
           ← Back
         </button>
         <BudgetPanel />
+        {ytPortal}
       </div>
     );
   }
@@ -1638,6 +1641,7 @@ export default function PersonalOS() {
         </div>
 
       </div>
+      {ytPortal}
     </div>
   );
 }
