@@ -287,10 +287,11 @@ function buildCumulativeLine(rows: SummaryRow[], category: string, sortedMonths:
   })];
 }
 
-function makePath(vals: number[], maxVal: number, W: number, H: number): string {
+function makePath(vals: number[], maxVal: number, W: number, H: number, minVal = 0): string {
+  const range = maxVal - minVal || 1;
   return vals.map((v, i) => {
     const x = (vals.length <= 1 ? 0 : (i / (vals.length - 1))) * W;
-    const y = H - (v / maxVal) * (H - 4);
+    const y = H - 4 - ((v - minVal) / range) * (H - 8);
     return `${i === 0 ? "M" : "L"} ${x} ${y}`;
   }).join(" ");
 }
@@ -336,14 +337,17 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
 
   const W = 280;
   const H = 80;
-  const maxVal = Math.max(...activeLine.map(Math.abs), 1);
-  const activePath = makePath(activeLine, maxVal, W, H);
-  const lastY = H - (activeValue / maxVal) * (H - 4);
+  const minVal = Math.min(...activeLine, 0);
+  const maxVal = Math.max(...activeLine, 1);
+  const range = maxVal - minVal || 1;
+  const activePath = makePath(activeLine, maxVal, W, H, minVal);
+  const yOf = (v: number) => H - 4 - ((v - minVal) / range) * (H - 8);
+  const lastY = yOf(activeValue);
 
   // Last-month-end dot — second-to-last point in the line
   const prevMonthValue = activeLine.length >= 2 ? activeLine[activeLine.length - 2] : null;
   const prevMonthX = activeLine.length >= 2 ? ((activeLine.length - 2) / (activeLine.length - 1)) * W : null;
-  const prevMonthY = prevMonthValue !== null ? H - (prevMonthValue / maxVal) * (H - 4) : null;
+  const prevMonthY = prevMonthValue !== null ? yOf(prevMonthValue) : null;
 
   return (
     <div className="w-full bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
