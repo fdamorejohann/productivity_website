@@ -45,6 +45,7 @@ interface CalendarEvent {
   title: string;
   time: string;
   description?: string;
+  gcalId?: string; // Google Calendar event ID, stored after push
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -599,12 +600,18 @@ function HabitsCalendar() {
     const saved = await db.events.upsert(event);
     setEvents(e => [...e, saved]);
     setNewEventTitle("");
-    // Push to Google Calendar if connected
+    // Push to Google Calendar if connected, then save returned GCal ID
     if (gcalConnected) {
       fetch("/api/data/gcal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: event.title, date: event.date, time: event.time, description: "" }),
+      }).then(r => r.json()).then(gcal => {
+        if (gcal.id) {
+          const withGcalId = { ...saved, gcalId: gcal.id };
+          db.events.upsert(withGcalId);
+          setEvents(es => es.map(e => e.id === saved.id ? withGcalId : e));
+        }
       }).catch(() => {});
     }
   };
@@ -616,14 +623,16 @@ function HabitsCalendar() {
   };
 
   const deleteEvent = async (id: string) => {
-    // If it's a GCal event, delete from Google too
-    const ev = [...events, ...gcalEvents].find(e => e.id === id);
-    if (ev && gcalConnected && gcalEvents.some(g => g.id === id)) {
-      fetch("/api/data/gcal", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: id }),
-      }).catch(() => {});
+    if (gcalConnected) {
+      const localEv = events.find(e => e.id === id);
+      const gcalEventId = localEv?.gcalId ?? (gcalEvents.some(g => g.id === id) ? id : null);
+      if (gcalEventId) {
+        fetch("/api/data/gcal", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId: gcalEventId }),
+        }).catch(() => {});
+      }
     }
     await db.events.delete(id);
     setEvents(es => es.filter(e => e.id !== id));
