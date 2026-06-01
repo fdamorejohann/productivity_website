@@ -377,12 +377,14 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
             const barW = Math.max(2, (W / leftoverMonthly.length) - 2);
             const x = (i / leftoverMonthly.length) * W + 1;
             const absMax = Math.max(...leftoverMonthly.map(Math.abs), 1);
-            const barH = Math.max(2, (Math.abs(v) / absMax) * (H - 4));
+            const maxBarH = (H / 2) - 2;
+            const barH = Math.max(2, (Math.abs(v) / absMax) * maxBarH);
             const positive = v >= 0;
+            const zero = H / 2;
             return (
               <g key={i}>
                 <rect
-                  x={x} y={positive ? H - barH : H / 2}
+                  x={x} y={positive ? zero - barH : zero}
                   width={barW} height={barH}
                   fill={positive ? "#3b82f6" : "#ef4444"}
                   opacity={i === leftoverMonthly.length - 1 ? 1 : 0.5}
