@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import BudgetPanel from "./BudgetPanel";
 import WorkoutPanel from "./WorkoutPanel";
 import DndPanel from "./DndPanel";
@@ -310,6 +309,7 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<FinanceTab>("total");
   const [hidden, setHidden] = useState(true);
+  const [hoveredNode, setHoveredNode] = useState<"prev" | "curr" | null>(null);
 
   useEffect(() => {
     db.summary.list().then((data: SummaryRow[]) => {
@@ -359,6 +359,7 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
       <div className="text-2xl font-bold mb-2" style={{ color: activeColor }}>
         {loading ? "—" : `${activeValue < 0 ? "-" : ""}$${Math.abs(activeValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
       </div>
+      <div className="relative">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
         <defs>
           <linearGradient id="finGrad" x1="0" y1="0" x2="0" y2="1">
@@ -375,11 +376,34 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
           <>
             <line x1={prevMonthX} y1={0} x2={prevMonthX} y2={H} stroke="#374151" strokeWidth={1} strokeDasharray="3 3" />
             <circle cx={prevMonthX} cy={prevMonthY} r="3" fill="#374151" stroke={activeColor} strokeWidth="1.5" />
+            <circle cx={prevMonthX} cy={prevMonthY} r="8" fill="transparent" className="cursor-pointer"
+              onMouseEnter={() => setHoveredNode("prev")} onMouseLeave={() => setHoveredNode(null)} />
           </>
         )}
         {/* Current end dot */}
-        {sortedMonths.length > 0 && <circle cx={W} cy={lastY} r="3" fill={activeColor} />}
+        {sortedMonths.length > 0 && (
+          <>
+            <circle cx={W} cy={lastY} r="3" fill={activeColor} />
+            <circle cx={W} cy={lastY} r="8" fill="transparent" className="cursor-pointer"
+              onMouseEnter={() => setHoveredNode("curr")} onMouseLeave={() => setHoveredNode(null)} />
+          </>
+        )}
       </svg>
+      {/* Prev month tooltip */}
+      {hoveredNode === "prev" && prevMonthX !== null && prevMonthY !== null && prevMonthValue !== null && (
+        <div className="absolute pointer-events-none bg-[#1a1a1a] border border-[#333] rounded-lg px-2 py-1 text-xs text-gray-200 whitespace-nowrap z-10"
+          style={{ bottom: `${H - prevMonthY + 10}px`, left: `${(prevMonthX / W) * 100}%`, transform: "translateX(-50%)" }}>
+          {sortedMonths[sortedMonths.length - 2]} · ${Math.abs(prevMonthValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+        </div>
+      )}
+      {/* Current month tooltip */}
+      {hoveredNode === "curr" && sortedMonths.length > 0 && (
+        <div className="absolute pointer-events-none bg-[#1a1a1a] border border-[#333] rounded-lg px-2 py-1 text-xs text-gray-200 whitespace-nowrap z-10"
+          style={{ bottom: `${H - lastY + 10}px`, right: 0 }}>
+          {sortedMonths[sortedMonths.length - 1]} · ${Math.abs(activeValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+        </div>
+      )}
+      </div>
       </div>
       <div className="flex gap-3 mt-2">
         {FINANCE_TABS.map(t => (
@@ -1027,8 +1051,9 @@ interface WeatherData {
 
 interface YtVideo { id: string; title: string; thumb: string; }
 
-function DefunctWidget({ playing, onPlay }: { playing: YtVideo | null; onPlay: (v: YtVideo) => void }) {
+function DefunctWidget() {
   const [videos, setVideos] = useState<YtVideo[]>([]);
+  const [playing, setPlaying] = useState<YtVideo | null>(null);
 
   useEffect(() => {
     fetch("/api/data/yt-feed?channelId=UCjl8BKz02KHTncEcuEzFeSw")
@@ -1038,22 +1063,28 @@ function DefunctWidget({ playing, onPlay }: { playing: YtVideo | null; onPlay: (
   }, []);
 
   function pickRandom() {
-    const pool = videos.length > 0 ? videos : null;
-    if (!pool) return;
-    onPlay(pool[Math.floor(Math.random() * pool.length)]);
+    if (videos.length === 0) return;
+    setPlaying(videos[Math.floor(Math.random() * videos.length)]);
   }
 
   return (
     <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Defunct</span>
-        <span className="text-[10px] text-gray-600">daily jazz</span>
+        {playing && (
+          <button onClick={() => setPlaying(null)} className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors">■ stop</button>
+        )}
       </div>
       {playing && (
-        <div className="flex items-center gap-2 mb-3 px-2 py-1.5 bg-[#252525] rounded-lg">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-          <span className="flex-1 text-xs text-gray-400 truncate">{playing.title}</span>
-          <button onClick={() => onPlay(videos[Math.floor(Math.random() * videos.length)])} className="text-[10px] text-gray-600 hover:text-gray-300 transition-colors flex-shrink-0">⟳</button>
+        <div className="rounded-xl overflow-hidden mb-3" style={{ aspectRatio: "16/9" }}>
+          <iframe
+            key={playing.id}
+            width="100%" height="100%"
+            src={`https://www.youtube.com/embed/${playing.id}?autoplay=1`}
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+            className="w-full h-full"
+          />
         </div>
       )}
       <button
@@ -1063,33 +1094,12 @@ function DefunctWidget({ playing, onPlay }: { playing: YtVideo | null; onPlay: (
       >
         {playing ? "⟳  Next random" : "▶  Play Random Video"}
       </button>
+      {playing && (
+        <div className="mt-2 text-xs text-gray-600 truncate">{playing.title}</div>
+      )}
     </div>
   );
 }
-
-function YtPortalPlayer({ playing, onStop }: { playing: YtVideo | null; onStop: () => void }) {
-  if (!playing) return null;
-  return createPortal(
-    <div className="fixed bottom-5 right-5 z-[9999] w-72 bg-[#1a1a1a] border border-[#2e2e2e] rounded-2xl shadow-2xl overflow-hidden">
-      <div style={{ aspectRatio: "16/9" }}>
-        <iframe
-          key={playing.id}
-          width="100%" height="100%"
-          src={`https://www.youtube.com/embed/${playing.id}?autoplay=1`}
-          allow="autoplay; encrypted-media"
-          allowFullScreen
-          className="w-full h-full"
-        />
-      </div>
-      <div className="flex items-center gap-2 px-3 py-2">
-        <span className="flex-1 text-xs text-gray-400 truncate">{playing.title}</span>
-        <button onClick={onStop} className="text-gray-600 hover:text-white text-xs px-1 transition-colors" title="Stop">■</button>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
 
 function WeatherBox() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -1565,21 +1575,16 @@ export default function PersonalOS() {
   const [showBible, setShowBible] = useState(false);
   const [showWorkout, setShowWorkout] = useState(false);
   const [showDnd, setShowDnd] = useState(false);
-  const [ytPlaying, setYtPlaying] = useState<YtVideo | null>(null);
 
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-
-  // Portal player — always mounted, survives panel navigation
-  const ytPortal = <YtPortalPlayer playing={ytPlaying} onStop={() => setYtPlaying(null)} />;
 
   if (showDnd) {
     return (
       <div className="min-h-screen bg-[#111] text-white p-8">
         <button onClick={() => setShowDnd(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition-colors">← Back</button>
         <DndPanel />
-        {ytPortal}
       </div>
     );
   }
@@ -1589,7 +1594,6 @@ export default function PersonalOS() {
       <div className="min-h-screen bg-[#111] text-white p-8">
         <button onClick={() => setShowWorkout(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition-colors">← Back</button>
         <WorkoutPanel />
-        {ytPortal}
       </div>
     );
   }
@@ -1604,7 +1608,6 @@ export default function PersonalOS() {
           ← Back
         </button>
         <BudgetPanel />
-        {ytPortal}
       </div>
     );
   }
@@ -1621,7 +1624,7 @@ export default function PersonalOS() {
           <div className="flex-1">
             <GoalsBox type="daily" label="Daily Goals" />
           </div>
-          <DefunctWidget playing={ytPlaying} onPlay={setYtPlaying} />
+          <DefunctWidget />
         </div>
 
         {/* ── Middle column: Finance + Habits/Calendar ── */}
@@ -1656,7 +1659,6 @@ export default function PersonalOS() {
         </div>
 
       </div>
-      {ytPortal}
     </div>
   );
 }
