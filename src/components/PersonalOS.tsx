@@ -339,6 +339,11 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   const activePath = makePath(activeLine, maxVal, W, H);
   const lastY = H - (activeValue / maxVal) * (H - 4);
 
+  // Last-month-end dot — second-to-last point in the line
+  const prevMonthValue = activeLine.length >= 2 ? activeLine[activeLine.length - 2] : null;
+  const prevMonthX = activeLine.length >= 2 ? ((activeLine.length - 2) / (activeLine.length - 1)) * W : null;
+  const prevMonthY = prevMonthValue !== null ? H - (prevMonthValue / maxVal) * (H - 4) : null;
+
   return (
     <div className="w-full bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
       <div className="flex items-center justify-between mb-3">
@@ -365,6 +370,14 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
           <path d={`${activePath} L ${W} ${H} L 0 ${H} Z`} fill="url(#finGrad)" />
         )}
         <path d={activePath} fill="none" stroke={activeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Last month end marker */}
+        {prevMonthX !== null && prevMonthY !== null && (
+          <>
+            <line x1={prevMonthX} y1={0} x2={prevMonthX} y2={H} stroke="#374151" strokeWidth={1} strokeDasharray="3 3" />
+            <circle cx={prevMonthX} cy={prevMonthY} r="3" fill="#374151" stroke={activeColor} strokeWidth="1.5" />
+          </>
+        )}
+        {/* Current end dot */}
         {sortedMonths.length > 0 && <circle cx={W} cy={lastY} r="3" fill={activeColor} />}
       </svg>
       </div>
@@ -1034,10 +1047,15 @@ function DefunctWidget({ playing, onPlay }: { playing: YtVideo | null; onPlay: (
     <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Defunct</span>
-        {playing && (
-          <button onClick={() => onPlay(videos[Math.floor(Math.random() * videos.length)])} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors">⟳ next</button>
-        )}
+        <span className="text-[10px] text-gray-600">daily jazz</span>
       </div>
+      {playing && (
+        <div className="flex items-center gap-2 mb-3 px-2 py-1.5 bg-[#252525] rounded-lg">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+          <span className="flex-1 text-xs text-gray-400 truncate">{playing.title}</span>
+          <button onClick={() => onPlay(videos[Math.floor(Math.random() * videos.length)])} className="text-[10px] text-gray-600 hover:text-gray-300 transition-colors flex-shrink-0">⟳</button>
+        </div>
+      )}
       <button
         onClick={pickRandom}
         disabled={videos.length === 0}
@@ -1045,9 +1063,6 @@ function DefunctWidget({ playing, onPlay }: { playing: YtVideo | null; onPlay: (
       >
         {playing ? "⟳  Next random" : "▶  Play Random Video"}
       </button>
-      {playing && (
-        <div className="mt-2 text-xs text-gray-600 truncate" title={playing.title}>{playing.title}</div>
-      )}
     </div>
   );
 }
