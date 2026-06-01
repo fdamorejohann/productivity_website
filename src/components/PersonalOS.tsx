@@ -323,9 +323,8 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   const sortedMonths = [...new Set(rows.map(r => r.month))].sort().filter(m => m <= currentMonthKey);
   const savingsLine  = buildCumulativeLine(rows, "savings", sortedMonths);
   const investLine   = buildCumulativeLine(rows, "investments", sortedMonths);
-  const totalLine    = savingsLine.map((v, i) => v + investLine[i]);
-
   const leftoverLine = buildCumulativeLine(rows, "leftover", sortedMonths);
+  const totalLine    = savingsLine.map((v, i) => v + investLine[i] + leftoverLine[i]);
 
   const lineMap: Record<FinanceTab, number[]> = {
     total: totalLine, savings: savingsLine, investments: investLine, leftover: leftoverLine,
@@ -425,6 +424,151 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
 }
 
 // ─── Habits + Calendar ───────────────────────────────────────────────────────
+
+// ─── Runway Chart ────────────────────────────────────────────────────────────
+
+const RUNWAY_TARGET = 20000;
+
+function RunwayChart() {
+  const [rows, setRows] = useState<SummaryRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    db.summary.list().then((data: SummaryRow[]) => { setRows(data); setLoading(false); });
+  }, []);
+
+  const currentMonthKey = new Date().toISOString().slice(0, 7);
+  const sortedMonths = [...new Set(rows.map(r => r.month))].sort().filter(m => m <= currentMonthKey);
+
+  // Per-month values
+  const monthlySavings  = sortedMonths.map(m => Number(rows.find(r => r.month === m && r.category === "savings")?.value ?? 0));
+  const monthlyLeftover = sortedMonths.map(m => Number(rows.find(r => r.month === m && r.category === "leftover")?.value ?? 0));
+
+  // Solid line: cumulative savings + leftover
+  let cum = 0;
+  const solidPoints: number[] = [0];
+  for (let i = 0; i < sortedMonths.length; i++) {
+    cum += monthlySavings[i] + monthlyLeftover[i];
+    solidPoints.push(cum);
+  }
+  const currentTotal = solidPoints[solidPoints.length - 1];
+
+  // Average monthly savings (not leftover) — used for projection slope
+  const avgSavings = monthlySavings.length > 0
+    ? monthlySavings.reduce((a, b) => a + b, 0) / monthlySavings.length
+    : 0;
+
+  // Months remaining until $20k
+  const remaining = RUNWAY_TARGET - currentTotal;
+  const monthsLeft = avgSavings > 0 ? Math.ceil(remaining / avgSavings) : null;
+  const weeksLeft  = monthsLeft !== null ? Math.ceil(monthsLeft * 4.33) : null;
+
+  // Build projection points from current total to $20k
+  const projPoints: { x: number; y: number }[] = [];
+  if (avgSavings > 0 && currentTotal < RUNWAY_TARGET) {
+    for (let m = 0; m <= (monthsLeft ?? 0); m++) {
+      projPoints.push({ x: solidPoints.length - 1 + m, y: Math.min(currentTotal + avgSavings * m, RUNWAY_TARGET) });
+    }
+  }
+
+  // Chart dimensions
+  const W = 480, H = 120;
+  const totalXPoints = solidPoints.length - 1 + (projPoints.length > 0 ? projPoints.length - 1 : 0);
+  const maxX = Math.max(totalXPoints, 1);
+  const maxY = Math.max(RUNWAY_TARGET * 1.05, currentTotal * 1.1, 1);
+
+  const xScale = (i: number) => (i / maxX) * W;
+  const yScale = (v: number) => H - (v / maxY) * (H - 8);
+
+  // Solid path
+  const solidPath = solidPoints.map((v, i) => `${i === 0 ? "M" : "L"} ${xScale(i).toFixed(1)} ${yScale(v).toFixed(1)}`).join(" ");
+
+  // Dotted projection path
+  const projPath = projPoints.length > 1
+    ? projPoints.map((p, i) => `${i === 0 ? "M" : "L"} ${xScale(p.x).toFixed(1)} ${yScale(p.y).toFixed(1)}`).join(" ")
+    : null;
+
+  // Target line Y
+  const targetY = yScale(RUNWAY_TARGET);
+  const currentY = yScale(currentTotal);
+  const currentX = xScale(solidPoints.length - 1);
+
+  const pct = Math.min(100, Math.round((currentTotal / RUNWAY_TARGET) * 100));
+
+  return (
+    <div className="w-full bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">20k Runway</span>
+        {monthsLeft !== null && monthsLeft > 0 ? (
+          <span className="text-xs text-gray-400">
+            <span className="font-semibold text-white">{monthsLeft}mo</span>
+            <span className="text-gray-600 mx-1">/</span>
+            <span className="font-semibold text-white">{weeksLeft}wk</span>
+            <span className="text-gray-600 ml-1">away</span>
+          </span>
+        ) : currentTotal >= RUNWAY_TARGET ? (
+          <span className="text-xs font-semibold text-emerald-400">🎉 Goal reached!</span>
+        ) : null}
+      </div>
+
+      <div className="flex items-baseline gap-2 mb-3">
+        <span className="text-2xl font-bold text-white">${currentTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+        <span className="text-sm text-gray-500">/ $20,000</span>
+        <span className="text-xs text-gray-600 ml-1">({pct}%)</span>
+      </div>
+
+      {loading ? (
+        <div className="h-20 flex items-center justify-center text-xs text-gray-600">Loading…</div>
+      ) : (
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }}>
+          {/* $20k target line */}
+          <line x1={0} y1={targetY} x2={W} y2={targetY} stroke="#374151" strokeWidth={1} strokeDasharray="4 3" />
+          <text x={W - 2} y={targetY - 4} textAnchor="end" fontSize={8} fill="#6b7280">$20k</text>
+
+          {/* Area under solid line */}
+          {solidPoints.length > 1 && (
+            <path
+              d={`${solidPath} L ${currentX} ${H} L 0 ${H} Z`}
+              fill="#22c55e" fillOpacity="0.08"
+            />
+          )}
+
+          {/* Solid line — actual savings + leftover */}
+          <path d={solidPath} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+
+          {/* Dotted projection line — savings rate only */}
+          {projPath && (
+            <path d={projPath} fill="none" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="5 4" strokeOpacity="0.5" strokeLinecap="round" />
+          )}
+
+          {/* Current position dot */}
+          <circle cx={currentX} cy={currentY} r="3.5" fill="#22c55e" />
+
+          {/* Target intersection dot */}
+          {projPoints.length > 0 && (
+            <circle
+              cx={xScale(projPoints[projPoints.length - 1].x)}
+              cy={targetY}
+              r="3.5" fill="#fff" stroke="#22c55e" strokeWidth="1.5"
+            />
+          )}
+
+          {/* Month labels on x axis */}
+          {sortedMonths.map((m, i) => (
+            <text key={m} x={xScale(i + 1)} y={H - 1} textAnchor="middle" fontSize={7} fill="#4b5563">
+              {m.slice(5)}
+            </text>
+          ))}
+        </svg>
+      )}
+
+      {/* Progress bar */}
+      <div className="mt-3 bg-[#2a2a2a] rounded-full h-1.5 overflow-hidden">
+        <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
 
 function HabitsCalendar() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -1633,6 +1777,7 @@ export default function PersonalOS() {
         {/* ── Middle column: Finance + Habits/Calendar ── */}
         <div className="flex flex-col gap-5">
           <FinanceBox onOpenBudget={() => setShowBudget(true)} />
+          <RunwayChart />
           <HabitsCalendar />
         </div>
 
