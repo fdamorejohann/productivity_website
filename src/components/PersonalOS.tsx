@@ -13,6 +13,15 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+interface FocusPoint {
+  id: string;
+  title: string;
+  notes: string;
+  color: string;
+  done: boolean;
+  created_at: string;
+}
+
 interface Goal {
   id: string;
   title: string;
@@ -21,6 +30,7 @@ interface Goal {
   done: boolean;
   color: string;
   createdAt: string;
+  focus_point_id?: string;
 }
 
 const GOAL_COLORS = ["#6b7280","#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#06b6d4"];
@@ -78,13 +88,213 @@ function dateStr(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+// ─── Focus Points Box ────────────────────────────────────────────────────────
+
+function FocusPointsBox({ goals }: { goals: Goal[] }) {
+  const [points, setPoints] = useState<FocusPoint[]>([]);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newColor, setNewColor] = useState(GOAL_COLORS[0]);
+  const [editingNotes, setEditingNotes] = useState<string | null>(null);
+  const [notesValue, setNotesValue] = useState("");
+
+  useEffect(() => {
+    db.focusPoints.list().then((data: FocusPoint[]) => setPoints(data));
+  }, []);
+
+  const active = points.filter(p => !p.done);
+  const done = points.filter(p => p.done);
+
+  const add = async () => {
+    if (!newTitle.trim()) return;
+    const fp = { id: uid(), title: newTitle.trim(), notes: "", color: newColor, done: false, created_at: new Date().toISOString() };
+    const saved = await db.focusPoints.upsert(fp);
+    setPoints(ps => [...ps, saved]);
+    setNewTitle("");
+  };
+
+  const toggleDone = async (id: string) => {
+    const fp = points.find(p => p.id === id)!;
+    setPoints(ps => ps.map(p => p.id === id ? { ...p, done: !p.done } : p));
+    await db.focusPoints.update(id, { done: !fp.done });
+  };
+
+  const remove = async (id: string) => {
+    setPoints(ps => ps.filter(p => p.id !== id));
+    await db.focusPoints.delete(id);
+  };
+
+  const saveNotes = async (id: string) => {
+    setPoints(ps => ps.map(p => p.id === id ? { ...p, notes: notesValue } : p));
+    await db.focusPoints.update(id, { notes: notesValue });
+    setEditingNotes(null);
+  };
+
+  const linkedGoals = (fpId: string) => goals.filter(g => g.focus_point_id === fpId);
+
+  return (
+    <div className="relative flex flex-col bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Focus Points</span>
+        <button onClick={() => setPanelOpen(true)} className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-2 py-1 transition-colors">All →</button>
+      </div>
+
+      {active.length === 0 && <p className="text-xs text-gray-600 text-center py-3">No focus points yet</p>}
+
+      <div className="space-y-2">
+        {active.map(fp => {
+          const linked = linkedGoals(fp.id);
+          const doneCount = linked.filter(g => g.done).length;
+          const isExpanded = expanded === fp.id;
+          return (
+            <div key={fp.id} className="border border-[#2a2a2a] rounded-xl overflow-hidden">
+              {/* Header row */}
+              <div className="flex items-center gap-2 p-2.5 cursor-pointer hover:bg-[#252525] transition-colors"
+                onClick={() => setExpanded(isExpanded ? null : fp.id)}>
+                <button onClick={e => { e.stopPropagation(); toggleDone(fp.id); }}
+                  className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center"
+                  style={{ borderColor: fp.color, backgroundColor: "transparent" }} />
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: fp.color }} />
+                <span className="flex-1 text-sm font-medium text-gray-200">{fp.title}</span>
+                {linked.length > 0 && (
+                  <span className="text-[10px] text-gray-600 tabular-nums">{doneCount}/{linked.length}</span>
+                )}
+                <span className="text-gray-600 text-xs">{isExpanded ? "▲" : "▼"}</span>
+              </div>
+
+              {/* Expanded view */}
+              {isExpanded && (
+                <div className="border-t border-[#2a2a2a] p-2.5 space-y-3">
+                  {/* Notes */}
+                  {editingNotes === fp.id ? (
+                    <div>
+                      <textarea
+                        autoFocus
+                        className="w-full bg-[#252525] border border-[#333] rounded-lg p-2 text-xs text-gray-200 resize-none focus:outline-none focus:border-[#555]"
+                        rows={4}
+                        value={notesValue}
+                        onChange={e => setNotesValue(e.target.value)}
+                      />
+                      <div className="flex gap-2 mt-1">
+                        <button onClick={() => saveNotes(fp.id)} className="text-xs bg-white text-black px-2.5 py-1 rounded-lg font-medium">Save</button>
+                        <button onClick={() => setEditingNotes(null)} className="text-xs text-gray-600 hover:text-white">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div onClick={() => { setEditingNotes(fp.id); setNotesValue(fp.notes); }}
+                      className="text-xs text-gray-500 cursor-pointer hover:text-gray-300 transition-colors min-h-6 leading-relaxed">
+                      {fp.notes || <span className="italic text-gray-700">Click to add notes…</span>}
+                    </div>
+                  )}
+
+                  {/* Linked goals */}
+                  {linked.length > 0 && (
+                    <div>
+                      <div className="text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Linked Goals</div>
+                      <div className="space-y-1">
+                        {linked.map(g => (
+                          <div key={g.id} className="flex items-center gap-2 text-xs">
+                            <span className={`w-3 h-3 rounded border flex-shrink-0 flex items-center justify-center`}
+                              style={{ borderColor: g.color, backgroundColor: g.done ? g.color : "transparent" }}>
+                              {g.done && <span className="text-white text-[8px]">✓</span>}
+                            </span>
+                            <span className={`${g.done ? "line-through text-gray-600" : "text-gray-300"}`}>{g.title}</span>
+                            <span className="text-gray-700 text-[10px]">{g.type}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Completed */}
+        {done.length > 0 && (
+          <div className="pt-1">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex-1 h-px bg-[#2e2e2e]" />
+              <span className="text-[10px] text-gray-600 uppercase tracking-widest">Completed</span>
+              <div className="flex-1 h-px bg-[#2e2e2e]" />
+            </div>
+            {done.map(fp => (
+              <div key={fp.id} className="flex items-center gap-2 group opacity-40 hover:opacity-60 transition-opacity py-1">
+                <button onClick={() => toggleDone(fp.id)}
+                  className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center"
+                  style={{ borderColor: fp.color, backgroundColor: fp.color }}>
+                  <span className="text-white text-[10px]">✓</span>
+                </button>
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: fp.color }} />
+                <span className="flex-1 text-sm text-gray-500 line-through">{fp.title}</span>
+                <button onClick={() => remove(fp.id)} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-500 text-xs">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Slide panel */}
+      {panelOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setPanelOpen(false)}>
+          <div className="w-80 h-full bg-[#181818] border-l border-[#2e2e2e] flex flex-col p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-sm font-semibold text-white">Focus Points</span>
+              <button onClick={() => setPanelOpen(false)} className="text-gray-500 hover:text-white text-lg">✕</button>
+            </div>
+            <div className="flex gap-2 mb-2">
+              <input className="flex-1 bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500"
+                placeholder="Add focus point…" value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} />
+              <button onClick={add} className="bg-white text-black px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">+</button>
+            </div>
+            <div className="flex gap-1.5 mb-4">
+              {GOAL_COLORS.map(c => (
+                <button key={c} onClick={() => setNewColor(c)}
+                  className="w-5 h-5 rounded-full transition-transform hover:scale-110"
+                  style={{ backgroundColor: c, outline: newColor === c ? `2px solid ${c}` : "none", outlineOffset: 2 }} />
+              ))}
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2">
+              {points.map(fp => (
+                <div key={fp.id} className={`p-3 rounded-xl border ${fp.done ? "opacity-40 border-transparent" : "border-[#2a2a2a]"} group`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <button onClick={() => toggleDone(fp.id)}
+                      className="w-4 h-4 rounded border flex-shrink-0"
+                      style={{ borderColor: fp.color, backgroundColor: fp.done ? fp.color : "transparent" }} />
+                    <span className={`flex-1 text-sm font-medium ${fp.done ? "line-through text-gray-500" : "text-gray-200"}`}>{fp.title}</span>
+                    <button onClick={() => remove(fp.id)} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-500 text-xs">✕</button>
+                  </div>
+                  <textarea
+                    className="w-full bg-[#252525] border border-[#333] rounded-lg p-2 text-xs text-gray-400 resize-none focus:outline-none focus:border-[#555]"
+                    rows={3}
+                    placeholder="Notes…"
+                    value={fp.notes}
+                    onChange={e => { setPoints(ps => ps.map(p => p.id === fp.id ? { ...p, notes: e.target.value } : p)); }}
+                    onBlur={e => db.focusPoints.update(fp.id, { notes: e.target.value })}
+                  />
+                  {linkedGoals(fp.id).length > 0 && (
+                    <div className="mt-2 text-[10px] text-gray-600">{linkedGoals(fp.id).filter(g => g.done).length}/{linkedGoals(fp.id).length} goals done</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Goals Box ───────────────────────────────────────────────────────────────
 
-function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) {
+function GoalsBox({ type, label, focusPoints }: { type: "weekly" | "daily"; label: string; focusPoints: FocusPoint[] }) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [panelOpen, setPanelOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newColor, setNewColor] = useState(GOAL_COLORS[0]);
+  const [newFocusPointId, setNewFocusPointId] = useState<string>("");
 
   useEffect(() => {
     db.goals.list().then((all: Goal[]) => setGoals(all.filter((g: Goal) => g.type === type)));
@@ -92,10 +302,11 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
 
   const add = async () => {
     if (!newTitle.trim()) return;
-    const goal = { id: uid(), title: newTitle.trim(), type, starred: false, done: false, color: newColor, created_at: new Date().toISOString() };
+    const goal = { id: uid(), title: newTitle.trim(), type, starred: false, done: false, color: newColor, created_at: new Date().toISOString(), focus_point_id: newFocusPointId || null };
     const saved = await db.goals.upsert(goal);
     setGoals(g => [...g, saved]);
     setNewTitle("");
+    setNewFocusPointId("");
   };
 
   const setColor = async (id: string, color: string) => {
@@ -208,7 +419,7 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
               />
               <button onClick={add} className="bg-white text-black px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">+</button>
             </div>
-            <div className="flex gap-1.5 mb-4">
+            <div className="flex gap-1.5 mb-2">
               {GOAL_COLORS.map(c => (
                 <button key={c} onClick={() => setNewColor(c)}
                   className="w-5 h-5 rounded-full transition-transform hover:scale-110"
@@ -216,6 +427,18 @@ function GoalsBox({ type, label }: { type: "weekly" | "daily"; label: string }) 
                 />
               ))}
             </div>
+            {focusPoints.filter(fp => !fp.done).length > 0 && (
+              <select
+                value={newFocusPointId}
+                onChange={e => setNewFocusPointId(e.target.value)}
+                className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-1.5 text-xs text-gray-400 focus:outline-none mb-3"
+              >
+                <option value="">No focus point</option>
+                {focusPoints.filter(fp => !fp.done).map(fp => (
+                  <option key={fp.id} value={fp.id}>{fp.title}</option>
+                ))}
+              </select>
+            )}
 
             {/* All goals list */}
             <div className="flex-1 overflow-y-auto space-y-2">
@@ -1741,6 +1964,13 @@ export default function PersonalOS() {
   const [showBible, setShowBible] = useState(false);
   const [showWorkout, setShowWorkout] = useState(false);
   const [showDnd, setShowDnd] = useState(false);
+  const [focusPoints, setFocusPoints] = useState<FocusPoint[]>([]);
+  const [allGoals, setAllGoals] = useState<Goal[]>([]);
+
+  useEffect(() => {
+    db.focusPoints.list().then((data: FocusPoint[]) => setFocusPoints(data));
+    db.goals.list().then((data: Goal[]) => setAllGoals(data));
+  }, []);
 
   const now = new Date();
   const hour = now.getHours();
@@ -1782,13 +2012,14 @@ export default function PersonalOS() {
     <div className="min-h-screen bg-[#111] text-white p-6">
       <div className="grid grid-cols-[1fr_3fr_1fr] gap-5 max-w-7xl mx-auto pt-8">
 
-        {/* ── Left column: Goals + Reddit + Defunct ── */}
+        {/* ── Left column: Focus Points + Goals + Defunct ── */}
         <div className="flex flex-col gap-5">
+          <FocusPointsBox goals={allGoals} />
           <div className="flex-1">
-            <GoalsBox type="weekly" label="Weekly Goals" />
+            <GoalsBox type="weekly" label="Weekly Goals" focusPoints={focusPoints} />
           </div>
           <div className="flex-1">
-            <GoalsBox type="daily" label="Daily Goals" />
+            <GoalsBox type="daily" label="Daily Goals" focusPoints={focusPoints} />
           </div>
           <DefunctWidget />
         </div>

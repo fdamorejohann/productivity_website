@@ -13,6 +13,12 @@ const api = {
 };
 
 export const db = {
+  focusPoints: {
+    list: () => api.get("/api/data/focus-points"),
+    upsert: (fp: unknown) => api.post("/api/data/focus-points", fp),
+    update: (id: string, updates: unknown) => api.patch("/api/data/focus-points", { id, ...updates as object }),
+    delete: (id: string) => api.delete("/api/data/focus-points", { id }),
+  },
   goals: {
     list: () => api.get("/api/data/goals"),
     upsert: (goal: unknown) => api.post("/api/data/goals", goal),

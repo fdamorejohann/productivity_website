@@ -4,6 +4,7 @@ export default async function handler(req, res) {
   const { resource } = req.query;
 
   switch (resource) {
+    case "focus-points": return handleFocusPoints(req, res);
     case "goals":      return handleGoals(req, res);
     case "habits":     return handleHabits(req, res);
     case "planned":    return handlePlanned(req, res);
@@ -26,6 +27,33 @@ export default async function handler(req, res) {
     case "site-usage":       return handleSiteUsage(req, res);
     default:                 return res.status(404).json({ error: "Not found" });
   }
+}
+
+// ─── Focus Points ─────────────────────────────────────────────────────────────
+async function handleFocusPoints(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase.from("focus_points").select("*").order("created_at");
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+  if (req.method === "POST") {
+    const { data, error } = await supabase.from("focus_points").upsert(req.body).select();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
+  }
+  if (req.method === "PATCH") {
+    const { id, ...updates } = req.body;
+    const { data, error } = await supabase.from("focus_points").update(updates).eq("id", id).select();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
+  }
+  if (req.method === "DELETE") {
+    const { id } = req.body;
+    const { error } = await supabase.from("focus_points").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  }
+  res.status(405).end();
 }
 
 // ─── Goals ───────────────────────────────────────────────────────────────────
