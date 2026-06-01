@@ -803,10 +803,13 @@ export default function BudgetPanel() {
       const fixedAct = fixedRows.reduce((s, r) => s + eAct(r), 0);
       const rebates = data.logs.filter(l => l.category === "Rebates").reduce((s, l) => s + effectiveCost(l), 0);
       const varAct = variableRows.reduce((s, r) => s + eAct(r), 0) - rebates;
-      const leftover = incomeAct - fixedAct - varAct;
-      const savings = data.expenses.filter(r => r.type === "savings").reduce((s, r) => s + eAct(r), 0);
+      const INVEST_LABELS = new Set(["Roth IRA", "Investing"]);
+      const savings = data.expenses.filter(r => r.type === "savings" && !INVEST_LABELS.has(r.label)).reduce((s, r) => s + eAct(r), 0);
+      const investments = data.expenses.filter(r => r.type === "savings" && INVEST_LABELS.has(r.label)).reduce((s, r) => s + eAct(r), 0);
+      const leftover = incomeAct - fixedAct - varAct - savings - investments;
       db.summary.upsert(month, "leftover", leftover);
       db.summary.upsert(month, "savings", savings);
+      db.summary.upsert(month, "investments", investments);
     }, 800);
   }, [data, month]);
 
