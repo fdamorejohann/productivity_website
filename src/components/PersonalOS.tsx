@@ -322,20 +322,29 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   const sortedMonths = [...new Set(rows.map(r => r.month))].sort().filter(m => m <= currentMonthKey);
   const savingsLine  = buildCumulativeLine(rows, "savings", sortedMonths);
   const investLine   = buildCumulativeLine(rows, "investments", sortedMonths);
-  const leftoverLine = buildCumulativeLine(rows, "leftover", sortedMonths);
-  const totalLine    = savingsLine.map((v, i) => v + investLine[i] + leftoverLine[i]);
+  const totalLine    = savingsLine.map((v, i) => v + investLine[i]);
+
+  // Leftover is per-month, not cumulative
+  const leftoverMonthly = sortedMonths.map(m => {
+    const row = rows.find(r => r.month === m && r.category === "leftover");
+    return row ? Number(row.value) : 0;
+  });
 
   const lineMap: Record<FinanceTab, number[]> = {
-    total: totalLine, savings: savingsLine, investments: investLine, leftover: leftoverLine,
+    total: totalLine, savings: savingsLine, investments: investLine,
+    leftover: [0, ...leftoverMonthly], // pad with 0 to match other lines' length
   };
 
   const activeLine = lineMap[tab];
   const activeColor = FINANCE_TABS.find(t => t.key === tab)!.color;
-  const activeValue = activeLine.at(-1) ?? 0;
+  // For leftover show current month value; for others show cumulative last point
+  const activeValue = tab === "leftover"
+    ? (leftoverMonthly.at(-1) ?? 0)
+    : (activeLine.at(-1) ?? 0);
 
   const W = 280;
   const H = 80;
-  const maxVal = Math.max(...activeLine, 1);
+  const maxVal = Math.max(...activeLine.map(Math.abs), 1);
   const activePath = makePath(activeLine, maxVal, W, H);
   const lastY = H - (activeValue / maxVal) * (H - 4);
 
@@ -360,47 +369,73 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
         {loading ? "—" : `${activeValue < 0 ? "-" : ""}$${Math.abs(activeValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
       </div>
       <div className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="finGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={activeColor} stopOpacity="0.2" />
-            <stop offset="100%" stopColor={activeColor} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {activeLine.length > 1 && (
-          <path d={`${activePath} L ${W} ${H} L 0 ${H} Z`} fill="url(#finGrad)" />
-        )}
-        <path d={activePath} fill="none" stroke={activeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {/* Last month end marker */}
-        {prevMonthX !== null && prevMonthY !== null && (
-          <>
-            <line x1={prevMonthX} y1={0} x2={prevMonthX} y2={H} stroke="#374151" strokeWidth={1} strokeDasharray="3 3" />
-            <circle cx={prevMonthX} cy={prevMonthY} r="3" fill="#374151" stroke={activeColor} strokeWidth="1.5" />
-            <circle cx={prevMonthX} cy={prevMonthY} r="8" fill="transparent" className="cursor-pointer"
-              onMouseEnter={() => setHoveredNode("prev")} onMouseLeave={() => setHoveredNode(null)} />
-          </>
-        )}
-        {/* Current end dot */}
-        {sortedMonths.length > 0 && (
-          <>
-            <circle cx={W} cy={lastY} r="3" fill={activeColor} />
-            <circle cx={W} cy={lastY} r="8" fill="transparent" className="cursor-pointer"
-              onMouseEnter={() => setHoveredNode("curr")} onMouseLeave={() => setHoveredNode(null)} />
-          </>
-        )}
-      </svg>
-      {/* Prev month tooltip */}
+      {tab === "leftover" ? (
+        /* Bar chart for per-month leftover */
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
+          {leftoverMonthly.length === 0 && <text x={W/2} y={H/2} textAnchor="middle" fontSize={9} fill="#4b5563">No data</text>}
+          {leftoverMonthly.map((v, i) => {
+            const barW = Math.max(2, (W / leftoverMonthly.length) - 2);
+            const x = (i / leftoverMonthly.length) * W + 1;
+            const absMax = Math.max(...leftoverMonthly.map(Math.abs), 1);
+            const barH = Math.max(2, (Math.abs(v) / absMax) * (H - 4));
+            const positive = v >= 0;
+            return (
+              <g key={i}>
+                <rect
+                  x={x} y={positive ? H - barH : H / 2}
+                  width={barW} height={barH}
+                  fill={positive ? "#3b82f6" : "#ef4444"}
+                  opacity={i === leftoverMonthly.length - 1 ? 1 : 0.5}
+                  rx={1}
+                />
+                <rect x={x} y={0} width={barW} height={H} fill="transparent" className="cursor-pointer"
+                  onMouseEnter={() => setHoveredNode(i === leftoverMonthly.length - 2 ? "prev" : i === leftoverMonthly.length - 1 ? "curr" : null)}
+                  onMouseLeave={() => setHoveredNode(null)} />
+              </g>
+            );
+          })}
+          {/* Zero line */}
+          <line x1={0} y1={H/2} x2={W} y2={H/2} stroke="#374151" strokeWidth={1} />
+        </svg>
+      ) : (
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="finGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={activeColor} stopOpacity="0.2" />
+              <stop offset="100%" stopColor={activeColor} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {activeLine.length > 1 && (
+            <path d={`${activePath} L ${W} ${H} L 0 ${H} Z`} fill="url(#finGrad)" />
+          )}
+          <path d={activePath} fill="none" stroke={activeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          {prevMonthX !== null && prevMonthY !== null && (
+            <>
+              <line x1={prevMonthX} y1={0} x2={prevMonthX} y2={H} stroke="#374151" strokeWidth={1} strokeDasharray="3 3" />
+              <circle cx={prevMonthX} cy={prevMonthY} r="3" fill="#374151" stroke={activeColor} strokeWidth="1.5" />
+              <circle cx={prevMonthX} cy={prevMonthY} r="8" fill="transparent" className="cursor-pointer"
+                onMouseEnter={() => setHoveredNode("prev")} onMouseLeave={() => setHoveredNode(null)} />
+            </>
+          )}
+          {sortedMonths.length > 0 && (
+            <>
+              <circle cx={W} cy={lastY} r="3" fill={activeColor} />
+              <circle cx={W} cy={lastY} r="8" fill="transparent" className="cursor-pointer"
+                onMouseEnter={() => setHoveredNode("curr")} onMouseLeave={() => setHoveredNode(null)} />
+            </>
+          )}
+        </svg>
+      )}
       {hoveredNode === "prev" && prevMonthX !== null && prevMonthY !== null && prevMonthValue !== null && (
         <div className="absolute pointer-events-none bg-[#1a1a1a] border border-[#333] rounded-lg px-2 py-1 text-xs text-gray-200 whitespace-nowrap z-10"
           style={{ bottom: `${H - prevMonthY + 10}px`, left: `${(prevMonthX / W) * 100}%`, transform: "translateX(-50%)" }}>
-          {sortedMonths[sortedMonths.length - 2]} · ${Math.abs(prevMonthValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          {sortedMonths[sortedMonths.length - 2]} · {prevMonthValue < 0 ? "-" : ""}${Math.abs(prevMonthValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </div>
       )}
-      {/* Current month tooltip */}
       {hoveredNode === "curr" && sortedMonths.length > 0 && (
         <div className="absolute pointer-events-none bg-[#1a1a1a] border border-[#333] rounded-lg px-2 py-1 text-xs text-gray-200 whitespace-nowrap z-10"
           style={{ bottom: `${H - lastY + 10}px`, right: 0 }}>
-          {sortedMonths[sortedMonths.length - 1]} · ${Math.abs(activeValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          {sortedMonths[sortedMonths.length - 1]} · {activeValue < 0 ? "-" : ""}${Math.abs(activeValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </div>
       )}
       </div>
