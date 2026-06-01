@@ -432,6 +432,7 @@ const RUNWAY_TARGET = 20000;
 function RunwayChart() {
   const [rows, setRows] = useState<SummaryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   useEffect(() => {
     db.summary.list().then((data: SummaryRow[]) => { setRows(data); setLoading(false); });
@@ -490,7 +491,7 @@ function RunwayChart() {
 
   // Target line Y
   const targetY = yScale(RUNWAY_TARGET);
-  const currentY = yScale(currentTotal);
+
   const currentX = xScale(solidPoints.length - 1);
 
   const pct = Math.min(100, Math.round((currentTotal / RUNWAY_TARGET) * 100));
@@ -541,8 +542,34 @@ function RunwayChart() {
             <path d={projPath} fill="none" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="5 4" strokeOpacity="0.5" strokeLinecap="round" />
           )}
 
-          {/* Current position dot */}
-          <circle cx={currentX} cy={currentY} r="3.5" fill="#22c55e" />
+          {/* Per-month dots on solid line (skip index 0 which is the $0 start) */}
+          {solidPoints.slice(1).map((v, i) => {
+            const cx = xScale(i + 1);
+            const cy = yScale(v);
+            const isHovered = hoveredIdx === i;
+            return (
+              <g key={i}>
+                <circle cx={cx} cy={cy} r={isHovered ? 4.5 : 3} fill="#22c55e" stroke="#1e1e1e" strokeWidth="1.5" className="transition-all" />
+                {/* Tooltip */}
+                {isHovered && (
+                  <g>
+                    <rect
+                      x={cx - 36} y={cy - 22} width={72} height={16}
+                      rx={4} fill="#1a1a1a" stroke="#333" strokeWidth={1}
+                    />
+                    <text x={cx} y={cy - 11} textAnchor="middle" fontSize={8} fill="#e5e7eb">
+                      {sortedMonths[i]} · ${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </text>
+                  </g>
+                )}
+                {/* Hit area */}
+                <circle cx={cx} cy={cy} r="10" fill="transparent" className="cursor-pointer"
+                  onMouseEnter={() => setHoveredIdx(i)}
+                  onMouseLeave={() => setHoveredIdx(null)}
+                />
+              </g>
+            );
+          })}
 
           {/* Target intersection dot */}
           {projPoints.length > 0 && (
@@ -1776,8 +1803,8 @@ export default function PersonalOS() {
 
         {/* ── Middle column: Finance + Habits/Calendar ── */}
         <div className="flex flex-col gap-5">
-          <FinanceBox onOpenBudget={() => setShowBudget(true)} />
           <RunwayChart />
+          <FinanceBox onOpenBudget={() => setShowBudget(true)} />
           <HabitsCalendar />
         </div>
 
