@@ -893,7 +893,6 @@ export default function BudgetPanel() {
   }
   const spendEntries = [...spendMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
 
-
   // Add form state
   const [vendor, setVendor] = useState("");
   const [category, setCategory] = useState("Groceries");
@@ -1103,6 +1102,12 @@ export default function BudgetPanel() {
 
   const fixedRows = data.expenses.filter(r => r.type === "fixed");
   const variableRows = data.expenses.filter(r => r.type === "variable");
+
+  // Dynamic category list: hardcoded + any custom expense labels
+  const dynamicCategories = [
+    ...EXPENSE_CATEGORIES,
+    ...data.expenses.map(r => r.label).filter(l => !EXPENSE_CATEGORIES.includes(l)),
+  ];
   const filteredLogs = data.logs
     .filter(l => logFilter === "All" || l.category === logFilter)
     .filter(l => !vendorSearch || l.vendor.toLowerCase().includes(vendorSearch.toLowerCase()));
@@ -1261,7 +1266,7 @@ export default function BudgetPanel() {
               onChange={e => { setCategory(e.target.value); setFormPoints(defaultPoints(e.target.value, card)); }}
               className="w-44 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {EXPENSE_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+              {dynamicCategories.map(c => <option key={c}>{c}</option>)}
             </select>
           </FormField>
           <FormField label="Amount ($)">
