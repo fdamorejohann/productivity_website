@@ -239,7 +239,43 @@ async function handleGcal(req, res) {
     }));
     return res.json({ connected: true, events });
   }
+  // Create a new event in Google Calendar
+  if (req.method === "POST") {
+    const token = await getValidAccessToken();
+    if (!token) return res.status(401).json({ error: "Not connected" });
+    const { title, date, time, description } = req.body;
+    // Build start/end — if time provided use dateTime, else allDay date
+    let start, end;
+    if (time) {
+      start = { dateTime: `${date}T${time}:00`, timeZone: "America/New_York" };
+      end   = { dateTime: `${date}T${time}:00`, timeZone: "America/New_York" }; // same time; Google will show as 1hr by default
+    } else {
+      start = { date };
+      end   = { date };
+    }
+    const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ summary: title, description: description ?? "", start, end }),
+    });
+    const data = await r.json();
+    if (data.error) return res.status(500).json({ error: data.error.message });
+    return res.json({ ok: true, id: data.id });
+  }
+  // Delete an event from Google Calendar
   if (req.method === "DELETE") {
+    const { eventId } = req.body ?? {};
+    // If eventId provided, delete that specific GCal event
+    if (eventId) {
+      const token = await getValidAccessToken();
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return res.json({ ok: true });
+    }
+    // Otherwise disconnect (remove stored tokens)
     await supabase.from("google_tokens").delete().eq("id", 1);
     return res.json({ ok: true });
   }

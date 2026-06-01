@@ -599,6 +599,14 @@ function HabitsCalendar() {
     const saved = await db.events.upsert(event);
     setEvents(e => [...e, saved]);
     setNewEventTitle("");
+    // Push to Google Calendar if connected
+    if (gcalConnected) {
+      fetch("/api/data/gcal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: event.title, date: event.date, time: event.time, description: "" }),
+      }).catch(() => {});
+    }
   };
 
   const saveEvent = async (ev: CalendarEvent) => {
@@ -608,6 +616,15 @@ function HabitsCalendar() {
   };
 
   const deleteEvent = async (id: string) => {
+    // If it's a GCal event, delete from Google too
+    const ev = [...events, ...gcalEvents].find(e => e.id === id);
+    if (ev && gcalConnected && gcalEvents.some(g => g.id === id)) {
+      fetch("/api/data/gcal", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: id }),
+      }).catch(() => {});
+    }
     await db.events.delete(id);
     setEvents(es => es.filter(e => e.id !== id));
     setEditingEvent(null);
