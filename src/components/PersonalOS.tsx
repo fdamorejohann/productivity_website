@@ -518,6 +518,7 @@ function HabitsCalendar() {
   const [newFreq, setNewFreq] = useState(3);
   const [selectedHabit, setSelectedHabit] = useState<string | null>(null);
   const [fullCalOpen, setFullCalOpen] = useState(false);
+  const [quickAdd, setQuickAdd] = useState<{ date: string; title: string; time: string } | null>(null);
   const [histExpanded, setHistExpanded] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [gcalEvents, setGcalEvents] = useState<CalendarEvent[]>([]);
@@ -1026,16 +1027,69 @@ function HabitsCalendar() {
                 const ds = `${calMonth.year}-${String(calMonth.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                 const dayEvents = [...events, ...gcalEvents].filter(e => e.date === ds);
                 const isToday = ds === todayStr();
+                const isQuickAdd = quickAdd?.date === ds;
                 return (
-                  <div key={i} className={`rounded-lg p-1.5 min-h-12 ${isToday ? "bg-[#2a2a2a] border border-[#444]" : "hover:bg-[#222]"}`}>
+                  <div key={i} className={`relative rounded-lg p-1.5 min-h-12 cursor-pointer ${isToday ? "bg-[#2a2a2a] border border-[#444]" : "hover:bg-[#222]"} ${isQuickAdd ? "ring-1 ring-blue-500" : ""}`}
+                    onClick={() => setQuickAdd(isQuickAdd ? null : { date: ds, title: "", time: "09:00" })}>
                     <div className={`text-xs font-medium mb-1 ${isToday ? "text-white" : "text-gray-500"}`}>{day}</div>
                     {dayEvents.map(ev => (
                       <div
                         key={ev.id}
-                        onClick={() => { if (!ev.id.startsWith("gcal_")) setEditingEvent(ev); }}
+                        onClick={e => { e.stopPropagation(); if (!ev.id.startsWith("gcal_")) setEditingEvent(ev); }}
                         className={`text-xs rounded px-1.5 py-0.5 mb-0.5 break-words leading-tight border ${ev.id.startsWith("gcal_") ? "bg-green-900/40 text-green-400 border-green-900/60" : "bg-blue-900/40 text-blue-300 border-blue-900/60 cursor-pointer hover:bg-blue-900/60"}`}
                       >{ev.title}</div>
                     ))}
+                    {/* Quick-add popover */}
+                    {isQuickAdd && (
+                      <div className="absolute top-full left-0 mt-1 z-50 bg-[#1a1a1a] border border-[#333] rounded-xl shadow-2xl p-3 w-56"
+                        onClick={e => e.stopPropagation()}>
+                        <input
+                          autoFocus
+                          className="w-full bg-[#252525] border border-[#333] rounded-lg px-2.5 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 mb-2"
+                          placeholder="Event title…"
+                          value={quickAdd.title}
+                          onChange={e => setQuickAdd({ ...quickAdd, title: e.target.value })}
+                          onKeyDown={async e => {
+                            if (e.key === "Enter" && quickAdd.title.trim()) {
+                              setNewEventDate(quickAdd.date);
+                              setNewEventTime(quickAdd.time);
+                              setNewEventTitle(quickAdd.title);
+                              const event = { id: uid(), date: quickAdd.date, title: quickAdd.title.trim(), time: quickAdd.time, description: "" };
+                              const saved = await db.events.upsert(event);
+                              setEvents(ev => [...ev, saved]);
+                              if (gcalConnected) {
+                                fetch("/api/data/gcal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: event.title, date: event.date, time: event.time }) })
+                                  .then(r => r.json()).then(gcal => { if (gcal.id) { const w = { ...saved, gcalId: gcal.id }; db.events.upsert(w); setEvents(es => es.map(ev => ev.id === saved.id ? w : ev)); } }).catch(() => {});
+                              }
+                              setQuickAdd(null);
+                            }
+                            if (e.key === "Escape") setQuickAdd(null);
+                          }}
+                        />
+                        <input type="time"
+                          className="w-full bg-[#252525] border border-[#333] rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 mb-2"
+                          value={quickAdd.time}
+                          onChange={e => setQuickAdd({ ...quickAdd, time: e.target.value })}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg py-1.5 transition-colors"
+                            onClick={async () => {
+                              if (!quickAdd.title.trim()) return;
+                              const event = { id: uid(), date: quickAdd.date, title: quickAdd.title.trim(), time: quickAdd.time, description: "" };
+                              const saved = await db.events.upsert(event);
+                              setEvents(ev => [...ev, saved]);
+                              if (gcalConnected) {
+                                fetch("/api/data/gcal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: event.title, date: event.date, time: event.time }) })
+                                  .then(r => r.json()).then(gcal => { if (gcal.id) { const w = { ...saved, gcalId: gcal.id }; db.events.upsert(w); setEvents(es => es.map(ev => ev.id === saved.id ? w : ev)); } }).catch(() => {});
+                              }
+                              setQuickAdd(null);
+                            }}
+                          >Add</button>
+                          <button onClick={() => setQuickAdd(null)} className="px-2.5 text-gray-600 hover:text-white text-xs transition-colors">✕</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
