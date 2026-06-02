@@ -549,7 +549,7 @@ async function handleWidget(req, res) {
       supabase.from("budget_months").select("data").eq("month", currentMonth).maybeSingle(),
       supabase.from("monthly_summary").select("*").order("month"),
       supabase.from("calendar_events").select("*").eq("date", today).order("time"),
-      supabase.from("goals").select("*").eq("type", "daily").eq("done", false),
+      supabase.from("goals").select("*").eq("done", false),
       getValidAccessToken().then(async token => { // gcal
         if (!token) return { events: [] };
         const params = new URLSearchParams({
@@ -617,8 +617,10 @@ async function handleWidget(req, res) {
     const localEvents = (eventsData.data ?? []).map(e => ({ title: e.title, time: e.time || "All day" }));
     const allEvents = [...localEvents, ...(gcalData.events ?? [])];
 
-    // ── Daily goals ───────────────────────────────────────────────────────────
-    const dailyGoals = (goalsData.data ?? []).map(g => ({ title: g.title, color: g.color, starred: g.starred }));
+    // ── Goals ─────────────────────────────────────────────────────────────────
+    const allGoals = goalsData.data ?? [];
+    const dailyGoals = allGoals.filter(g => g.type === "daily").map(g => ({ title: g.title, color: g.color, starred: g.starred }));
+    const weeklyGoals = allGoals.filter(g => g.type === "weekly").map(g => ({ title: g.title, color: g.color, starred: g.starred }));
 
     res.setHeader("Cache-Control", "no-store");
     return res.json({
@@ -626,7 +628,8 @@ async function handleWidget(req, res) {
       dailyBudget,
       habits: habitStatus,
       events: allEvents,
-      goals: dailyGoals,
+      dailyGoals,
+      weeklyGoals,
       runway: {
         current: Math.round(cumTotal),
         target: 20000,

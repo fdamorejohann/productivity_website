@@ -134,13 +134,37 @@ async function buildWidget(data) {
   }
 
   // ── Daily goals ───────────────────────────────────────────────────────────
-  if (data.goals && data.goals.length > 0) {
+  if (data.dailyGoals && data.dailyGoals.length > 0) {
     w.addSpacer(4);
     const goalsLabel = w.addText("DAILY GOALS");
     goalsLabel.font = Font.boldMonospacedSystemFont(9);
     goalsLabel.textColor = DIM;
 
-    for (const g of data.goals) {
+    for (const g of data.dailyGoals) {
+      const gRow = w.addStack();
+      gRow.layoutHorizontally();
+      gRow.spacing = 6;
+      gRow.centerAlignContent();
+
+      const dot = gRow.addText("◦");
+      dot.font = Font.systemFont(13);
+      dot.textColor = hexColor(g.color);
+
+      const gText = gRow.addText(g.starred ? "★ " + g.title : g.title);
+      gText.font = Font.systemFont(12);
+      gText.textColor = WHITE;
+      gText.lineLimit = 1;
+    }
+  }
+
+  // ── Weekly goals ──────────────────────────────────────────────────────────
+  if (data.weeklyGoals && data.weeklyGoals.length > 0) {
+    w.addSpacer(4);
+    const wgLabel = w.addText("WEEKLY GOALS");
+    wgLabel.font = Font.boldMonospacedSystemFont(9);
+    wgLabel.textColor = DIM;
+
+    for (const g of data.weeklyGoals) {
       const gRow = w.addStack();
       gRow.layoutHorizontally();
       gRow.spacing = 6;
