@@ -571,11 +571,13 @@ async function handleWidget(req, res) {
     // ── Habits ────────────────────────────────────────────────────────────────
     const habits = habitsData.data ?? [];
     const planned = plannedData.data ?? [];
-    const habitStatus = habits.map(h => ({
-      label: h.label,
-      color: h.color,
-      done: planned.some(p => p.habit_id === h.id && p.done),
-    }));
+    const habitStatus = habits
+      .filter(h => planned.some(p => p.habit_id === h.id))
+      .map(h => ({
+        label: h.label,
+        color: h.color,
+        done: planned.some(p => p.habit_id === h.id && p.done),
+      }));
 
     // ── Daily budget ──────────────────────────────────────────────────────────
     let dailyBudget = null;
