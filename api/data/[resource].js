@@ -11,6 +11,7 @@ export default async function handler(req, res) {
     case "events":     return handleEvents(req, res);
     case "notes":      return handleNotes(req, res);
     case "budget":     return handleBudget(req, res);
+    case "budget-log": return handleBudgetLog(req, res);
     case "summary":    return handleSummary(req, res);
     case "gcal":       return handleGcal(req, res);
     case "exercises":  return handleExercises(req, res);
@@ -187,6 +188,42 @@ async function handleBudget(req, res) {
     return res.json({ ok: true });
   }
   res.status(405).end();
+}
+
+// ─── Budget Log (append a single transaction) ────────────────────────────────
+async function handleBudgetLog(req, res) {
+  if (req.method !== "POST") return res.status(405).end();
+  const { pw } = req.query;
+  if (pw !== process.env.SITE_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+
+  const { vendor, amount, category, card, points, date } = req.body;
+  if (!vendor || !amount || !category || !card) return res.status(400).json({ error: "vendor, amount, category, card required" });
+
+  const month = (date || new Date().toISOString().slice(0, 10)).slice(0, 7);
+  const today = date || new Date().toISOString().slice(0, 10);
+
+  // Fetch existing blob
+  const { data: existing, error: fetchErr } = await supabase
+    .from("budget_months").select("data").eq("month", month).single();
+  if (fetchErr && fetchErr.code !== "PGRST116") return res.status(500).json({ error: fetchErr.message });
+
+  const blob = existing?.data ?? { income: [], expenses: [], logs: [] };
+  if (!blob.logs) blob.logs = [];
+
+  blob.logs.push({
+    id: crypto.randomUUID(),
+    date: today,
+    vendor,
+    amount: Number(amount),
+    category,
+    card,
+    points: points ? Number(points) : 1,
+  });
+
+  const { error: saveErr } = await supabase.from("budget_months").upsert({ month, data: blob });
+  if (saveErr) return res.status(500).json({ error: saveErr.message });
+
+  return res.json({ ok: true, month, transaction: { vendor, amount, category, card } });
 }
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
