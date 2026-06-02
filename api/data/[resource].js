@@ -618,6 +618,7 @@ async function handleWidget(req, res) {
 
     // ── Daily budget ──────────────────────────────────────────────────────────
     let dailyBudget = null;
+    let monthlyLeftover = null;
     if (budgetData.data?.data) {
       const bd = budgetData.data.data;
       const eAct = (r) => {
@@ -635,6 +636,7 @@ async function handleWidget(req, res) {
       const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
       const daysLeft = daysInMonth - new Date().getDate() + 1;
       dailyBudget = daysLeft > 0 ? Math.round(leftoverActual / daysLeft) : leftoverActual;
+      monthlyLeftover = Math.round(leftoverActual);
     }
 
     // ── Runway ────────────────────────────────────────────────────────────────
@@ -665,6 +667,7 @@ async function handleWidget(req, res) {
     return res.json({
       date: today,
       dailyBudget,
+      monthlyLeftover,
       habits: habitStatus,
       events: allEvents,
       dailyGoals,
