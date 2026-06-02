@@ -549,7 +549,7 @@ async function handleWidget(req, res) {
       supabase.from("budget_months").select("data").eq("month", currentMonth).maybeSingle(),
       supabase.from("monthly_summary").select("*").order("month"),
       supabase.from("calendar_events").select("*").eq("date", today).order("time"),
-      supabase.from("goals").select("*").eq("done", false),
+      supabase.from("goals").select("*").neq("done", true),
       getValidAccessToken().then(async token => { // gcal
         if (!token) return { events: [] };
         const params = new URLSearchParams({
