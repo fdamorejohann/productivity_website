@@ -24,6 +24,7 @@ export default async function handler(req, res) {
     case "dnd-quests":       return handleDndTable(req, res, "dnd_quests", "campaign_id");
     case "dnd-concepts":     return handleDndTable(req, res, "dnd_concepts", "campaign_id");
     case "yt-feed":          return handleYtFeed(req, res);
+    case "news":             return handleNews(req, res);
     case "site-usage":       return handleSiteUsage(req, res);
     default:                 return res.status(404).json({ error: "Not found" });
   }
@@ -446,4 +447,62 @@ async function handleSiteUsage(req, res) {
     }
   }
   res.status(405).end();
+}
+
+// ─── News (RSS) ───────────────────────────────────────────────────────────────
+const NEWS_FEEDS = {
+  tech: [
+    { url: "https://techcrunch.com/feed/", source: "TechCrunch" },
+    { url: "https://www.theverge.com/rss/index.xml", source: "The Verge" },
+  ],
+  finance: [
+    { url: "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", source: "CNBC" },
+    { url: "https://feeds.content.dowjones.io/public/rss/mw_topstories", source: "MarketWatch" },
+  ],
+  nyc: [
+    { url: "https://gothamist.com/feed", source: "Gothamist" },
+    { url: "https://nypost.com/feed/", source: "NY Post" },
+  ],
+};
+
+function parseRssItems(xml, source) {
+  const items = [];
+  const entries = xml.split(/<item[\s>]/).slice(1);
+  for (const entry of entries.slice(0, 5)) {
+    const title  = (entry.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]>/s) || entry.match(/<title[^>]*>(.*?)<\/title>/s) || [])[1]?.trim();
+    const link   = (entry.match(/<link[^>]*>(.*?)<\/link>/s) || entry.match(/<link>(.*?)<\/link>/s) || [])[1]?.trim();
+    const pubDate= (entry.match(/<pubDate>(.*?)<\/pubDate>/s) || [])[1]?.trim();
+    if (title && link) items.push({ title, url: link, source, published: pubDate ?? null });
+  }
+  return items;
+}
+
+const newsCache = {};
+
+async function handleNews(req, res) {
+  if (req.method !== "GET") return res.status(405).end();
+  const topic = req.query.topic ?? "tech";
+  const feeds = NEWS_FEEDS[topic];
+  if (!feeds) return res.status(400).json({ error: "Unknown topic" });
+
+  // Cache for 30 min
+  const cacheKey = topic;
+  if (newsCache[cacheKey] && Date.now() - newsCache[cacheKey].ts < 30 * 60 * 1000) {
+    return res.json(newsCache[cacheKey].items);
+  }
+
+  const all = [];
+  await Promise.all(feeds.map(async ({ url, source }) => {
+    try {
+      const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+      const xml = await r.text();
+      all.push(...parseRssItems(xml, source));
+    } catch {}
+  }));
+
+  // Sort by date, return top 8
+  const sorted = all.sort((a, b) => (b.published ? new Date(b.published).getTime() : 0) - (a.published ? new Date(a.published).getTime() : 0)).slice(0, 8);
+  newsCache[cacheKey] = { ts: Date.now(), items: sorted };
+  res.setHeader("Cache-Control", "s-maxage=1800");
+  return res.json(sorted);
 }

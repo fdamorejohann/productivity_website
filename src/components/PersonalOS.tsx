@@ -1614,6 +1614,88 @@ function WeatherBox() {
   );
 }
 
+// ─── News Widget ─────────────────────────────────────────────────────────────
+
+type NewsTopic = "tech" | "finance" | "nyc";
+const NEWS_TABS: { key: NewsTopic; label: string; color: string }[] = [
+  { key: "tech",    label: "Tech",    color: "#3b82f6" },
+  { key: "finance", label: "Finance", color: "#22c55e" },
+  { key: "nyc",     label: "NYC",     color: "#f59e0b" },
+];
+
+interface NewsItem { title: string; url: string; source: string; published: string | null; }
+
+function NewsWidget() {
+  const [tab, setTab] = useState<NewsTopic>("tech");
+  const [items, setItems] = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const cache = useRef<Partial<Record<NewsTopic, NewsItem[]>>>({});
+
+  useEffect(() => {
+    if (cache.current[tab]) { setItems(cache.current[tab]!); setLoading(false); return; }
+    setLoading(true);
+    fetch(`/api/data/news?topic=${tab}`)
+      .then(r => r.json())
+      .then((data: NewsItem[]) => {
+        cache.current[tab] = data;
+        setItems(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [tab]);
+
+  function timeAgo(pub: string | null) {
+    if (!pub) return "";
+    const diff = Date.now() - new Date(pub).getTime();
+    const h = Math.floor(diff / 3600000);
+    if (h < 1) return `${Math.floor(diff / 60000)}m ago`;
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  const activeColor = NEWS_TABS.find(t => t.key === tab)!.color;
+
+  return (
+    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">News</span>
+        <div className="flex gap-3">
+          {NEWS_TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className="text-xs font-medium transition-colors"
+              style={{ color: t.color, opacity: tab === t.key ? 1 : 0.4 }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          {[1,2,3,4].map(i => <div key={i} className="h-8 bg-[#252525] rounded-lg animate-pulse" />)}
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-gray-600 text-center py-4">No articles found</p>
+      ) : (
+        <div className="space-y-0 divide-y divide-[#2a2a2a]">
+          {items.map((item, i) => (
+            <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
+              className="block py-2.5 group hover:bg-[#252525] -mx-2 px-2 rounded-lg transition-colors">
+              <div className="text-xs text-gray-200 group-hover:text-white leading-snug line-clamp-2 mb-1 transition-colors">
+                {item.title}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-medium" style={{ color: activeColor }}>{item.source}</span>
+                {item.published && <span className="text-[10px] text-gray-600">{timeAgo(item.published)}</span>}
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Notes Box ───────────────────────────────────────────────────────────────
 
 function NotesBox() {
@@ -2052,6 +2134,7 @@ export default function PersonalOS() {
           {showBible && <BibleModal onClose={() => setShowBible(false)} />}
           <WeatherBox />
           <WhoopBox />
+          <NewsWidget />
           <NotesBox />
         </div>
 
