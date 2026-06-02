@@ -2110,6 +2110,7 @@ export default function PersonalOS() {
         <div className="flex flex-col gap-5">
           <FinanceBox onOpenBudget={() => setShowBudget(true)} />
           <HabitsCalendar />
+          <NewsWidget />
         </div>
 
         {/* ── Right column: Hello + Weather + Notes ── */}
@@ -2134,7 +2135,6 @@ export default function PersonalOS() {
           {showBible && <BibleModal onClose={() => setShowBible(false)} />}
           <WeatherBox />
           <WhoopBox />
-          <NewsWidget />
           <NotesBox />
         </div>
 
