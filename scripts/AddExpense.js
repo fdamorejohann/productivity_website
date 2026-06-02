@@ -79,7 +79,7 @@ async function addGoal() {
     title,
     type,
     color,
-    starred: false,
+    starred: true,
     done: false,
     created_at: new Date().toISOString(),
   });
