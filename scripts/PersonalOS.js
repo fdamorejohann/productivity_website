@@ -3,7 +3,7 @@
 // Set widget parameter to: https://your-vercel-domain.vercel.app
 // (or hardcode BASE_URL below)
 
-const BASE_URL = args.widgetParameter || "https://your-vercel-domain.vercel.app";
+const BASE_URL = args.widgetParameter || "https://productivity-website-three.vercel.app";
 const PASSWORD = "your-password-here"; // your site password
 
 // ── Auth + fetch ─────────────────────────────────────────────────────────────
