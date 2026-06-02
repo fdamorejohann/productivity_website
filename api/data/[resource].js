@@ -542,7 +542,7 @@ async function handleWidget(req, res) {
     // Run all queries in parallel
     const [
       habitsData, plannedData, budgetData, summaryData,
-      eventsData, gcalData, goalsData
+      eventsData, goalsData, gcalData
     ] = await Promise.all([
       supabase.from("habits").select("*"),
       supabase.from("planned_habits").select("*").eq("date", today),
