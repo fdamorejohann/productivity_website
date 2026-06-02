@@ -1623,15 +1623,17 @@ const NEWS_TABS: { key: NewsTopic; label: string; color: string }[] = [
   { key: "nyc",     label: "NYC",     color: "#f59e0b" },
 ];
 
-interface NewsItem { title: string; url: string; source: string; published: string | null; }
+interface NewsItem { title: string; url: string; source: string; published: string | null; description?: string; }
 
 function NewsWidget() {
   const [tab, setTab] = useState<NewsTopic>("tech");
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<number | null>(null);
   const cache = useRef<Partial<Record<NewsTopic, NewsItem[]>>>({});
 
   useEffect(() => {
+    setExpanded(null);
     if (cache.current[tab]) { setItems(cache.current[tab]!); setLoading(false); return; }
     setLoading(true);
     fetch(`/api/data/news?topic=${tab}`)
@@ -1678,18 +1680,35 @@ function NewsWidget() {
         <p className="text-xs text-gray-600 text-center py-4">No articles found</p>
       ) : (
         <div className="space-y-0 divide-y divide-[#2a2a2a]">
-          {items.map((item, i) => (
-            <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
-              className="block py-2.5 group hover:bg-[#252525] -mx-2 px-2 rounded-lg transition-colors">
-              <div className="text-xs text-gray-200 group-hover:text-white leading-snug line-clamp-2 mb-1 transition-colors">
-                {item.title}
+          {items.map((item, i) => {
+            const isOpen = expanded === i;
+            return (
+              <div key={i} className="-mx-2 px-2 rounded-lg transition-colors hover:bg-[#252525]">
+                {/* Headline row */}
+                <div className="py-2.5 cursor-pointer" onClick={() => setExpanded(isOpen ? null : i)}>
+                  <div className="text-xs text-gray-200 leading-snug line-clamp-2 mb-1">{item.title}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-medium" style={{ color: activeColor }}>{item.source}</span>
+                    {item.published && <span className="text-[10px] text-gray-600">{timeAgo(item.published)}</span>}
+                    <span className="text-[10px] text-gray-700 ml-auto">{isOpen ? "▲" : "▼"}</span>
+                  </div>
+                </div>
+                {/* Expanded description */}
+                {isOpen && (
+                  <div className="pb-3">
+                    {item.description && (
+                      <p className="text-xs text-gray-400 leading-relaxed mb-2">{item.description}{item.description.length >= 400 ? "…" : ""}</p>
+                    )}
+                    <a href={item.url} target="_blank" rel="noopener noreferrer"
+                      className="text-[10px] font-medium hover:underline"
+                      style={{ color: activeColor }}>
+                      Read full article →
+                    </a>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-medium" style={{ color: activeColor }}>{item.source}</span>
-                {item.published && <span className="text-[10px] text-gray-600">{timeAgo(item.published)}</span>}
-              </div>
-            </a>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

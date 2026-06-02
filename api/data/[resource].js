@@ -472,7 +472,10 @@ function parseRssItems(xml, source) {
     const title  = (entry.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]>/s) || entry.match(/<title[^>]*>(.*?)<\/title>/s) || [])[1]?.trim();
     const link   = (entry.match(/<link[^>]*>(.*?)<\/link>/s) || entry.match(/<link>(.*?)<\/link>/s) || [])[1]?.trim();
     const pubDate= (entry.match(/<pubDate>(.*?)<\/pubDate>/s) || [])[1]?.trim();
-    if (title && link) items.push({ title, url: link, source, published: pubDate ?? null });
+    const rawDesc= (entry.match(/<description[^>]*><!\[CDATA\[(.*?)\]\]>/s) || entry.match(/<description[^>]*>(.*?)<\/description>/s) || [])[1]?.trim() ?? "";
+    // Strip HTML tags and decode basic entities
+    const description = rawDesc.replace(/<[^>]+>/g, " ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#\d+;/g,"").replace(/\s+/g," ").trim().slice(0, 400);
+    if (title && link) items.push({ title, url: link, source, published: pubDate ?? null, description });
   }
   return items;
 }
