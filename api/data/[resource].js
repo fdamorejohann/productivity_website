@@ -25,6 +25,7 @@ export default async function handler(req, res) {
     case "dnd-concepts":     return handleDndTable(req, res, "dnd_concepts", "campaign_id");
     case "yt-feed":          return handleYtFeed(req, res);
     case "news":             return handleNews(req, res);
+    case "widget":           return handleWidget(req, res);
     case "site-usage":       return handleSiteUsage(req, res);
     default:                 return res.status(404).json({ error: "Not found" });
   }
@@ -526,4 +527,110 @@ async function handleNews(req, res) {
   newsCache[cacheKey] = { ts: Date.now(), items: sorted };
   res.setHeader("Cache-Control", "s-maxage=1800");
   return res.json(sorted);
+}
+
+// ─── Widget ───────────────────────────────────────────────────────────────────
+async function handleWidget(req, res) {
+  if (req.method !== "GET") return res.status(405).end();
+  const { pw } = req.query;
+  if (pw !== process.env.SITE_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const currentMonth = today.slice(0, 7);
+
+  try {
+    // Run all queries in parallel
+    const [
+      habitsData, plannedData, budgetData, summaryData,
+      eventsData, gcalData
+    ] = await Promise.all([
+      supabase.from("habits").select("*"),
+      supabase.from("planned_habits").select("*").eq("date", today),
+      supabase.from("budget_months").select("data").eq("month", currentMonth).single(),
+      supabase.from("monthly_summary").select("*").order("month"),
+      supabase.from("calendar_events").select("*").eq("date", today),
+      getValidAccessToken().then(async token => {
+        if (!token) return { events: [] };
+        const params = new URLSearchParams({
+          timeMin: `${today}T00:00:00Z`,
+          timeMax: `${today}T23:59:59Z`,
+          singleEvents: "true", orderBy: "startTime", maxResults: "10",
+        });
+        const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const d = await r.json();
+        return { events: (d.items ?? []).map(e => ({
+          title: e.summary ?? "(No title)",
+          time: e.start?.dateTime ? new Date(e.start.dateTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "All day",
+        })) };
+      }).catch(() => ({ events: [] }))
+    ]);
+
+    // ── Habits ────────────────────────────────────────────────────────────────
+    const habits = habitsData.data ?? [];
+    const planned = plannedData.data ?? [];
+    const habitStatus = habits.map(h => ({
+      label: h.label,
+      color: h.color,
+      done: planned.some(p => p.habit_id === h.id && p.done),
+    }));
+
+    // ── Daily budget ──────────────────────────────────────────────────────────
+    let dailyBudget = null;
+    if (budgetData.data?.data) {
+      const bd = budgetData.data.data;
+      const eAct = (r) => {
+        if (r.actual !== null && r.actual !== undefined) return r.actual;
+        return (bd.logs ?? []).filter(l => l.category === r.label).reduce((s, l) => s + (l.owed ?? l.amount), 0);
+      };
+      const income = bd.income?.reduce((s, r) => s + r.actual, 0) ?? 0;
+      const fixed  = bd.expenses?.filter(r => r.type === "fixed").reduce((s, r) => s + eAct(r), 0) ?? 0;
+      const savings= bd.expenses?.filter(r => r.type === "savings").reduce((s, r) => s + eAct(r), 0) ?? 0;
+      const varSpend = bd.expenses?.filter(r => r.type === "variable" && r.label !== "work")
+        .reduce((s, r) => s + eAct(r), 0) ?? 0;
+      const rebates = (bd.logs ?? []).filter(l => l.category === "Rebates").reduce((s, l) => s + (l.owed ?? l.amount), 0);
+      const leftoverActual = income - fixed - savings - varSpend + rebates;
+
+      const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+      const daysLeft = daysInMonth - new Date().getDate() + 1;
+      dailyBudget = daysLeft > 0 ? Math.round(leftoverActual / daysLeft) : leftoverActual;
+    }
+
+    // ── Runway ────────────────────────────────────────────────────────────────
+    const summaryRows = summaryData.data ?? [];
+    const currentMonthKey = new Date().toISOString().slice(0, 7);
+    const months = [...new Set(summaryRows.map(r => r.month))].sort().filter(m => m <= currentMonthKey);
+    let cumTotal = 0;
+    const monthlyS = [];
+    for (const m of months) {
+      const s = Number(summaryRows.find(r => r.month === m && r.category === "savings")?.value ?? 0);
+      const l = Number(summaryRows.find(r => r.month === m && r.category === "leftover")?.value ?? 0);
+      cumTotal += s + l;
+      monthlyS.push(s);
+    }
+    const avgSavings = monthlyS.length > 0 ? monthlyS.reduce((a, b) => a + b, 0) / monthlyS.length : 0;
+    const monthsLeft = avgSavings > 0 ? Math.ceil((20000 - cumTotal) / avgSavings) : null;
+
+    // ── Calendar events ───────────────────────────────────────────────────────
+    const localEvents = (eventsData.data ?? []).map(e => ({ title: e.title, time: e.time || "All day" }));
+    const allEvents = [...localEvents, ...(gcalData.events ?? [])];
+
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({
+      date: today,
+      dailyBudget,
+      habits: habitStatus,
+      events: allEvents,
+      runway: {
+        current: Math.round(cumTotal),
+        target: 20000,
+        pct: Math.min(100, Math.round((cumTotal / 20000) * 100)),
+        monthsLeft,
+        weeksLeft: monthsLeft ? Math.ceil(monthsLeft * 4.33) : null,
+      },
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
 }
