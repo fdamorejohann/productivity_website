@@ -465,17 +465,35 @@ const NEWS_FEEDS = {
   ],
 };
 
+function stripHtml(str) {
+  return str
+    .replace(/<!\[CDATA\[(.*?)\]\]>/gs, "$1")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">")
+    .replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&#\d+;/g,"")
+    .replace(/\s+/g," ").trim();
+}
+
+function extractField(entry, tag) {
+  // Try CDATA first, then plain
+  const cdataMatch = entry.match(new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]>`, "i"));
+  if (cdataMatch) return cdataMatch[1].trim();
+  const plainMatch = entry.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return plainMatch ? plainMatch[1].trim() : "";
+}
+
 function parseRssItems(xml, source) {
   const items = [];
-  const entries = xml.split(/<item[\s>]/).slice(1);
-  for (const entry of entries.slice(0, 5)) {
-    const title  = (entry.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]>/s) || entry.match(/<title[^>]*>(.*?)<\/title>/s) || [])[1]?.trim();
-    const link   = (entry.match(/<link[^>]*>(.*?)<\/link>/s) || entry.match(/<link>(.*?)<\/link>/s) || [])[1]?.trim();
-    const pubDate= (entry.match(/<pubDate>(.*?)<\/pubDate>/s) || [])[1]?.trim();
-    const rawDesc= (entry.match(/<description[^>]*><!\[CDATA\[(.*?)\]\]>/s) || entry.match(/<description[^>]*>(.*?)<\/description>/s) || [])[1]?.trim() ?? "";
-    // Strip HTML tags and decode basic entities
-    const description = rawDesc.replace(/<[^>]+>/g, " ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#\d+;/g,"").replace(/\s+/g," ").trim().slice(0, 400);
-    if (title && link) items.push({ title, url: link, source, published: pubDate ?? null, description });
+  // Handle both <item> and <entry> (Atom)
+  const raw = xml.split(/<item[\s>]|<entry[\s>]/).slice(1);
+  for (const entry of raw.slice(0, 6)) {
+    const title  = stripHtml(extractField(entry, "title")).slice(0, 200);
+    const link   = (extractField(entry, "link") || entry.match(/href="([^"]+)"/)?.[1] || "").trim();
+    const pubDate= (extractField(entry, "pubDate") || extractField(entry, "published") || extractField(entry, "updated")).trim();
+    // Try content:encoded first (richer), then description, then summary
+    const rawDesc = extractField(entry, "content:encoded") || extractField(entry, "description") || extractField(entry, "summary");
+    const description = stripHtml(rawDesc).slice(0, 500);
+    if (title && link) items.push({ title, url: link, source, published: pubDate || null, description });
   }
   return items;
 }
@@ -488,9 +506,9 @@ async function handleNews(req, res) {
   const feeds = NEWS_FEEDS[topic];
   if (!feeds) return res.status(400).json({ error: "Unknown topic" });
 
-  // Cache for 30 min
+  // Cache for 15 min
   const cacheKey = topic;
-  if (newsCache[cacheKey] && Date.now() - newsCache[cacheKey].ts < 30 * 60 * 1000) {
+  if (newsCache[cacheKey] && Date.now() - newsCache[cacheKey].ts < 15 * 60 * 1000) {
     return res.json(newsCache[cacheKey].items);
   }
 
