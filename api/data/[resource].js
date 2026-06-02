@@ -542,14 +542,15 @@ async function handleWidget(req, res) {
     // Run all queries in parallel
     const [
       habitsData, plannedData, budgetData, summaryData,
-      eventsData, gcalData
+      eventsData, gcalData, goalsData
     ] = await Promise.all([
       supabase.from("habits").select("*"),
       supabase.from("planned_habits").select("*").eq("date", today),
       supabase.from("budget_months").select("data").eq("month", currentMonth).maybeSingle(),
       supabase.from("monthly_summary").select("*").order("month"),
-      supabase.from("calendar_events").select("*").eq("date", today),
-      getValidAccessToken().then(async token => {
+      supabase.from("calendar_events").select("*").eq("date", today).order("time"),
+      supabase.from("goals").select("*").eq("type", "daily").eq("done", false),
+      getValidAccessToken().then(async token => { // gcal
         if (!token) return { events: [] };
         const params = new URLSearchParams({
           timeMin: `${today}T00:00:00Z`,
@@ -616,12 +617,16 @@ async function handleWidget(req, res) {
     const localEvents = (eventsData.data ?? []).map(e => ({ title: e.title, time: e.time || "All day" }));
     const allEvents = [...localEvents, ...(gcalData.events ?? [])];
 
+    // ── Daily goals ───────────────────────────────────────────────────────────
+    const dailyGoals = (goalsData.data ?? []).map(g => ({ title: g.title, color: g.color, starred: g.starred }));
+
     res.setHeader("Cache-Control", "no-store");
     return res.json({
       date: today,
       dailyBudget,
       habits: habitStatus,
       events: allEvents,
+      goals: dailyGoals,
       runway: {
         current: Math.round(cumTotal),
         target: 20000,

@@ -4,14 +4,14 @@
 // (or hardcode BASE_URL below)
 
 const BASE_URL = args.widgetParameter || "https://productivity-website-three.vercel.app";
-const PASSWORD = "your-password-here"; // your site password
+const PASSWORD = "Pokeman101!";
 
 // ── Auth + fetch ─────────────────────────────────────────────────────────────
 async function fetchWidget() {
   // Login to get auth cookie / confirm password (your API uses a simple password check)
   // Since your API just checks localStorage on the frontend, the /api/widget endpoint
   // needs to be either public or accept a query param password. See note below.
-  const url = `${BASE_URL}/api/widget?pw=${encodeURIComponent(PASSWORD)}`;
+  const url = `${BASE_URL}/api/data/widget?pw=${encodeURIComponent(PASSWORD)}`;
   const req = new Request(url);
   req.timeoutInterval = 10;
   return await req.loadJSON();
@@ -130,6 +130,30 @@ async function buildWidget(data) {
       evText.font = Font.systemFont(12);
       evText.textColor = WHITE;
       evText.lineLimit = 1;
+    }
+  }
+
+  // ── Daily goals ───────────────────────────────────────────────────────────
+  if (data.goals && data.goals.length > 0) {
+    w.addSpacer(4);
+    const goalsLabel = w.addText("DAILY GOALS");
+    goalsLabel.font = Font.boldMonospacedSystemFont(9);
+    goalsLabel.textColor = DIM;
+
+    for (const g of data.goals) {
+      const gRow = w.addStack();
+      gRow.layoutHorizontally();
+      gRow.spacing = 6;
+      gRow.centerAlignContent();
+
+      const dot = gRow.addText("◦");
+      dot.font = Font.systemFont(13);
+      dot.textColor = hexColor(g.color);
+
+      const gText = gRow.addText(g.starred ? "★ " + g.title : g.title);
+      gText.font = Font.systemFont(12);
+      gText.textColor = WHITE;
+      gText.lineLimit = 1;
     }
   }
 
