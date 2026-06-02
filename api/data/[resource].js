@@ -621,6 +621,7 @@ async function handleWidget(req, res) {
     const allGoals = goalsData.data ?? [];
     const dailyGoals = allGoals.filter(g => g.type === "daily").map(g => ({ title: g.title, color: g.color, starred: g.starred }));
     const weeklyGoals = allGoals.filter(g => g.type === "weekly").map(g => ({ title: g.title, color: g.color, starred: g.starred }));
+    const _goalsDebug = { raw: goalsData.data, error: goalsData.error };
 
     res.setHeader("Cache-Control", "no-store");
     return res.json({
@@ -630,6 +631,7 @@ async function handleWidget(req, res) {
       events: allEvents,
       dailyGoals,
       weeklyGoals,
+      _goalsDebug,
       runway: {
         current: Math.round(cumTotal),
         target: 20000,
