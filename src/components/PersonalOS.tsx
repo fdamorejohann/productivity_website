@@ -2155,6 +2155,34 @@ export default function PersonalOS() {
           <WeatherBox />
           <WhoopBox />
           <NotesBox />
+
+          {/* ── Habits Today ─────────────────────────────────────────── */}
+          {(() => {
+            const today = todayStr();
+            const todayPlanned = planned.filter(p => p.date === today);
+            const todayHabits = habits.filter(h => todayPlanned.some(p => p.habitId === h.id));
+            if (todayHabits.length === 0) return null;
+            return (
+              <div className="bg-[#141414] rounded-2xl border border-[#222] p-5">
+                <p className="text-xs text-gray-500 uppercase tracking-widest mb-4">Habits Today</p>
+                <div className="flex flex-col gap-3">
+                  {todayHabits.map(h => {
+                    const plan = todayPlanned.find(p => p.habitId === h.id);
+                    const done = plan?.done ?? false;
+                    return (
+                      <div key={h.id} className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: h.color }} />
+                        <span className={`text-2xl font-bold tracking-tight ${done ? "line-through text-gray-600" : "text-white"}`}>
+                          {h.label}
+                        </span>
+                        {done && <span className="text-emerald-500 text-lg">✓</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
       </div>
