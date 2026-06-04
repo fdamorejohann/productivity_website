@@ -292,6 +292,7 @@ function FocusPointsBox({ goals }: { goals: Goal[] }) {
 function GoalsBox({ type, label, focusPoints }: { type: "weekly" | "daily"; label: string; focusPoints: FocusPoint[] }) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [hideCompleted, setHideCompleted] = useState(true);
   const [newTitle, setNewTitle] = useState("");
   const [newColor, setNewColor] = useState(GOAL_COLORS[0]);
   const [newFocusPointId, setNewFocusPointId] = useState<string>("");
@@ -339,13 +340,23 @@ function GoalsBox({ type, label, focusPoints }: { type: "weekly" | "daily"; labe
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{label}</span>
-        <button
-          onClick={() => setPanelOpen(true)}
-          className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-2 py-1 transition-colors"
-          title="View all"
-        >
-          All →
-        </button>
+        <div className="flex items-center gap-2">
+          {done.length > 0 && (
+            <button
+              onClick={() => setHideCompleted(h => !h)}
+              className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+            >
+              {hideCompleted ? `show ${done.length} done` : "hide done"}
+            </button>
+          )}
+          <button
+            onClick={() => setPanelOpen(true)}
+            className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-2 py-1 transition-colors"
+            title="View all"
+          >
+            All →
+          </button>
+        </div>
       </div>
 
       {/* Starred goals */}
@@ -369,7 +380,7 @@ function GoalsBox({ type, label, focusPoints }: { type: "weekly" | "daily"; labe
         ))}
 
         {/* Completed divider + list */}
-        {done.length > 0 && (
+        {done.length > 0 && !hideCompleted && (
           <div className="pt-2">
             <div className="flex items-center gap-2 mb-2">
               <div className="flex-1 h-px bg-[#2e2e2e]" />
