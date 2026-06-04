@@ -567,14 +567,22 @@ function DailyBudgetCard({ leftoverActual, month }: { leftoverActual: number; mo
   const isFutureMonth = new Date(year, mo - 1, 1) > today;
   const daysLeft = isCurrentMonth ? daysInMonth - today.getDate() + 1 : daysInMonth;
   const perDay = daysLeft > 0 ? leftoverActual / daysLeft : leftoverActual;
+  const tomorrowPerDay = daysLeft > 1 ? leftoverActual / (daysLeft - 1) : null;
   const positive = perDay >= 0;
 
   return (
     <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
       <div className="text-xs text-gray-500 mb-1">Daily spending budget</div>
-      <div className={`text-3xl font-bold tabular-nums mb-1 ${positive ? "text-emerald-400" : "text-red-400"}`}>
-        {positive ? "" : "−"}{fmt(Math.abs(perDay))}
-        <span className="text-base font-normal text-gray-500 ml-1">/ day</span>
+      <div className="flex items-baseline gap-3 mb-1">
+        <div className={`text-3xl font-bold tabular-nums ${positive ? "text-emerald-400" : "text-red-400"}`}>
+          {positive ? "" : "−"}{fmt(Math.abs(perDay))}
+          <span className="text-base font-normal text-gray-500 ml-1">/ day</span>
+        </div>
+        {tomorrowPerDay !== null && (
+          <div className="text-sm text-gray-500">
+            → <span className="text-gray-300 font-medium">{fmt(tomorrowPerDay)}</span> tomorrow
+          </div>
+        )}
       </div>
       <div className="text-xs text-gray-600">
         {fmt(leftoverActual)} leftover ÷ {daysLeft} day{daysLeft !== 1 ? "s" : ""}
