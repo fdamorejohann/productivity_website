@@ -1754,6 +1754,38 @@ function HabitsToday() {
   );
 }
 
+// ─── Spent Today ─────────────────────────────────────────────────────────────
+
+function SpentToday() {
+  const [spent, setSpent] = useState<number | null>(null);
+  const today = todayStr();
+  const month = today.slice(0, 7);
+
+  useEffect(() => {
+    db.budget.get(month).then((data: { logs?: { date: string; amount: number; owed?: number }[] } | null) => {
+      if (!data?.logs) { setSpent(0); return; }
+      const total = data.logs
+        .filter((l) => l.date === today)
+        .reduce((s, l) => s + (l.owed ?? l.amount), 0);
+      setSpent(total);
+    });
+  }, []);
+
+  if (spent === null) return null;
+
+  return (
+    <div className="bg-[#141414] rounded-2xl border border-[#222] p-5">
+      <p className="text-xs text-gray-500 uppercase tracking-widest mb-4">Dollars Spent Today</p>
+      <div className="flex items-baseline gap-2">
+        <span className={`text-2xl font-bold tracking-tight ${spent === 0 ? "text-gray-500" : "text-white"}`}>
+          ${spent.toFixed(2)}
+        </span>
+        {spent === 0 && <span className="text-xs text-gray-600">nothing logged yet</span>}
+      </div>
+    </div>
+  );
+}
+
 // ─── Notes Box ───────────────────────────────────────────────────────────────
 
 function NotesBox() {
@@ -2195,6 +2227,7 @@ export default function PersonalOS() {
           <WhoopBox />
           <NotesBox />
           <HabitsToday />
+          <SpentToday />
         </div>
 
       </div>
