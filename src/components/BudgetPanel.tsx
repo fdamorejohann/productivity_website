@@ -561,14 +561,26 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
 
 function DailyBudgetCard({ leftoverActual, month }: { leftoverActual: number; month: string }) {
   const [year, mo] = month.split("-").map(Number);
+  const [expanded, setExpanded] = useState(false);
   const today = new Date();
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === mo;
   const daysInMonth = new Date(year, mo, 0).getDate();
   const isFutureMonth = new Date(year, mo - 1, 1) > today;
+  const todayDate = isCurrentMonth ? today.getDate() : 1;
   const daysLeft = isCurrentMonth ? daysInMonth - today.getDate() + 1 : daysInMonth;
   const perDay = daysLeft > 0 ? leftoverActual / daysLeft : leftoverActual;
   const tomorrowPerDay = daysLeft > 1 ? leftoverActual / (daysLeft - 1) : null;
   const positive = perDay >= 0;
+
+  // Build remaining days list
+  const remainingDays = Array.from({ length: daysLeft }, (_, i) => {
+    const dayNum = todayDate + i;
+    const daysFromNow = daysLeft - i;
+    const rate = daysFromNow > 0 ? leftoverActual / daysFromNow : leftoverActual;
+    const date = new Date(year, mo - 1, dayNum);
+    const label = i === 0 ? "Today" : i === 1 ? "Tomorrow" : date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return { label, rate, isToday: i === 0 };
+  });
 
   return (
     <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
@@ -584,10 +596,28 @@ function DailyBudgetCard({ leftoverActual, month }: { leftoverActual: number; mo
           </div>
         )}
       </div>
-      <div className="text-xs text-gray-600">
-        {fmt(leftoverActual)} leftover ÷ {daysLeft} day{daysLeft !== 1 ? "s" : ""}
-        {isCurrentMonth ? " remaining" : isFutureMonth ? " in month" : " in month"}
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-gray-600">
+          {fmt(leftoverActual)} leftover ÷ {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+          {isCurrentMonth ? " remaining" : isFutureMonth ? " in month" : " in month"}
+        </div>
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="text-xs text-gray-500 hover:text-gray-300 transition-colors ml-3"
+        >
+          {expanded ? "▲ hide" : "▼ show all"}
+        </button>
       </div>
+      {expanded && (
+        <div className="mt-3 border-t border-[#2e2e2e] pt-3 max-h-48 overflow-y-auto space-y-1">
+          {remainingDays.map(({ label, rate, isToday }) => (
+            <div key={label} className={`flex justify-between text-xs ${isToday ? "text-emerald-400 font-semibold" : "text-gray-500"}`}>
+              <span>{label}</span>
+              <span>{fmt(rate)}/day</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
