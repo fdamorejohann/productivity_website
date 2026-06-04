@@ -59,9 +59,11 @@ async function addBudget() {
 }
 
 async function addGoal() {
-  const title = await ask("Goal Title", "e.g. Go for a run");
-  const type  = await pick("Goal Type", ["daily", "weekly"]);
-  const color = await pick("Color", GOAL_COLORS);
+  const title   = await ask("Goal Title", "e.g. Go for a run");
+  const type    = await pick("Goal Type", ["daily", "weekly"]);
+  const color   = await pick("Color", GOAL_COLORS);
+  const starPick = await pick("Starred?", ["⭐ Yes", "No"]);
+  const starred  = starPick.includes("Yes");
 
   const confirm = new Alert();
   confirm.title = "Add Goal?";
@@ -79,7 +81,7 @@ async function addGoal() {
     title,
     type,
     color,
-    starred: true,
+    starred,
     done: false,
     created_at: new Date().toISOString(),
   });
@@ -96,12 +98,14 @@ async function addGoal() {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 try {
-  const choice = await pick("What do you want to add?", ["💸 Budget Expense", "🎯 Daily/Weekly Goal"]);
+  const choice = await pick("What do you want to do?", ["💸 Budget Expense", "🎯 Daily/Weekly Goal", "🌐 Open Website"]);
 
   if (choice.includes("Budget")) {
     await addBudget();
-  } else {
+  } else if (choice.includes("Goal")) {
     await addGoal();
+  } else {
+    Safari.open("https://productivity-website-three.vercel.app");
   }
 } catch (e) {
   if (e.message !== "Cancelled") {

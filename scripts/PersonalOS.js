@@ -46,7 +46,9 @@ async function buildWidget(data) {
   // Budget
   if (data.dailyBudget !== null && data.dailyBudget !== undefined) {
     const sign = data.dailyBudget >= 0 ? "+" : "";
-    const t = left.addText(`💸 $${sign}${data.dailyBudget}/day`);
+    const tmrSign = (data.tomorrowBudget ?? 0) >= 0 ? "+" : "";
+    const tmrStr = data.tomorrowBudget != null ? `  → $${tmrSign}${data.tomorrowBudget}` : "";
+    const t = left.addText(`💸 $${sign}${data.dailyBudget}/day${tmrStr}`);
     t.font = Font.boldSystemFont(13);
     t.textColor = data.dailyBudget >= 0 ? GREEN : RED;
 
