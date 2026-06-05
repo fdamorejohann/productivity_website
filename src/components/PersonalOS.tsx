@@ -1772,7 +1772,7 @@ function SpentToday() {
   const today = todayStr();
   const month = today.slice(0, 7);
 
-  useEffect(() => {
+  const fetch = () => {
     db.budget.get(month).then((data: { logs?: { date: string; amount: number; owed?: number }[] } | null) => {
       if (!data?.logs) { setSpent(0); return; }
       const total = data.logs
@@ -1780,6 +1780,17 @@ function SpentToday() {
         .reduce((s, l) => s + (l.owed ?? l.amount), 0);
       setSpent(total);
     });
+  };
+
+  useEffect(() => {
+    fetch();
+    const onVisible = () => { if (document.visibilityState === "visible") fetch(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, []);
 
   if (spent === null) return null;
