@@ -1779,7 +1779,7 @@ function SpentToday() {
         .filter((l) => l.date === today)
         .reduce((s, l) => s + (l.owed ?? l.amount), 0);
       setSpent(total);
-    });
+    }).catch(() => setSpent(0));
   };
 
   useEffect(() => {
