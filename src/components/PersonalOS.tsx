@@ -2151,6 +2151,163 @@ function BibleModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ─── Sobriety Widget ─────────────────────────────────────────────────────────
+
+function SobrietyWidget({ onClose }: { onClose: () => void }) {
+  const [drinkDates, setDrinkDates] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [calOffset, setCalOffset] = useState(0); // 0 = current month, -1 = last month, etc.
+
+  const today = todayStr();
+
+  useEffect(() => {
+    db.drinks.list().then((dates: string[]) => {
+      setDrinkDates(new Set(dates));
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  // Streak = consecutive sober days going back from today
+  const streak = (() => {
+    let count = 0;
+    const d = new Date();
+    // If today is already logged, streak is 0
+    while (true) {
+      const ds = d.toISOString().slice(0, 10);
+      if (drinkDates.has(ds)) break;
+      count++;
+      d.setDate(d.getDate() - 1);
+      // Safety cap at 9999
+      if (count > 9999) break;
+    }
+    return count;
+  })();
+
+  const todayLogged = drinkDates.has(today);
+
+  const toggleToday = async () => {
+    if (todayLogged) {
+      await db.drinks.remove(today);
+      setDrinkDates(s => { const n = new Set(s); n.delete(today); return n; });
+    } else {
+      await db.drinks.log(today);
+      setDrinkDates(s => new Set(s).add(today));
+    }
+  };
+
+  // Mini calendar helpers
+  const calDate = new Date();
+  calDate.setDate(1);
+  calDate.setMonth(calDate.getMonth() + calOffset);
+  const calYear = calDate.getFullYear();
+  const calMonth = calDate.getMonth();
+  const monthLabel = calDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const firstDow = calDate.getDay(); // 0=Sun
+  const startOffset = firstDow === 0 ? 6 : firstDow - 1; // Mon-start
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const cells: (number | null)[] = Array(startOffset).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const cellDate = (day: number) =>
+    `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+  // Streak colour
+  const streakColor = streak === 0 ? "#ef4444" : streak < 7 ? "#f59e0b" : streak < 30 ? "#3b82f6" : "#22c55e";
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6" onClick={onClose}>
+      <div className="bg-[#181818] border border-[#2e2e2e] rounded-2xl w-full max-w-sm p-7 shadow-2xl" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <span className="text-base font-semibold text-white">🍺 Tracker</span>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg">✕</button>
+        </div>
+
+        {loading ? (
+          <p className="text-xs text-gray-600 animate-pulse text-center py-6">Loading…</p>
+        ) : (
+          <>
+            {/* Streak */}
+            <div className="text-center mb-6">
+              <p className="text-[10px] text-gray-600 uppercase tracking-widest mb-1">Sober streak</p>
+              <p className="text-6xl font-bold tabular-nums" style={{ color: streakColor }}>{streak}</p>
+              <p className="text-sm text-gray-500 mt-1">{streak === 1 ? "day" : "days"}</p>
+            </div>
+
+            {/* Log button */}
+            <button
+              onClick={toggleToday}
+              className={`w-full py-2.5 rounded-xl text-sm font-medium transition-all mb-6 ${
+                todayLogged
+                  ? "bg-red-900/40 text-red-400 border border-red-900/60 hover:bg-red-900/60"
+                  : "bg-[#252525] text-gray-400 border border-[#333] hover:border-[#555] hover:text-white"
+              }`}
+            >
+              {todayLogged ? "✓ Logged today — undo?" : "Log a drink today"}
+            </button>
+
+            {/* Mini calendar */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <button onClick={() => setCalOffset(o => o - 1)} className="text-gray-600 hover:text-white px-1">‹</button>
+                <span className="text-xs text-gray-500">{monthLabel}</span>
+                <button
+                  onClick={() => setCalOffset(o => Math.min(0, o + 1))}
+                  className="text-gray-600 hover:text-white px-1 disabled:opacity-30"
+                  disabled={calOffset >= 0}
+                >›</button>
+              </div>
+              <div className="grid grid-cols-7 gap-0.5 mb-1">
+                {["M","T","W","T","F","S","S"].map((d, i) => (
+                  <div key={i} className="text-center text-[9px] text-gray-700 font-medium pb-1">{d}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-0.5">
+                {cells.map((day, i) => {
+                  if (!day) return <div key={i} />;
+                  const ds = cellDate(day);
+                  const isDrank = drinkDates.has(ds);
+                  const isToday = ds === today;
+                  const isFuture = ds > today;
+                  return (
+                    <button
+                      key={i}
+                      onClick={async () => {
+                        if (isFuture) return;
+                        if (isDrank) {
+                          await db.drinks.remove(ds);
+                          setDrinkDates(s => { const n = new Set(s); n.delete(ds); return n; });
+                        } else {
+                          await db.drinks.log(ds);
+                          setDrinkDates(s => new Set(s).add(ds));
+                        }
+                      }}
+                      disabled={isFuture}
+                      className={`aspect-square rounded-md text-[10px] font-medium transition-colors flex items-center justify-center ${
+                        isDrank
+                          ? "bg-red-900/60 text-red-300 border border-red-800"
+                          : isToday
+                          ? "bg-[#2a2a2a] text-white border border-[#444]"
+                          : isFuture
+                          ? "text-gray-800 cursor-default"
+                          : "text-gray-500 hover:bg-[#222] hover:text-gray-300"
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-gray-700 text-center mt-3">Click any past day to toggle</p>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export default function PersonalOS() {
@@ -2158,6 +2315,7 @@ export default function PersonalOS() {
   const [showBible, setShowBible] = useState(false);
   const [showWorkout, setShowWorkout] = useState(false);
   const [showDnd, setShowDnd] = useState(false);
+  const [showSobriety, setShowSobriety] = useState(false);
   const [focusPoints, setFocusPoints] = useState<FocusPoint[]>([]);
   const [allGoals, setAllGoals] = useState<Goal[]>([]);
 
@@ -2239,12 +2397,14 @@ export default function PersonalOS() {
               <button onClick={() => setShowDnd(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="D&D">🐉</button>
               <button className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Notes">✏️</button>
               <button onClick={() => setShowWorkout(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Workouts">⚔️</button>
+              <button onClick={() => setShowSobriety(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Tracker">🍺</button>
             </h1>
             <p className="text-xs text-gray-600 mt-2">
               {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
             </p>
           </div>
           {showBible && <BibleModal onClose={() => setShowBible(false)} />}
+          {showSobriety && <SobrietyWidget onClose={() => setShowSobriety(false)} />}
           <WeatherBox />
           <WhoopBox />
           <NotesBox />

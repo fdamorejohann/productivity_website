@@ -38,3 +38,10 @@ create table if not exists notes (
 
 -- Seed the single notes row
 insert into notes (id, content) values (1, '') on conflict do nothing;
+
+-- Drink log (private sobriety tracker)
+create table if not exists drink_log (
+  id uuid primary key default gen_random_uuid(),
+  date text not null unique, -- YYYY-MM-DD
+  created_at timestamptz default now()
+);

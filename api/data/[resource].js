@@ -24,6 +24,7 @@ export default async function handler(req, res) {
     case "dnd-lore":         return handleDndTable(req, res, "dnd_lore", "campaign_id");
     case "dnd-quests":       return handleDndTable(req, res, "dnd_quests", "campaign_id");
     case "dnd-concepts":     return handleDndTable(req, res, "dnd_concepts", "campaign_id");
+    case "drink-log":        return handleDrinkLog(req, res);
     case "yt-feed":          return handleYtFeed(req, res);
     case "news":             return handleNews(req, res);
     case "widget":           return handleWidget(req, res);
@@ -564,6 +565,28 @@ async function handleNews(req, res) {
   newsCache[cacheKey] = { ts: Date.now(), items: sorted };
   res.setHeader("Cache-Control", "s-maxage=1800");
   return res.json(sorted);
+}
+
+// ─── Drink Log ───────────────────────────────────────────────────────────────
+async function handleDrinkLog(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase.from("drink_log").select("date").order("date", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data.map(r => r.date));
+  }
+  if (req.method === "POST") {
+    const { date } = req.body;
+    const { error } = await supabase.from("drink_log").upsert({ date }, { onConflict: "date" });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  }
+  if (req.method === "DELETE") {
+    const { date } = req.body;
+    const { error } = await supabase.from("drink_log").delete().eq("date", date);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  }
+  res.status(405).end();
 }
 
 // ─── Widget ───────────────────────────────────────────────────────────────────

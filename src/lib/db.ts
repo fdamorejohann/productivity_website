@@ -70,6 +70,11 @@ export const db = {
     upsert: (set: unknown) => api.post("/api/data/sets", set),
     delete: (id: string) => api.delete("/api/data/sets", { id }),
   },
+  drinks: {
+    list: () => api.get("/api/data/drink-log"),
+    log: (date: string) => api.post("/api/data/drink-log", { date }),
+    remove: (date: string) => api.delete("/api/data/drink-log", { date }),
+  },
   dnd: {
     campaigns: {
       list: () => api.get("/api/data/dnd-campaigns"),
