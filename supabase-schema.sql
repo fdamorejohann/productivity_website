@@ -45,3 +45,10 @@ create table if not exists drink_log (
   date text not null unique, -- YYYY-MM-DD
   created_at timestamptz default now()
 );
+
+-- Powder log (private tracker)
+create table if not exists powder_log (
+  id uuid primary key default gen_random_uuid(),
+  date text not null unique, -- YYYY-MM-DD
+  created_at timestamptz default now()
+);

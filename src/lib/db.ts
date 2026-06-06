@@ -75,6 +75,11 @@ export const db = {
     log: (date: string) => api.post("/api/data/drink-log", { date }),
     remove: (date: string) => api.delete("/api/data/drink-log", { date }),
   },
+  powder: {
+    list: () => api.get("/api/data/powder-log"),
+    log: (date: string) => api.post("/api/data/powder-log", { date }),
+    remove: (date: string) => api.delete("/api/data/powder-log", { date }),
+  },
   dnd: {
     campaigns: {
       list: () => api.get("/api/data/dnd-campaigns"),

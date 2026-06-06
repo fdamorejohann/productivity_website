@@ -25,6 +25,7 @@ export default async function handler(req, res) {
     case "dnd-quests":       return handleDndTable(req, res, "dnd_quests", "campaign_id");
     case "dnd-concepts":     return handleDndTable(req, res, "dnd_concepts", "campaign_id");
     case "drink-log":        return handleDrinkLog(req, res);
+    case "powder-log":       return handlePowderLog(req, res);
     case "yt-feed":          return handleYtFeed(req, res);
     case "news":             return handleNews(req, res);
     case "widget":           return handleWidget(req, res);
@@ -583,6 +584,28 @@ async function handleDrinkLog(req, res) {
   if (req.method === "DELETE") {
     const { date } = req.body;
     const { error } = await supabase.from("drink_log").delete().eq("date", date);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  }
+  res.status(405).end();
+}
+
+// ─── Powder Log ──────────────────────────────────────────────────────────────
+async function handlePowderLog(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase.from("powder_log").select("date").order("date", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data.map(r => r.date));
+  }
+  if (req.method === "POST") {
+    const { date } = req.body;
+    const { error } = await supabase.from("powder_log").upsert({ date }, { onConflict: "date" });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  }
+  if (req.method === "DELETE") {
+    const { date } = req.body;
+    const { error } = await supabase.from("powder_log").delete().eq("date", date);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ ok: true });
   }
