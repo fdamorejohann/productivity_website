@@ -26,6 +26,8 @@ export default async function handler(req, res) {
     case "dnd-concepts":     return handleDndTable(req, res, "dnd_concepts", "campaign_id");
     case "drink-log":        return handleDrinkLog(req, res);
     case "powder-log":       return handlePowderLog(req, res);
+    case "grocery-hauls":    return handleGroceryHauls(req, res);
+    case "meals":            return handleMeals(req, res);
     case "yt-feed":          return handleYtFeed(req, res);
     case "news":             return handleNews(req, res);
     case "widget":           return handleWidget(req, res);
@@ -606,6 +608,48 @@ async function handlePowderLog(req, res) {
   if (req.method === "DELETE") {
     const { date } = req.body;
     const { error } = await supabase.from("powder_log").delete().eq("date", date);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  }
+  res.status(405).end();
+}
+
+// ─── Grocery Hauls ────────────────────────────────────────────────────────────
+async function handleGroceryHauls(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase.from("grocery_hauls").select("*").order("date", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+  if (req.method === "POST") {
+    const { data, error } = await supabase.from("grocery_hauls").insert(req.body).select();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
+  }
+  if (req.method === "DELETE") {
+    const { id } = req.body;
+    const { error } = await supabase.from("grocery_hauls").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  }
+  res.status(405).end();
+}
+
+// ─── Meals ────────────────────────────────────────────────────────────────────
+async function handleMeals(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase.from("meals").select("*").order("date", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+  if (req.method === "POST") {
+    const { data, error } = await supabase.from("meals").insert(req.body).select();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
+  }
+  if (req.method === "DELETE") {
+    const { id } = req.body;
+    const { error } = await supabase.from("meals").delete().eq("id", id);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ ok: true });
   }

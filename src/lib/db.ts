@@ -80,6 +80,16 @@ export const db = {
     log: (date: string) => api.post("/api/data/powder-log", { date }),
     remove: (date: string) => api.delete("/api/data/powder-log", { date }),
   },
+  groceryHauls: {
+    list: () => api.get("/api/data/grocery-hauls"),
+    add: (haul: unknown) => api.post("/api/data/grocery-hauls", haul),
+    delete: (id: string) => api.delete("/api/data/grocery-hauls", { id }),
+  },
+  meals: {
+    list: () => api.get("/api/data/meals"),
+    add: (meal: unknown) => api.post("/api/data/meals", meal),
+    delete: (id: string) => api.delete("/api/data/meals", { id }),
+  },
   dnd: {
     campaigns: {
       list: () => api.get("/api/data/dnd-campaigns"),

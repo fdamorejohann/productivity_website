@@ -77,6 +77,24 @@ export interface CompletionLog {
   value: number;
 }
 
+// ─── Food Cost Tracker ────────────────────────────────────────────────────────
+
+export interface GroceryHaul {
+  id: string;
+  store: string;
+  amount: number;
+  date: string;       // YYYY-MM-DD
+  notes: string;
+  created_at: string;
+}
+
+export interface Meal {
+  id: string;
+  name: string;
+  date: string;       // YYYY-MM-DD
+  created_at: string;
+}
+
 // ─── UI state ─────────────────────────────────────────────────────────────────
 
 /** The four top-level views controlled by the sidebar nav. */

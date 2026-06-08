@@ -52,3 +52,20 @@ create table if not exists powder_log (
   date text not null unique, -- YYYY-MM-DD
   created_at timestamptz default now()
 );
+
+-- Food cost tracker
+create table if not exists grocery_hauls (
+  id uuid primary key default gen_random_uuid(),
+  store text not null,
+  amount numeric(10,2) not null,
+  date text not null, -- YYYY-MM-DD
+  notes text not null default '',
+  created_at timestamptz default now()
+);
+
+create table if not exists meals (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  date text not null, -- YYYY-MM-DD
+  created_at timestamptz default now()
+);
