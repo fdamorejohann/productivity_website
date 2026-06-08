@@ -37,7 +37,7 @@ export default function FoodCostPanel() {
   const [mealOpen, setMealOpen] = useState(false);
 
   // Active tab
-  const [tab, setTab] = useState<"hauls" | "meals">("hauls");
+  const [tab, setTab] = useState<"hauls" | "meals">("meals");
 
   useEffect(() => {
     Promise.all([
@@ -126,23 +126,23 @@ export default function FoodCostPanel() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-1 bg-[#1a1a1a] border border-[#2e2e2e] rounded-xl p-1">
           <button
-            onClick={() => setTab("hauls")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === "hauls" ? "bg-[#2e2e2e] text-white" : "text-gray-500 hover:text-gray-300"}`}
-          >
-            Grocery Hauls
-          </button>
-          <button
             onClick={() => setTab("meals")}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === "meals" ? "bg-[#2e2e2e] text-white" : "text-gray-500 hover:text-gray-300"}`}
           >
             Meals
           </button>
+          <button
+            onClick={() => setTab("hauls")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === "hauls" ? "bg-[#2e2e2e] text-white" : "text-gray-500 hover:text-gray-300"}`}
+          >
+            Grocery Hauls
+          </button>
         </div>
         <button
-          onClick={() => tab === "hauls" ? setHaulOpen(true) : setMealOpen(true)}
+          onClick={() => tab === "meals" ? setMealOpen(true) : setHaulOpen(true)}
           className="bg-white text-black px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
         >
-          + Add {tab === "hauls" ? "Haul" : "Meal"}
+          + Add {tab === "meals" ? "Meal" : "Haul"}
         </button>
       </div>
 

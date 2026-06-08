@@ -1934,7 +1934,7 @@ function EditableAmount({ value, onChange, dim = false, placeholder, colorClass 
   return (
     <span
       onClick={() => { setDraft(value === 0 ? "" : String(value)); setEditing(true); }}
-      className={`cursor-pointer text-xs tabular-nums rounded px-1 py-0.5 hover:bg-[#2a2a2a] transition-colors ${dim ? "text-gray-600 italic" : colorClass ?? "text-gray-200"}`}
+      className={`cursor-pointer text-xs tabular-nums rounded px-1 py-0.5 hover:bg-[#2a2a2a] transition-colors ${dim ? "italic" : ""} ${colorClass ?? "text-gray-200"}`}
     >
       {value === 0 && placeholder ? placeholder : fmt(value)}
     </span>
