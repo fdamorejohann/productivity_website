@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { db } from "../lib/db";
 
@@ -1188,15 +1188,21 @@ export default function BudgetPanel() {
       {/* Summary cards */}
       <div className="space-y-4">
         <div className="grid grid-cols-3 gap-4">
-          <SummaryCard label="Income" actual={incomeActual} budget={incomeBudget} higherIsBetter />
-          <SummaryCard label="Fixed Expenses" actual={fixedActualTotal} budget={fixedBudgetTotal} higherIsBetter={false} />
-          <SummaryCard label="Variable Expenses" actual={variableActualTotal} budget={variableBudgetTotal} higherIsBetter={false} />
+          <SummaryCard label="Income" actual={incomeActual} budget={incomeBudget} higherIsBetter
+            tooltip={`Sum of all income row actuals.\n\nActual: ${fmt(incomeActual)}\nBudget: ${fmt(incomeBudget)}`} />
+          <SummaryCard label="Fixed Expenses" actual={fixedActualTotal} budget={fixedBudgetTotal} higherIsBetter={false}
+            tooltip={`Sum of all fixed expense rows, matched to logged transactions by category.\n\nActual: ${fmt(fixedActualTotal)}\nBudget: ${fmt(fixedBudgetTotal)}`} />
+          <SummaryCard label="Variable Expenses" actual={variableActualTotal} budget={variableBudgetTotal} higherIsBetter={false}
+            tooltip={`Sum of variable expense rows matched to logs, minus rebates.\n\n= variable rows − ${fmt(rebateActual)} rebates\n\nActual: ${fmt(variableActualTotal)}\nBudget: ${fmt(variableBudgetTotal)}`} />
         </div>
 
         <div className="grid grid-cols-3 gap-4 pl-8">
-          <SummaryCard label="Leftover" actual={leftoverActual} budget={leftoverBudget} higherIsBetter />
-          <SummaryCard label="Savings & Investing" actual={savingsActual} budget={savingsBudget} higherIsBetter />
-          <SummaryCard label="Total" actual={totalActual} budget={totalBudget} higherIsBetter />
+          <SummaryCard label="Leftover" actual={leftoverActual} budget={leftoverBudget} higherIsBetter
+            tooltip={`Income − Fixed − Variable − Savings\n\n${fmt(incomeActual)} − ${fmt(fixedActualTotal)} − ${fmt(variableActualTotal)} − ${fmt(savingsActual)} = ${fmt(leftoverActual)}`} />
+          <SummaryCard label="Savings & Investing" actual={savingsActual} budget={savingsBudget} higherIsBetter
+            tooltip={`Sum of all savings/investing rows matched to logs.\n\nActual: ${fmt(savingsActual)}\nBudget: ${fmt(savingsBudget)}`} />
+          <SummaryCard label="Total" actual={totalActual} budget={totalBudget} higherIsBetter
+            tooltip={`Savings + Leftover — what your income actually went toward.\n\n${fmt(savingsActual)} + ${fmt(leftoverActual)} = ${fmt(totalActual)}`} />
         </div>
       </div>
 
@@ -1607,15 +1613,28 @@ function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onN
 
 // ─── SummaryCard ──────────────────────────────────────────────────────────────
 
-function SummaryCard({ label, actual, budget, higherIsBetter }: {
-  label: string; actual: number; budget: number; higherIsBetter: boolean;
+function SummaryCard({ label, actual, budget, higherIsBetter, tooltip }: {
+  label: string; actual: number; budget: number; higherIsBetter: boolean; tooltip?: string;
 }) {
+  const [show, setShow] = React.useState(false);
   const both0 = actual === 0 && budget === 0;
   const isGood = higherIsBetter ? actual >= budget : actual <= budget;
   const color = both0 ? "#6b7280" : isGood ? "#22c55e" : "#ef4444";
   return (
-    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{label}</p>
+    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5 relative">
+      <div className="flex items-center gap-1.5 mb-1">
+        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
+        {tooltip && (
+          <div className="relative" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+            <div className="w-3.5 h-3.5 rounded-full border border-gray-600 text-gray-500 flex items-center justify-center cursor-default text-[9px] font-bold leading-none select-none hover:border-gray-400 hover:text-gray-400 transition-colors">i</div>
+            {show && (
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-56 bg-[#2a2a2a] border border-[#3a3a3a] rounded-xl p-3 text-xs text-gray-300 shadow-xl pointer-events-none whitespace-pre-line">
+                {tooltip}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       <p className="text-2xl font-bold tabular-nums" style={{ color }}>{fmt(actual)}</p>
       <p className="text-xs text-gray-600 mt-0.5">budget {fmt(budget)}</p>
     </div>
