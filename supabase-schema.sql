@@ -69,3 +69,14 @@ create table if not exists meals (
   date text not null, -- YYYY-MM-DD
   created_at timestamptz default now()
 );
+
+-- Running plan completions
+create table if not exists running_completions (
+  id uuid primary key default gen_random_uuid(),
+  week int not null,
+  run_number int not null,       -- 1 = easy run, 2 = long run
+  completed_date text not null,  -- YYYY-MM-DD
+  session_id text,               -- linked workout session id
+  created_at timestamptz default now(),
+  unique(week, run_number)
+);

@@ -80,6 +80,11 @@ export const db = {
     log: (date: string) => api.post("/api/data/powder-log", { date }),
     remove: (date: string) => api.delete("/api/data/powder-log", { date }),
   },
+  runningCompletions: {
+    list: () => api.get("/api/data/running-completions"),
+    complete: (entry: unknown) => api.post("/api/data/running-completions", entry),
+    uncomplete: (week: number, run_number: number) => api.delete("/api/data/running-completions", { week, run_number }),
+  },
   groceryHauls: {
     list: () => api.get("/api/data/grocery-hauls"),
     add: (haul: unknown) => api.post("/api/data/grocery-hauls", haul),

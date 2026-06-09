@@ -26,8 +26,9 @@ export default async function handler(req, res) {
     case "dnd-concepts":     return handleDndTable(req, res, "dnd_concepts", "campaign_id");
     case "drink-log":        return handleDrinkLog(req, res);
     case "powder-log":       return handlePowderLog(req, res);
-    case "grocery-hauls":    return handleGroceryHauls(req, res);
-    case "meals":            return handleMeals(req, res);
+    case "grocery-hauls":        return handleGroceryHauls(req, res);
+    case "meals":                return handleMeals(req, res);
+    case "running-completions":  return handleRunningCompletions(req, res);
     case "yt-feed":          return handleYtFeed(req, res);
     case "news":             return handleNews(req, res);
     case "widget":           return handleWidget(req, res);
@@ -650,6 +651,34 @@ async function handleMeals(req, res) {
   if (req.method === "DELETE") {
     const { id } = req.body;
     const { error } = await supabase.from("meals").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  }
+  res.status(405).end();
+}
+
+// ─── Running Completions ──────────────────────────────────────────────────────
+async function handleRunningCompletions(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase.from("running_completions").select("*");
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+  if (req.method === "POST") {
+    const { data, error } = await supabase
+      .from("running_completions")
+      .upsert(req.body, { onConflict: "week,run_number" })
+      .select();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
+  }
+  if (req.method === "DELETE") {
+    const { week, run_number } = req.body;
+    const { error } = await supabase
+      .from("running_completions")
+      .delete()
+      .eq("week", week)
+      .eq("run_number", run_number);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ ok: true });
   }

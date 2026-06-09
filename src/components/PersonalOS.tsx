@@ -8,6 +8,7 @@ import BudgetPanel from "./BudgetPanel";
 import WorkoutPanel from "./WorkoutPanel";
 import DndPanel from "./DndPanel";
 import FoodCostPanel from "./FoodCostPanel";
+import RunningPanel from "./RunningPanel";
 import { db } from "../lib/db";
 const uid = () => crypto.randomUUID();
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -2467,6 +2468,7 @@ export default function PersonalOS() {
   const [showSobriety, setShowSobriety] = useState(false);
   const [showPowder, setShowPowder] = useState(false);
   const [showFood, setShowFood] = useState(false);
+  const [showRunning, setShowRunning] = useState(false);
   const [focusPoints, setFocusPoints] = useState<FocusPoint[]>([]);
   const [allGoals, setAllGoals] = useState<Goal[]>([]);
 
@@ -2520,6 +2522,15 @@ export default function PersonalOS() {
     );
   }
 
+  if (showRunning) {
+    return (
+      <div className="min-h-screen bg-[#111] text-white p-8">
+        <button onClick={() => setShowRunning(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition-colors">← Back</button>
+        <RunningPanel />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#111] text-white p-6">
       <div className="grid grid-cols-[1fr_3fr_1fr] gap-5 max-w-7xl mx-auto pt-8">
@@ -2559,6 +2570,7 @@ export default function PersonalOS() {
               <button onClick={() => setShowSobriety(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Drink tracker">🍺</button>
               <button onClick={() => setShowPowder(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Powder tracker">❄️</button>
               <button onClick={() => setShowFood(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Food cost">🛒</button>
+              <button onClick={() => setShowRunning(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="10K plan">🏃</button>
             </h1>
             <p className="text-xs text-gray-600 mt-2">
               {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
