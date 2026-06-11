@@ -45,7 +45,16 @@ interface Goal {
   focus_point_id?: string;
 }
 
-const GOAL_COLORS = ["#6b7280","#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#06b6d4"];
+const UNASSIGNED_COLOR = "#6b7280";
+
+// A distinct shade within a category's hue family (mind=blue, body=red, soul=purple).
+// `i` is the point's index within its category, so each new point gets its own shade.
+function focusShade(cat: FocusCategory, i: number): string {
+  const H: Record<FocusCategory, number> = { mind: 217, body: 1, soul: 262 };
+  const S: Record<FocusCategory, number> = { mind: 84, body: 78, soul: 76 };
+  const LIGHTS = [60, 50, 68, 44, 64, 54, 72, 48];
+  return `hsl(${H[cat]}, ${S[cat]}%, ${LIGHTS[((i % LIGHTS.length) + LIGHTS.length) % LIGHTS.length]}%)`;
+}
 
 interface Habit {
   id: string;
@@ -128,10 +137,10 @@ function FocusPointsBox({ goals }: { goals: Goal[] }) {
   const add = async (cat: FocusCategory) => {
     const title = (newTitle[cat] || "").trim();
     if (!title) return;
-    const maxOrder = Math.max(-1, ...points.filter(p => p.category === cat).map(p => p.sort_order));
-    const cfg = FOCUS_CATEGORIES.find(c => c.key === cat)!;
+    const inCat = points.filter(p => p.category === cat);
+    const maxOrder = Math.max(-1, ...inCat.map(p => p.sort_order));
     const fp: FocusPoint = {
-      id: uid(), title, notes: "", color: cfg.color, done: false,
+      id: uid(), title, notes: "", color: focusShade(cat, inCat.length), done: false,
       category: cat, sort_order: maxOrder + 1, created_at: new Date().toISOString(),
     };
     const saved = await db.focusPoints.upsert(fp);
@@ -281,17 +290,20 @@ function FocusPointsBox({ goals }: { goals: Goal[] }) {
                       {active.map((fp, i) => (
                         <div
                           key={fp.id}
-                          draggable
-                          onDragStart={() => setDragId(fp.id)}
-                          onDragEnd={() => { setDragId(null); setDragOverId(null); }}
-                          onDragOver={e => { e.preventDefault(); if (dragOverId !== fp.id) setDragOverId(fp.id); }}
-                          onDrop={() => handleDrop(cat.key, fp.id)}
+                          onDragOver={e => { if (!dragId) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverId !== fp.id) setDragOverId(fp.id); }}
+                          onDrop={e => { e.preventDefault(); handleDrop(cat.key, fp.id); }}
                           className={`p-2.5 rounded-xl border bg-[#1e1e1e] transition-colors ${
                             dragOverId === fp.id && dragId !== fp.id ? "border-gray-500" : "border-[#2a2a2a]"
                           } ${dragId === fp.id ? "opacity-40" : ""} group`}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="cursor-grab active:cursor-grabbing text-gray-600 text-xs select-none" title="Drag to reorder">⠿</span>
+                            <span
+                              draggable
+                              onDragStart={e => { setDragId(fp.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", fp.id); }}
+                              onDragEnd={() => { setDragId(null); setDragOverId(null); }}
+                              className="cursor-grab active:cursor-grabbing text-gray-500 hover:text-gray-300 text-sm select-none px-0.5"
+                              title="Drag to reorder"
+                            >⠿</span>
                             {i === 0 && <span className="text-[9px] text-gray-500 uppercase tracking-wide">top</span>}
                             <button onClick={() => toggleDone(fp.id)}
                               className="w-4 h-4 rounded border flex-shrink-0"
@@ -353,25 +365,32 @@ function GoalsBox({ type, label, focusPoints }: { type: "weekly" | "daily"; labe
   const [panelOpen, setPanelOpen] = useState(false);
   const [hideCompleted, setHideCompleted] = useState(true);
   const [newTitle, setNewTitle] = useState("");
-  const [newColor, setNewColor] = useState(GOAL_COLORS[0]);
   const [newFocusPointId, setNewFocusPointId] = useState<string>("");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     db.goals.list().then((all: Goal[]) => setGoals(all.filter((g: Goal) => g.type === type)));
   }, [type]);
 
+  // A goal's color comes from its assigned focus point (gray if unassigned).
+  const goalColor = (g: Goal) =>
+    focusPoints.find(fp => fp.id === g.focus_point_id)?.color ?? UNASSIGNED_COLOR;
+
   const add = async () => {
     if (!newTitle.trim()) return;
-    const goal = { id: uid(), title: newTitle.trim(), type, starred: false, done: false, color: newColor, created_at: new Date().toISOString(), focus_point_id: newFocusPointId || null };
+    const color = focusPoints.find(fp => fp.id === newFocusPointId)?.color ?? UNASSIGNED_COLOR;
+    const goal = { id: uid(), title: newTitle.trim(), type, starred: false, done: false, color, created_at: new Date().toISOString(), focus_point_id: newFocusPointId || null };
     const saved = await db.goals.upsert(goal);
     setGoals(g => [...g, saved]);
     setNewTitle("");
     setNewFocusPointId("");
   };
 
-  const setColor = async (id: string, color: string) => {
-    setGoals(g => g.map(x => x.id === id ? { ...x, color } : x));
-    await db.goals.update(id, { color });
+  // Reassign a goal to a focus point; its color follows.
+  const setFocus = async (id: string, fpId: string) => {
+    const color = focusPoints.find(fp => fp.id === fpId)?.color ?? UNASSIGNED_COLOR;
+    setGoals(g => g.map(x => x.id === id ? { ...x, focus_point_id: fpId || undefined, color } : x));
+    await db.goals.update(id, { focus_point_id: fpId || null, color });
   };
 
   const toggleStar = async (id: string) => {
@@ -430,9 +449,9 @@ function GoalsBox({ type, label, focusPoints }: { type: "weekly" | "daily"; labe
             <button
               onClick={() => toggleDone(g.id)}
               className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center hover:opacity-80 transition-opacity"
-              style={{ borderColor: g.color || "#6b7280", backgroundColor: "transparent" }}
+              style={{ borderColor: goalColor(g), backgroundColor: "transparent" }}
             />
-            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: g.color || "#6b7280" }} />
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: goalColor(g) }} />
             <span className="flex-1 text-sm text-gray-200">{g.title}</span>
             <button onClick={() => toggleStar(g.id)} className="text-yellow-400 opacity-0 group-hover:opacity-100 text-xs">★</button>
           </div>
@@ -452,11 +471,11 @@ function GoalsBox({ type, label, focusPoints }: { type: "weekly" | "daily"; labe
                   <button
                     onClick={() => toggleDone(g.id)}
                     className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center hover:opacity-80"
-                    style={{ borderColor: g.color || "#6b7280", backgroundColor: g.color || "#6b7280" }}
+                    style={{ borderColor: goalColor(g), backgroundColor: goalColor(g) }}
                   >
                     <span className="text-white text-[10px]">✓</span>
                   </button>
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: g.color || "#6b7280" }} />
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: goalColor(g) }} />
                   <span className="flex-1 text-sm text-gray-400 line-through">{g.title}</span>
                   <button onClick={() => remove(g.id)} className="text-gray-600 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
                 </div>
@@ -489,77 +508,83 @@ function GoalsBox({ type, label, focusPoints }: { type: "weekly" | "daily"; labe
               />
               <button onClick={add} className="bg-white text-black px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">+</button>
             </div>
-            <div className="flex gap-1.5 mb-2">
-              {GOAL_COLORS.map(c => (
-                <button key={c} onClick={() => setNewColor(c)}
-                  className="w-5 h-5 rounded-full transition-transform hover:scale-110"
-                  style={{ backgroundColor: c, outline: newColor === c ? `2px solid ${c}` : "none", outlineOffset: 2 }}
-                />
+            <select
+              value={newFocusPointId}
+              onChange={e => setNewFocusPointId(e.target.value)}
+              className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-1.5 text-xs text-gray-400 focus:outline-none mb-4"
+            >
+              <option value="">No focus point</option>
+              {focusPoints.filter(fp => !fp.done).map(fp => (
+                <option key={fp.id} value={fp.id}>{fp.category} · {fp.title}</option>
               ))}
-            </div>
-            {focusPoints.filter(fp => !fp.done).length > 0 && (
-              <select
-                value={newFocusPointId}
-                onChange={e => setNewFocusPointId(e.target.value)}
-                className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-1.5 text-xs text-gray-400 focus:outline-none mb-3"
-              >
-                <option value="">No focus point</option>
-                {focusPoints.filter(fp => !fp.done).map(fp => (
-                  <option key={fp.id} value={fp.id}>{fp.title}</option>
-                ))}
-              </select>
-            )}
+            </select>
 
-            {/* All goals list */}
-            <div className="flex-1 overflow-y-auto space-y-2">
+            {/* Grouped by focus point */}
+            <div className="flex-1 overflow-y-auto space-y-3">
               {goals.length === 0 && <p className="text-xs text-gray-600 text-center py-6">No goals yet</p>}
-              {goals.filter(g => !g.done).map(g => (
-                <div key={g.id} className="flex flex-col gap-2 p-3 rounded-xl border border-[#2a2a2a] hover:border-[#3a3a3a] group">
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => toggleDone(g.id)}
-                      className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center"
-                      style={{ borderColor: g.color || "#6b7280", backgroundColor: "transparent" }} />
-                    <span className="flex-1 text-sm text-gray-200">{g.title}</span>
-                    <button onClick={() => toggleStar(g.id)}
-                      className={`text-sm transition-colors ${g.starred ? "text-yellow-400" : "text-gray-700 group-hover:text-gray-500"}`}>★</button>
-                    <button onClick={() => remove(g.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
-                  </div>
-                  <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {GOAL_COLORS.map(c => (
-                      <button key={c} onClick={() => setColor(g.id, c)}
-                        className="w-4 h-4 rounded-full transition-transform hover:scale-110"
-                        style={{ backgroundColor: c, outline: (g.color || GOAL_COLORS[0]) === c ? `2px solid ${c}` : "none", outlineOffset: 2 }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
+              {[...focusPoints, null].map(fp => {
+                const key = fp ? fp.id : "_unassigned";
+                const groupGoals = goals.filter(g =>
+                  fp ? g.focus_point_id === fp.id
+                     : !g.focus_point_id || !focusPoints.some(f => f.id === g.focus_point_id)
+                );
+                if (groupGoals.length === 0) return null;
+                const color = fp ? fp.color : UNASSIGNED_COLOR;
+                const activeGoals = groupGoals.filter(g => !g.done);
+                const doneGoals = groupGoals.filter(g => g.done);
+                const isOpen = collapsed[key] !== true;
+                return (
+                  <div key={key} className="rounded-xl border border-[#2a2a2a] overflow-hidden">
+                    <button
+                      onClick={() => setCollapsed(c => ({ ...c, [key]: isOpen }))}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-[#222] transition-colors"
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                      <span className="flex-1 text-left text-sm font-medium text-gray-200 truncate">{fp ? fp.title : "Unassigned"}</span>
+                      <span className="text-[10px] text-gray-600 tabular-nums">{activeGoals.length}{doneGoals.length > 0 ? ` · ${doneGoals.length}✓` : ""}</span>
+                      <span className="text-gray-600 text-xs">{isOpen ? "▲" : "▼"}</span>
+                    </button>
 
-              {/* Completed section in panel */}
-              {goals.some(g => g.done) && (
-                <div className="pt-2">
-                  <div className="flex items-center gap-2 my-3">
-                    <div className="flex-1 h-px bg-[#2e2e2e]" />
-                    <span className="text-[10px] text-gray-600 uppercase tracking-widest">Completed</span>
-                    <div className="flex-1 h-px bg-[#2e2e2e]" />
-                  </div>
-                  <div className="space-y-2">
-                    {goals.filter(g => g.done).map(g => (
-                      <div key={g.id} className="flex flex-col gap-2 p-3 rounded-xl border border-transparent hover:border-[#2a2a2a] group opacity-50 hover:opacity-70 transition-opacity">
-                        <div className="flex items-center gap-3">
-                          <button onClick={() => toggleDone(g.id)}
-                            className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center"
-                            style={{ borderColor: g.color || "#6b7280", backgroundColor: g.color || "#6b7280" }}>
-                            <span className="text-white text-[10px]">✓</span>
-                          </button>
-                          <span className="flex-1 text-sm text-gray-500 line-through">{g.title}</span>
-                          <button onClick={() => remove(g.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
-                        </div>
+                    {isOpen && (
+                      <div className="border-t border-[#2a2a2a] p-2 space-y-1.5">
+                        {activeGoals.map(g => (
+                          <div key={g.id} className="flex items-center gap-2 px-1.5 py-1 rounded-lg hover:bg-[#222] group">
+                            <button onClick={() => toggleDone(g.id)}
+                              className="w-4 h-4 rounded border flex-shrink-0"
+                              style={{ borderColor: goalColor(g), backgroundColor: "transparent" }} />
+                            <span className="flex-1 text-sm text-gray-200">{g.title}</span>
+                            <select
+                              value={g.focus_point_id ?? ""}
+                              onChange={e => setFocus(g.id, e.target.value)}
+                              title="Assign to focus point"
+                              className="bg-transparent text-[10px] text-gray-600 hover:text-gray-300 focus:outline-none opacity-0 group-hover:opacity-100 cursor-pointer max-w-20"
+                            >
+                              <option value="">—</option>
+                              {focusPoints.filter(f => !f.done).map(f => (
+                                <option key={f.id} value={f.id}>{f.title}</option>
+                              ))}
+                            </select>
+                            <button onClick={() => toggleStar(g.id)}
+                              className={`text-sm transition-colors ${g.starred ? "text-yellow-400" : "text-gray-700 group-hover:text-gray-500"}`}>★</button>
+                            <button onClick={() => remove(g.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
+                          </div>
+                        ))}
+                        {doneGoals.map(g => (
+                          <div key={g.id} className="flex items-center gap-2 px-1.5 py-1 rounded-lg group opacity-50 hover:opacity-70">
+                            <button onClick={() => toggleDone(g.id)}
+                              className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center"
+                              style={{ borderColor: goalColor(g), backgroundColor: goalColor(g) }}>
+                              <span className="text-white text-[10px]">✓</span>
+                            </button>
+                            <span className="flex-1 text-sm text-gray-500 line-through">{g.title}</span>
+                            <button onClick={() => remove(g.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })}
             </div>
           </div>
         </div>
