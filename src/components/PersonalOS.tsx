@@ -15,14 +15,24 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+type FocusCategory = "mind" | "body" | "soul";
+
 interface FocusPoint {
   id: string;
   title: string;
   notes: string;
   color: string;
   done: boolean;
+  category: FocusCategory;
+  sort_order: number;
   created_at: string;
 }
+
+const FOCUS_CATEGORIES: { key: FocusCategory; label: string; color: string }[] = [
+  { key: "mind", label: "Mind", color: "#3b82f6" },
+  { key: "body", label: "Body", color: "#ef4444" },
+  { key: "soul", label: "Soul", color: "#8b5cf6" },
+];
 
 interface Goal {
   id: string;
@@ -96,24 +106,37 @@ function FocusPointsBox({ goals }: { goals: Goal[] }) {
   const [points, setPoints] = useState<FocusPoint[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newColor, setNewColor] = useState(GOAL_COLORS[0]);
+  const [newTitle, setNewTitle] = useState<Record<FocusCategory, string>>({ mind: "", body: "", soul: "" });
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [notesValue, setNotesValue] = useState("");
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   useEffect(() => {
     db.focusPoints.list().then((data: FocusPoint[]) => setPoints(data));
   }, []);
 
-  const active = points.filter(p => !p.done);
-  const done = points.filter(p => p.done);
+  const bySort = (a: FocusPoint, b: FocusPoint) =>
+    a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at);
 
-  const add = async () => {
-    if (!newTitle.trim()) return;
-    const fp = { id: uid(), title: newTitle.trim(), notes: "", color: newColor, done: false, created_at: new Date().toISOString() };
+  // Active points for a category, ordered by importance (top = most important)
+  const activeIn = (cat: FocusCategory) => points.filter(p => p.category === cat && !p.done).sort(bySort);
+  const doneIn = (cat: FocusCategory) => points.filter(p => p.category === cat && p.done).sort(bySort);
+
+  const linkedGoals = (fpId: string) => goals.filter(g => g.focus_point_id === fpId);
+
+  const add = async (cat: FocusCategory) => {
+    const title = (newTitle[cat] || "").trim();
+    if (!title) return;
+    const maxOrder = Math.max(-1, ...points.filter(p => p.category === cat).map(p => p.sort_order));
+    const cfg = FOCUS_CATEGORIES.find(c => c.key === cat)!;
+    const fp: FocusPoint = {
+      id: uid(), title, notes: "", color: cfg.color, done: false,
+      category: cat, sort_order: maxOrder + 1, created_at: new Date().toISOString(),
+    };
     const saved = await db.focusPoints.upsert(fp);
     setPoints(ps => [...ps, saved]);
-    setNewTitle("");
+    setNewTitle(s => ({ ...s, [cat]: "" }));
   };
 
   const toggleDone = async (id: string) => {
@@ -133,7 +156,25 @@ function FocusPointsBox({ goals }: { goals: Goal[] }) {
     setEditingNotes(null);
   };
 
-  const linkedGoals = (fpId: string) => goals.filter(g => g.focus_point_id === fpId);
+  // Persist a new ordering of ids within a category
+  const persistOrder = async (orderedIds: string[]) => {
+    setPoints(ps => ps.map(p => {
+      const idx = orderedIds.indexOf(p.id);
+      return idx === -1 ? p : { ...p, sort_order: idx };
+    }));
+    await Promise.all(orderedIds.map((id, idx) => db.focusPoints.update(id, { sort_order: idx })));
+  };
+
+  const handleDrop = (cat: FocusCategory, targetId: string) => {
+    setDragOverId(null);
+    if (!dragId || dragId === targetId) { setDragId(null); return; }
+    const ids = activeIn(cat).map(p => p.id);
+    const from = ids.indexOf(dragId), to = ids.indexOf(targetId);
+    if (from === -1 || to === -1) { setDragId(null); return; }
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    setDragId(null);
+    persistOrder(ids);
+  };
 
   return (
     <div className="relative flex flex-col bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
@@ -142,66 +183,65 @@ function FocusPointsBox({ goals }: { goals: Goal[] }) {
         <button onClick={() => setPanelOpen(true)} className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-2 py-1 transition-colors">All →</button>
       </div>
 
-      {active.length === 0 && <p className="text-xs text-gray-600 text-center py-3">No focus points yet</p>}
-
+      {/* Homepage: top point from each category */}
       <div className="space-y-2">
-        {active.map(fp => {
-          const linked = linkedGoals(fp.id);
+        {FOCUS_CATEGORIES.map(cat => {
+          const top = activeIn(cat.key)[0];
+          const isExpanded = top && expanded === top.id;
+          const linked = top ? linkedGoals(top.id) : [];
           const doneCount = linked.filter(g => g.done).length;
-          const isExpanded = expanded === fp.id;
           return (
-            <div key={fp.id} className="border border-[#2a2a2a] rounded-xl overflow-hidden">
-              {/* Header row */}
-              <div className="flex items-center gap-2 p-2.5 cursor-pointer hover:bg-[#252525] transition-colors"
-                onClick={() => setExpanded(isExpanded ? null : fp.id)}>
-                <button onClick={e => { e.stopPropagation(); toggleDone(fp.id); }}
-                  className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center"
-                  style={{ borderColor: fp.color, backgroundColor: "transparent" }} />
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: fp.color }} />
-                <span className="flex-1 text-sm font-medium text-gray-200">{fp.title}</span>
-                {linked.length > 0 && (
-                  <span className="text-[10px] text-gray-600 tabular-nums">{doneCount}/{linked.length}</span>
+            <div key={cat.key} className="border border-[#2a2a2a] rounded-xl overflow-hidden">
+              <div
+                className={`flex items-center gap-2 p-2.5 ${top ? "cursor-pointer hover:bg-[#252525]" : ""} transition-colors`}
+                onClick={() => top && setExpanded(isExpanded ? null : top.id)}
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-widest w-10 flex-shrink-0" style={{ color: cat.color }}>{cat.label}</span>
+                {top ? (
+                  <>
+                    <button onClick={e => { e.stopPropagation(); toggleDone(top.id); }}
+                      className="w-4 h-4 rounded border flex-shrink-0"
+                      style={{ borderColor: top.color, backgroundColor: "transparent" }} />
+                    <span className="flex-1 text-sm font-medium text-gray-200">{top.title}</span>
+                    {linked.length > 0 && (
+                      <span className="text-[10px] text-gray-600 tabular-nums">{doneCount}/{linked.length}</span>
+                    )}
+                    <span className="text-gray-600 text-xs">{isExpanded ? "▲" : "▼"}</span>
+                  </>
+                ) : (
+                  <span className="flex-1 text-sm italic text-gray-700">No {cat.label.toLowerCase()} focus yet</span>
                 )}
-                <span className="text-gray-600 text-xs">{isExpanded ? "▲" : "▼"}</span>
               </div>
 
-              {/* Expanded view */}
-              {isExpanded && (
+              {isExpanded && top && (
                 <div className="border-t border-[#2a2a2a] p-2.5 space-y-3">
-                  {/* Notes */}
-                  {editingNotes === fp.id ? (
+                  {editingNotes === top.id ? (
                     <div>
-                      <textarea
-                        autoFocus
+                      <textarea autoFocus rows={4}
                         className="w-full bg-[#252525] border border-[#333] rounded-lg p-2 text-xs text-gray-200 resize-none focus:outline-none focus:border-[#555]"
-                        rows={4}
-                        value={notesValue}
-                        onChange={e => setNotesValue(e.target.value)}
-                      />
+                        value={notesValue} onChange={e => setNotesValue(e.target.value)} />
                       <div className="flex gap-2 mt-1">
-                        <button onClick={() => saveNotes(fp.id)} className="text-xs bg-white text-black px-2.5 py-1 rounded-lg font-medium">Save</button>
+                        <button onClick={() => saveNotes(top.id)} className="text-xs bg-white text-black px-2.5 py-1 rounded-lg font-medium">Save</button>
                         <button onClick={() => setEditingNotes(null)} className="text-xs text-gray-600 hover:text-white">Cancel</button>
                       </div>
                     </div>
                   ) : (
-                    <div onClick={() => { setEditingNotes(fp.id); setNotesValue(fp.notes); }}
+                    <div onClick={() => { setEditingNotes(top.id); setNotesValue(top.notes); }}
                       className="text-xs text-gray-500 cursor-pointer hover:text-gray-300 transition-colors min-h-6 leading-relaxed">
-                      {fp.notes || <span className="italic text-gray-700">Click to add notes…</span>}
+                      {top.notes || <span className="italic text-gray-700">Click to add notes…</span>}
                     </div>
                   )}
-
-                  {/* Linked goals */}
                   {linked.length > 0 && (
                     <div>
                       <div className="text-[10px] text-gray-600 uppercase tracking-widest mb-1.5">Linked Goals</div>
                       <div className="space-y-1">
                         {linked.map(g => (
                           <div key={g.id} className="flex items-center gap-2 text-xs">
-                            <span className={`w-3 h-3 rounded border flex-shrink-0 flex items-center justify-center`}
+                            <span className="w-3 h-3 rounded border flex-shrink-0 flex items-center justify-center"
                               style={{ borderColor: g.color, backgroundColor: g.done ? g.color : "transparent" }}>
                               {g.done && <span className="text-white text-[8px]">✓</span>}
                             </span>
-                            <span className={`${g.done ? "line-through text-gray-600" : "text-gray-300"}`}>{g.title}</span>
+                            <span className={g.done ? "line-through text-gray-600" : "text-gray-300"}>{g.title}</span>
                             <span className="text-gray-700 text-[10px]">{g.type}</span>
                           </div>
                         ))}
@@ -213,74 +253,91 @@ function FocusPointsBox({ goals }: { goals: Goal[] }) {
             </div>
           );
         })}
-
-        {/* Completed */}
-        {done.length > 0 && (
-          <div className="pt-1">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="flex-1 h-px bg-[#2e2e2e]" />
-              <span className="text-[10px] text-gray-600 uppercase tracking-widest">Completed</span>
-              <div className="flex-1 h-px bg-[#2e2e2e]" />
-            </div>
-            {done.map(fp => (
-              <div key={fp.id} className="flex items-center gap-2 group opacity-40 hover:opacity-60 transition-opacity py-1">
-                <button onClick={() => toggleDone(fp.id)}
-                  className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center"
-                  style={{ borderColor: fp.color, backgroundColor: fp.color }}>
-                  <span className="text-white text-[10px]">✓</span>
-                </button>
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: fp.color }} />
-                <span className="flex-1 text-sm text-gray-500 line-through">{fp.title}</span>
-                <button onClick={() => remove(fp.id)} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-500 text-xs">✕</button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* Slide panel */}
+      {/* Slide panel — all focus points by category, drag to reorder */}
       {panelOpen && (
         <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setPanelOpen(false)}>
-          <div className="w-80 h-full bg-[#181818] border-l border-[#2e2e2e] flex flex-col p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
+          <div className="w-96 h-full bg-[#181818] border-l border-[#2e2e2e] flex flex-col p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold text-white">Focus Points</span>
               <button onClick={() => setPanelOpen(false)} className="text-gray-500 hover:text-white text-lg">✕</button>
             </div>
-            <div className="flex gap-2 mb-2">
-              <input className="flex-1 bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500"
-                placeholder="Add focus point…" value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} />
-              <button onClick={add} className="bg-white text-black px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">+</button>
-            </div>
-            <div className="flex gap-1.5 mb-4">
-              {GOAL_COLORS.map(c => (
-                <button key={c} onClick={() => setNewColor(c)}
-                  className="w-5 h-5 rounded-full transition-transform hover:scale-110"
-                  style={{ backgroundColor: c, outline: newColor === c ? `2px solid ${c}` : "none", outlineOffset: 2 }} />
-              ))}
-            </div>
-            <div className="flex-1 overflow-y-auto space-y-2">
-              {points.map(fp => (
-                <div key={fp.id} className={`p-3 rounded-xl border ${fp.done ? "opacity-40 border-transparent" : "border-[#2a2a2a]"} group`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <button onClick={() => toggleDone(fp.id)}
-                      className="w-4 h-4 rounded border flex-shrink-0"
-                      style={{ borderColor: fp.color, backgroundColor: fp.done ? fp.color : "transparent" }} />
-                    <span className={`flex-1 text-sm font-medium ${fp.done ? "line-through text-gray-500" : "text-gray-200"}`}>{fp.title}</span>
-                    <button onClick={() => remove(fp.id)} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-500 text-xs">✕</button>
+            <p className="text-[11px] text-gray-600 mb-5">Top of each list shows on your homepage. Drag to reorder.</p>
+
+            <div className="flex-1 overflow-y-auto space-y-6">
+              {FOCUS_CATEGORIES.map(cat => {
+                const active = activeIn(cat.key);
+                const done = doneIn(cat.key);
+                return (
+                  <div key={cat.key}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+                      <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: cat.color }}>{cat.label}</span>
+                    </div>
+
+                    <div className="space-y-1.5 mb-2">
+                      {active.length === 0 && <p className="text-[11px] text-gray-700 italic pl-1">Nothing here yet</p>}
+                      {active.map((fp, i) => (
+                        <div
+                          key={fp.id}
+                          draggable
+                          onDragStart={() => setDragId(fp.id)}
+                          onDragEnd={() => { setDragId(null); setDragOverId(null); }}
+                          onDragOver={e => { e.preventDefault(); if (dragOverId !== fp.id) setDragOverId(fp.id); }}
+                          onDrop={() => handleDrop(cat.key, fp.id)}
+                          className={`p-2.5 rounded-xl border bg-[#1e1e1e] transition-colors ${
+                            dragOverId === fp.id && dragId !== fp.id ? "border-gray-500" : "border-[#2a2a2a]"
+                          } ${dragId === fp.id ? "opacity-40" : ""} group`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="cursor-grab active:cursor-grabbing text-gray-600 text-xs select-none" title="Drag to reorder">⠿</span>
+                            {i === 0 && <span className="text-[9px] text-gray-500 uppercase tracking-wide">top</span>}
+                            <button onClick={() => toggleDone(fp.id)}
+                              className="w-4 h-4 rounded border flex-shrink-0"
+                              style={{ borderColor: fp.color, backgroundColor: "transparent" }} />
+                            <span className="flex-1 text-sm font-medium text-gray-200">{fp.title}</span>
+                            <button onClick={() => remove(fp.id)} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-500 text-xs">✕</button>
+                          </div>
+                          <textarea rows={2}
+                            className="w-full mt-2 bg-[#252525] border border-[#333] rounded-lg p-2 text-xs text-gray-400 resize-none focus:outline-none focus:border-[#555]"
+                            placeholder="Notes…" value={fp.notes}
+                            onChange={e => setPoints(ps => ps.map(p => p.id === fp.id ? { ...p, notes: e.target.value } : p))}
+                            onBlur={e => db.focusPoints.update(fp.id, { notes: e.target.value })} />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add to this category */}
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 bg-[#252525] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500"
+                        placeholder={`Add ${cat.label.toLowerCase()} focus…`}
+                        value={newTitle[cat.key]}
+                        onChange={e => setNewTitle(s => ({ ...s, [cat.key]: e.target.value }))}
+                        onKeyDown={e => e.key === "Enter" && add(cat.key)} />
+                      <button onClick={() => add(cat.key)} className="bg-white text-black px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-200">+</button>
+                    </div>
+
+                    {/* Completed in this category */}
+                    {done.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {done.map(fp => (
+                          <div key={fp.id} className="flex items-center gap-2 group opacity-40 hover:opacity-60 transition-opacity py-0.5">
+                            <button onClick={() => toggleDone(fp.id)}
+                              className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center"
+                              style={{ borderColor: fp.color, backgroundColor: fp.color }}>
+                              <span className="text-white text-[10px]">✓</span>
+                            </button>
+                            <span className="flex-1 text-sm text-gray-500 line-through">{fp.title}</span>
+                            <button onClick={() => remove(fp.id)} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-500 text-xs">✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <textarea
-                    className="w-full bg-[#252525] border border-[#333] rounded-lg p-2 text-xs text-gray-400 resize-none focus:outline-none focus:border-[#555]"
-                    rows={3}
-                    placeholder="Notes…"
-                    value={fp.notes}
-                    onChange={e => { setPoints(ps => ps.map(p => p.id === fp.id ? { ...p, notes: e.target.value } : p)); }}
-                    onBlur={e => db.focusPoints.update(fp.id, { notes: e.target.value })}
-                  />
-                  {linkedGoals(fp.id).length > 0 && (
-                    <div className="mt-2 text-[10px] text-gray-600">{linkedGoals(fp.id).filter(g => g.done).length}/{linkedGoals(fp.id).length} goals done</div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
