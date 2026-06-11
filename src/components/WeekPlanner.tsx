@@ -593,7 +593,7 @@ function CumulativeAmountPicker({
     </div>
   );
 }
-
+ 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
 /**
