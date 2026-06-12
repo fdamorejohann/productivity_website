@@ -402,7 +402,7 @@ function GoalsBox({
   const fmtDate = (s?: string) => (s ? `${+s.slice(5, 7)}/${+s.slice(8, 10)}` : "");
 
   return (
-    <div className="relative flex flex-col bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 h-full min-h-64">
+    <div className="relative flex flex-col bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{label}</span>
@@ -2744,24 +2744,20 @@ export default function PersonalOS() {
         {/* ── Left column: Focus Points + Goals + Defunct ── */}
         <div className="flex flex-col gap-5">
           <FocusPointsBox goals={allGoals} />
-          <div className="flex-1">
-            <GoalsBox
-              type="weekly" label="Weekly Goals"
-              goals={weeklyGoals} assignOptions={focusAssignOptions} colorFor={colorFor}
-              onAdd={(title, assignId) => addGoal("weekly", title, assignId)}
-              onToggleDone={toggleGoalDone} onToggleStar={toggleGoalStar}
-              onRemove={removeGoal} onAssign={assignGoal}
-            />
-          </div>
-          <div className="flex-1">
-            <GoalsBox
-              type="daily" label="Daily Tasks"
-              goals={dailyGoals} assignOptions={weeklyAssignOptions} colorFor={colorFor}
-              onAdd={(title, assignId) => addGoal("daily", title, assignId)}
-              onToggleDone={toggleGoalDone} onToggleStar={toggleGoalStar}
-              onRemove={removeGoal} onAssign={assignGoal}
-            />
-          </div>
+          <GoalsBox
+            type="weekly" label="Weekly Goals"
+            goals={weeklyGoals} assignOptions={focusAssignOptions} colorFor={colorFor}
+            onAdd={(title, assignId) => addGoal("weekly", title, assignId)}
+            onToggleDone={toggleGoalDone} onToggleStar={toggleGoalStar}
+            onRemove={removeGoal} onAssign={assignGoal}
+          />
+          <GoalsBox
+            type="daily" label="Daily Tasks"
+            goals={dailyGoals} assignOptions={weeklyAssignOptions} colorFor={colorFor}
+            onAdd={(title, assignId) => addGoal("daily", title, assignId)}
+            onToggleDone={toggleGoalDone} onToggleStar={toggleGoalStar}
+            onRemove={removeGoal} onAssign={assignGoal}
+          />
           <DefunctWidget />
         </div>
 
