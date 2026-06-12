@@ -42,7 +42,9 @@ interface Goal {
   done: boolean;
   color: string;
   createdAt: string;
-  focus_point_id?: string;
+  focus_point_id?: string;     // weekly goals → focus point
+  parent_id?: string;          // daily goals → weekly goal they roll up to
+  scheduled_date?: string;     // daily goals → calendar day (YYYY-MM-DD)
 }
 
 const UNASSIGNED_COLOR = "#6b7280";
@@ -360,58 +362,41 @@ function FocusPointsBox({ goals }: { goals: Goal[] }) {
 
 // ─── Goals Box ───────────────────────────────────────────────────────────────
 
-function GoalsBox({ type, label, focusPoints }: { type: "weekly" | "daily"; label: string; focusPoints: FocusPoint[] }) {
-  const [goals, setGoals] = useState<Goal[]>([]);
+function GoalsBox({
+  type, label, goals, assignOptions, colorFor,
+  onAdd, onToggleDone, onToggleStar, onRemove, onAssign,
+}: {
+  type: "weekly" | "daily";
+  label: string;
+  goals: Goal[];                                              // already filtered to this type
+  assignOptions: { id: string; label: string; color: string }[]; // focus points (weekly) | weekly goals (daily)
+  colorFor: (g: Goal) => string;
+  onAdd: (title: string, assignId: string) => void;
+  onToggleDone: (id: string) => void;
+  onToggleStar: (id: string) => void;
+  onRemove: (id: string) => void;
+  onAssign: (id: string, assignId: string) => void;
+}) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [hideCompleted, setHideCompleted] = useState(true);
   const [newTitle, setNewTitle] = useState("");
-  const [newFocusPointId, setNewFocusPointId] = useState<string>("");
+  const [newAssignId, setNewAssignId] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    db.goals.list().then((all: Goal[]) => setGoals(all.filter((g: Goal) => g.type === type)));
-  }, [type]);
+  const isDaily = type === "daily";
+  const parentKey = (g: Goal) => (isDaily ? g.parent_id : g.focus_point_id) ?? "";
+  const noun = isDaily ? "weekly task" : "focus point";
 
-  // A goal's color comes from its assigned focus point (gray if unassigned).
-  const goalColor = (g: Goal) =>
-    focusPoints.find(fp => fp.id === g.focus_point_id)?.color ?? UNASSIGNED_COLOR;
-
-  const add = async () => {
+  const submit = () => {
     if (!newTitle.trim()) return;
-    const color = focusPoints.find(fp => fp.id === newFocusPointId)?.color ?? UNASSIGNED_COLOR;
-    const goal = { id: uid(), title: newTitle.trim(), type, starred: false, done: false, color, created_at: new Date().toISOString(), focus_point_id: newFocusPointId || null };
-    const saved = await db.goals.upsert(goal);
-    setGoals(g => [...g, saved]);
-    setNewTitle("");
-    setNewFocusPointId("");
+    onAdd(newTitle.trim(), newAssignId);
+    setNewTitle(""); setNewAssignId("");
   };
 
-  // Reassign a goal to a focus point; its color follows.
-  const setFocus = async (id: string, fpId: string) => {
-    const color = focusPoints.find(fp => fp.id === fpId)?.color ?? UNASSIGNED_COLOR;
-    setGoals(g => g.map(x => x.id === id ? { ...x, focus_point_id: fpId || undefined, color } : x));
-    await db.goals.update(id, { focus_point_id: fpId || null, color });
-  };
-
-  const toggleStar = async (id: string) => {
-    const goal = goals.find(g => g.id === id)!;
-    setGoals(g => g.map(x => x.id === id ? { ...x, starred: !x.starred } : x));
-    await db.goals.update(id, { starred: !goal.starred });
-  };
-
-  const toggleDone = async (id: string) => {
-    const goal = goals.find(g => g.id === id)!;
-    setGoals(g => g.map(x => x.id === id ? { ...x, done: !x.done } : x));
-    await db.goals.update(id, { done: !goal.done });
-  };
-
-  const remove = async (id: string) => {
-    setGoals(g => g.filter(x => x.id !== id));
-    await db.goals.delete(id);
-  };
-
-  const starred = goals.filter(g => g.starred && !g.done);
+  const active = goals.filter(g => !g.done);
+  const starred = active.filter(g => g.starred);
   const done = goals.filter(g => g.done);
+  const fmtDate = (s?: string) => (s ? `${+s.slice(5, 7)}/${+s.slice(8, 10)}` : "");
 
   return (
     <div className="relative flex flex-col bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 h-full min-h-64">
@@ -420,78 +405,96 @@ function GoalsBox({ type, label, focusPoints }: { type: "weekly" | "daily"; labe
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{label}</span>
         <div className="flex items-center gap-2">
           {done.length > 0 && (
-            <button
-              onClick={() => setHideCompleted(h => !h)}
-              className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
-            >
+            <button onClick={() => setHideCompleted(h => !h)} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">
               {hideCompleted ? `show ${done.length} done` : "hide done"}
             </button>
           )}
-          <button
-            onClick={() => setPanelOpen(true)}
-            className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-2 py-1 transition-colors"
-            title="View all"
-          >
-            All →
-          </button>
+          <button onClick={() => setPanelOpen(true)} className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-2 py-1 transition-colors" title="View all">All →</button>
         </div>
       </div>
 
-      {/* Starred goals */}
-      <div className="flex-1 space-y-2 overflow-y-auto">
-        {starred.length === 0 && done.length === 0 && (
-          <p className="text-xs text-gray-600 text-center py-4">
-            Star goals to show them here
-          </p>
-        )}
-        {starred.map(g => (
-          <div key={g.id} className="flex items-center gap-2 group">
-            <button
-              onClick={() => toggleDone(g.id)}
-              className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center hover:opacity-80 transition-opacity"
-              style={{ borderColor: goalColor(g), backgroundColor: "transparent" }}
-            />
-            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: goalColor(g) }} />
-            <span className="flex-1 text-sm text-gray-200">{g.title}</span>
-            <button onClick={() => toggleStar(g.id)} className="text-yellow-400 opacity-0 group-hover:opacity-100 text-xs">★</button>
+      {isDaily ? (
+        /* ── Daily: draggable chips (drag onto a calendar day) ── */
+        <div className="flex-1 overflow-y-auto">
+          {active.length === 0 && done.length === 0 && (
+            <p className="text-xs text-gray-600 text-center py-4">Add tasks in “All →”, then drag onto the calendar</p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {active.map(g => {
+              const color = colorFor(g);
+              return (
+                <div
+                  key={g.id}
+                  draggable
+                  onDragStart={e => { e.dataTransfer.setData("text/plain", `goal:${g.id}`); e.dataTransfer.effectAllowed = "copyMove"; }}
+                  title="Drag onto a calendar day"
+                  className="group/chip flex items-center gap-1.5 rounded-full pl-1 pr-2 py-1 text-xs font-medium cursor-grab active:cursor-grabbing"
+                  style={{ backgroundColor: `${color}22`, color }}
+                >
+                  <button onClick={() => onToggleDone(g.id)} className="w-3.5 h-3.5 rounded-full border flex-shrink-0" style={{ borderColor: color, backgroundColor: "transparent" }} />
+                  <span>{g.title}</span>
+                  {g.scheduled_date && <span className="text-[9px] opacity-70 tabular-nums">{fmtDate(g.scheduled_date)}</span>}
+                  <button onClick={() => onRemove(g.id)} className="opacity-0 group-hover/chip:opacity-100 hover:text-red-400 text-[10px] leading-none">✕</button>
+                </div>
+              );
+            })}
           </div>
-        ))}
-
-        {/* Completed divider + list */}
-        {done.length > 0 && !hideCompleted && (
-          <div className="pt-2">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="flex-1 h-px bg-[#2e2e2e]" />
-              <span className="text-[10px] text-gray-600 uppercase tracking-widest">Completed</span>
-              <div className="flex-1 h-px bg-[#2e2e2e]" />
-            </div>
-            <div className="space-y-2">
+          {done.length > 0 && !hideCompleted && (
+            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[#2a2a2a]">
               {done.map(g => (
-                <div key={g.id} className="flex items-center gap-2 group opacity-50 hover:opacity-70 transition-opacity">
-                  <button
-                    onClick={() => toggleDone(g.id)}
-                    className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center hover:opacity-80"
-                    style={{ borderColor: goalColor(g), backgroundColor: goalColor(g) }}
-                  >
-                    <span className="text-white text-[10px]">✓</span>
+                <div key={g.id} className="group/chip flex items-center gap-1.5 rounded-full pl-1 pr-2 py-1 text-xs opacity-50" style={{ backgroundColor: "#2a2a2a", color: "#9ca3af" }}>
+                  <button onClick={() => onToggleDone(g.id)} className="w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center" style={{ borderColor: colorFor(g), backgroundColor: colorFor(g) }}>
+                    <span className="text-white text-[8px]">✓</span>
                   </button>
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: goalColor(g) }} />
-                  <span className="flex-1 text-sm text-gray-400 line-through">{g.title}</span>
-                  <button onClick={() => remove(g.id)} className="text-gray-600 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
+                  <span className="line-through">{g.title}</span>
+                  <button onClick={() => onRemove(g.id)} className="opacity-0 group-hover/chip:opacity-100 hover:text-red-400 text-[10px]">✕</button>
                 </div>
               ))}
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        /* ── Weekly: starred list ── */
+        <div className="flex-1 space-y-2 overflow-y-auto">
+          {starred.length === 0 && done.length === 0 && (
+            <p className="text-xs text-gray-600 text-center py-4">Star goals to show them here</p>
+          )}
+          {starred.map(g => (
+            <div key={g.id} className="flex items-center gap-2 group">
+              <button onClick={() => onToggleDone(g.id)} className="w-4 h-4 rounded border flex-shrink-0 hover:opacity-80 transition-opacity" style={{ borderColor: colorFor(g), backgroundColor: "transparent" }} />
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: colorFor(g) }} />
+              <span className="flex-1 text-sm text-gray-200">{g.title}</span>
+              <button onClick={() => onToggleStar(g.id)} className="text-yellow-400 opacity-0 group-hover:opacity-100 text-xs">★</button>
+            </div>
+          ))}
+          {done.length > 0 && !hideCompleted && (
+            <div className="pt-2">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex-1 h-px bg-[#2e2e2e]" />
+                <span className="text-[10px] text-gray-600 uppercase tracking-widest">Completed</span>
+                <div className="flex-1 h-px bg-[#2e2e2e]" />
+              </div>
+              <div className="space-y-2">
+                {done.map(g => (
+                  <div key={g.id} className="flex items-center gap-2 group opacity-50 hover:opacity-70 transition-opacity">
+                    <button onClick={() => onToggleDone(g.id)} className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center hover:opacity-80" style={{ borderColor: colorFor(g), backgroundColor: colorFor(g) }}>
+                      <span className="text-white text-[10px]">✓</span>
+                    </button>
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: colorFor(g) }} />
+                    <span className="flex-1 text-sm text-gray-400 line-through">{g.title}</span>
+                    <button onClick={() => onRemove(g.id)} className="text-gray-600 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Slide panel — all goals */}
+      {/* Slide panel — all goals grouped by their parent */}
       {panelOpen && (
         <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setPanelOpen(false)}>
-          <div
-            className="w-80 h-full bg-[#181818] border-l border-[#2e2e2e] flex flex-col p-6 shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
+          <div className="w-80 h-full bg-[#181818] border-l border-[#2e2e2e] flex flex-col p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <span className="text-sm font-semibold text-white">All {label}</span>
               <button onClick={() => setPanelOpen(false)} className="text-gray-500 hover:text-white text-lg">✕</button>
@@ -501,46 +504,41 @@ function GoalsBox({ type, label, focusPoints }: { type: "weekly" | "daily"; labe
             <div className="flex gap-2 mb-2">
               <input
                 className="flex-1 bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500"
-                placeholder="Add goal…"
+                placeholder={isDaily ? "Add task…" : "Add goal…"}
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && add()}
+                onKeyDown={e => e.key === "Enter" && submit()}
               />
-              <button onClick={add} className="bg-white text-black px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">+</button>
+              <button onClick={submit} className="bg-white text-black px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">+</button>
             </div>
             <select
-              value={newFocusPointId}
-              onChange={e => setNewFocusPointId(e.target.value)}
+              value={newAssignId}
+              onChange={e => setNewAssignId(e.target.value)}
               className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-1.5 text-xs text-gray-400 focus:outline-none mb-4"
             >
-              <option value="">No focus point</option>
-              {focusPoints.filter(fp => !fp.done).map(fp => (
-                <option key={fp.id} value={fp.id}>{fp.category} · {fp.title}</option>
-              ))}
+              <option value="">No {noun}</option>
+              {assignOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
             </select>
 
-            {/* Grouped by focus point */}
+            {/* Grouped by parent */}
             <div className="flex-1 overflow-y-auto space-y-3">
-              {goals.length === 0 && <p className="text-xs text-gray-600 text-center py-6">No goals yet</p>}
-              {[...focusPoints, null].map(fp => {
-                const key = fp ? fp.id : "_unassigned";
+              {goals.length === 0 && <p className="text-xs text-gray-600 text-center py-6">No {isDaily ? "tasks" : "goals"} yet</p>}
+              {[...assignOptions, null].map(opt => {
+                const key = opt ? opt.id : "_unassigned";
                 const groupGoals = goals.filter(g =>
-                  fp ? g.focus_point_id === fp.id
-                     : !g.focus_point_id || !focusPoints.some(f => f.id === g.focus_point_id)
+                  opt ? parentKey(g) === opt.id
+                      : !parentKey(g) || !assignOptions.some(o => o.id === parentKey(g))
                 );
                 if (groupGoals.length === 0) return null;
-                const color = fp ? fp.color : UNASSIGNED_COLOR;
+                const color = opt ? opt.color : UNASSIGNED_COLOR;
                 const activeGoals = groupGoals.filter(g => !g.done);
                 const doneGoals = groupGoals.filter(g => g.done);
                 const isOpen = collapsed[key] !== true;
                 return (
                   <div key={key} className="rounded-xl border border-[#2a2a2a] overflow-hidden">
-                    <button
-                      onClick={() => setCollapsed(c => ({ ...c, [key]: isOpen }))}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-[#222] transition-colors"
-                    >
+                    <button onClick={() => setCollapsed(c => ({ ...c, [key]: isOpen }))} className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-[#222] transition-colors">
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                      <span className="flex-1 text-left text-sm font-medium text-gray-200 truncate">{fp ? fp.title : "Unassigned"}</span>
+                      <span className="flex-1 text-left text-sm font-medium text-gray-200 truncate">{opt ? opt.label : "Unassigned"}</span>
                       <span className="text-[10px] text-gray-600 tabular-nums">{activeGoals.length}{doneGoals.length > 0 ? ` · ${doneGoals.length}✓` : ""}</span>
                       <span className="text-gray-600 text-xs">{isOpen ? "▲" : "▼"}</span>
                     </button>
@@ -549,35 +547,28 @@ function GoalsBox({ type, label, focusPoints }: { type: "weekly" | "daily"; labe
                       <div className="border-t border-[#2a2a2a] p-2 space-y-1.5">
                         {activeGoals.map(g => (
                           <div key={g.id} className="flex items-center gap-2 px-1.5 py-1 rounded-lg hover:bg-[#222] group">
-                            <button onClick={() => toggleDone(g.id)}
-                              className="w-4 h-4 rounded border flex-shrink-0"
-                              style={{ borderColor: goalColor(g), backgroundColor: "transparent" }} />
-                            <span className="flex-1 text-sm text-gray-200">{g.title}</span>
+                            <button onClick={() => onToggleDone(g.id)} className="w-4 h-4 rounded border flex-shrink-0" style={{ borderColor: colorFor(g), backgroundColor: "transparent" }} />
+                            <span className="flex-1 text-sm text-gray-200">{g.title}{isDaily && g.scheduled_date && <span className="ml-1 text-[10px] text-gray-600 tabular-nums">{fmtDate(g.scheduled_date)}</span>}</span>
                             <select
-                              value={g.focus_point_id ?? ""}
-                              onChange={e => setFocus(g.id, e.target.value)}
-                              title="Assign to focus point"
+                              value={parentKey(g)}
+                              onChange={e => onAssign(g.id, e.target.value)}
+                              title={`Assign to ${noun}`}
                               className="bg-transparent text-[10px] text-gray-600 hover:text-gray-300 focus:outline-none opacity-0 group-hover:opacity-100 cursor-pointer max-w-20"
                             >
                               <option value="">—</option>
-                              {focusPoints.filter(f => !f.done).map(f => (
-                                <option key={f.id} value={f.id}>{f.title}</option>
-                              ))}
+                              {assignOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
                             </select>
-                            <button onClick={() => toggleStar(g.id)}
-                              className={`text-sm transition-colors ${g.starred ? "text-yellow-400" : "text-gray-700 group-hover:text-gray-500"}`}>★</button>
-                            <button onClick={() => remove(g.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
+                            <button onClick={() => onToggleStar(g.id)} className={`text-sm transition-colors ${g.starred ? "text-yellow-400" : "text-gray-700 group-hover:text-gray-500"}`}>★</button>
+                            <button onClick={() => onRemove(g.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
                           </div>
                         ))}
                         {doneGoals.map(g => (
                           <div key={g.id} className="flex items-center gap-2 px-1.5 py-1 rounded-lg group opacity-50 hover:opacity-70">
-                            <button onClick={() => toggleDone(g.id)}
-                              className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center"
-                              style={{ borderColor: goalColor(g), backgroundColor: goalColor(g) }}>
+                            <button onClick={() => onToggleDone(g.id)} className="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center" style={{ borderColor: colorFor(g), backgroundColor: colorFor(g) }}>
                               <span className="text-white text-[10px]">✓</span>
                             </button>
                             <span className="flex-1 text-sm text-gray-500 line-through">{g.title}</span>
-                            <button onClick={() => remove(g.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
+                            <button onClick={() => onRemove(g.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
                           </div>
                         ))}
                       </div>
@@ -828,8 +819,15 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
 
 // ─── Habits + Calendar ───────────────────────────────────────────────────────
 
-function HabitsCalendar() {
+function HabitsCalendar({ dailyGoals, colorFor, onScheduleGoal, onUnscheduleGoal, onToggleGoalDone }: {
+  dailyGoals: Goal[];
+  colorFor: (g: Goal) => string;
+  onScheduleGoal: (id: string, date: string) => void;
+  onUnscheduleGoal: (id: string) => void;
+  onToggleGoalDone: (id: string) => void;
+}) {
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const [planned, setPlanned] = useState<PlannedHabit[]>([]);
   const [weekOffset, setWeekOffset] = useState(0);
   const [newHabit, setNewHabit] = useState("");
@@ -1113,18 +1111,45 @@ function HabitsCalendar() {
             const isToday = ds === todayStr();
             const dayPlans = planned.filter(p => p.date === ds);
             const dayEvents = [...events, ...gcalEvents].filter(e => e.date === ds);
+            const dayGoals = dailyGoals.filter(g => g.scheduled_date === ds);
 
             return (
               <div
                 key={i}
                 onClick={() => assignHabit(ds)}
+                onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverDay !== ds) setDragOverDay(ds); }}
+                onDragLeave={() => setDragOverDay(d => (d === ds ? null : d))}
+                onDrop={e => {
+                  setDragOverDay(null);
+                  const data = e.dataTransfer.getData("text/plain");
+                  if (data.startsWith("goal:")) { e.preventDefault(); onScheduleGoal(data.slice(5), ds); }
+                }}
                 className={`rounded-xl p-2 min-h-48 cursor-pointer transition-colors ${
                   selectedHabit ? "hover:bg-[#2a2a2a]" : ""
-                } ${isToday ? "border border-[#3a3a3a] bg-[#242424]" : "border border-[#262626]"}`}
+                } ${dragOverDay === ds ? "border border-gray-400 bg-[#2a2a2a]" : isToday ? "border border-[#3a3a3a] bg-[#242424]" : "border border-[#262626]"}`}
               >
                 <div className={`text-xs font-semibold mb-0.5 ${isToday ? "text-white" : "text-gray-600"}`}>{DAYS[i]}</div>
                 <div className={`text-lg font-bold mb-1.5 ${isToday ? "text-white" : "text-gray-500"}`}>{d.getDate()}</div>
                 <div className="space-y-1">
+                  {dayGoals.map(g => {
+                    const color = colorFor(g);
+                    return (
+                      <div
+                        key={g.id}
+                        className="group/task relative flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium cursor-pointer transition-all"
+                        style={{ backgroundColor: g.done ? `${color}60` : `${color}22`, color, textDecoration: g.done ? "line-through" : "none", opacity: g.done ? 0.7 : 1 }}
+                        onClick={e => { e.stopPropagation(); onToggleGoalDone(g.id); }}
+                      >
+                        <span className="w-2 h-2 rounded-sm flex-shrink-0 border" style={{ backgroundColor: g.done ? color : "transparent", borderColor: color }} />
+                        <span className="break-words min-w-0">{g.title}</span>
+                        <button
+                          className="absolute -top-1 -right-1 w-3 h-3 bg-[#1e1e1e] border border-[#333] rounded-full text-gray-500 hover:text-red-400 hidden group-hover/task:flex items-center justify-center text-xs leading-none"
+                          onClick={e => { e.stopPropagation(); onUnscheduleGoal(g.id); }}
+                          title="Remove from this day"
+                        >×</button>
+                      </div>
+                    );
+                  })}
                   {dayPlans.map(p => {
                     const h = habit(p.habitId);
                     if (!h) return null;
@@ -2559,6 +2584,102 @@ export default function PersonalOS() {
     db.goals.list().then((data: Goal[]) => setAllGoals(data));
   }, []);
 
+  // ── Goal colors: weekly inherits its focus point, daily inherits its weekly parent ──
+  const fpColorOf = (fpId?: string) => focusPoints.find(fp => fp.id === fpId)?.color ?? UNASSIGNED_COLOR;
+  const colorFor = (g: Goal): string => {
+    if (g.type === "weekly") return g.focus_point_id ? fpColorOf(g.focus_point_id) : UNASSIGNED_COLOR;
+    const parent = allGoals.find(x => x.id === g.parent_id);
+    return parent?.focus_point_id ? fpColorOf(parent.focus_point_id) : UNASSIGNED_COLOR;
+  };
+  const colorForAssign = (type: "weekly" | "daily", assignId: string) => {
+    if (!assignId) return UNASSIGNED_COLOR;
+    if (type === "weekly") return fpColorOf(assignId);
+    return fpColorOf(allGoals.find(x => x.id === assignId)?.focus_point_id);
+  };
+
+  // Auto-complete a weekly task when all of its daily tasks are done.
+  const applyCascade = async (arr: Goal[], weeklyIds: (string | undefined)[]): Promise<Goal[]> => {
+    let next = arr;
+    for (const wid of [...new Set(weeklyIds.filter(Boolean) as string[])]) {
+      const kids = next.filter(g => g.type === "daily" && g.parent_id === wid);
+      if (kids.length === 0) continue;
+      const allDone = kids.every(k => k.done);
+      const weekly = next.find(x => x.id === wid);
+      if (weekly && weekly.done !== allDone) {
+        next = next.map(x => x.id === wid ? { ...x, done: allDone } : x);
+        await db.goals.update(wid, { done: allDone });
+      }
+    }
+    return next;
+  };
+
+  const addGoal = async (type: "weekly" | "daily", title: string, assignId: string) => {
+    const row = {
+      id: uid(), title, type, starred: false, done: false,
+      color: colorForAssign(type, assignId), created_at: new Date().toISOString(),
+      focus_point_id: type === "weekly" ? (assignId || null) : null,
+      parent_id: type === "daily" ? (assignId || null) : null,
+      scheduled_date: null,
+    };
+    const saved = await db.goals.upsert(row);
+    let next = [...allGoals, saved];
+    if (type === "daily" && assignId) next = await applyCascade(next, [assignId]);
+    setAllGoals(next);
+  };
+
+  const toggleGoalDone = async (id: string) => {
+    const g = allGoals.find(x => x.id === id); if (!g) return;
+    const done = !g.done;
+    let next = allGoals.map(x => x.id === id ? { ...x, done } : x);
+    await db.goals.update(id, { done });
+    if (g.type === "daily" && g.parent_id) next = await applyCascade(next, [g.parent_id]);
+    setAllGoals(next);
+  };
+
+  const toggleGoalStar = async (id: string) => {
+    const g = allGoals.find(x => x.id === id); if (!g) return;
+    setAllGoals(allGoals.map(x => x.id === id ? { ...x, starred: !x.starred } : x));
+    await db.goals.update(id, { starred: !g.starred });
+  };
+
+  const assignGoal = async (id: string, assignId: string) => {
+    const g = allGoals.find(x => x.id === id); if (!g) return;
+    if (g.type === "weekly") {
+      const color = colorForAssign("weekly", assignId);
+      setAllGoals(allGoals.map(x => x.id === id ? { ...x, focus_point_id: assignId || undefined, color } : x));
+      await db.goals.update(id, { focus_point_id: assignId || null, color });
+    } else {
+      const oldParent = g.parent_id;
+      const color = colorForAssign("daily", assignId);
+      let next = allGoals.map(x => x.id === id ? { ...x, parent_id: assignId || undefined, color } : x);
+      await db.goals.update(id, { parent_id: assignId || null, color });
+      next = await applyCascade(next, [oldParent, assignId]);
+      setAllGoals(next);
+    }
+  };
+
+  const removeGoal = async (id: string) => {
+    const g = allGoals.find(x => x.id === id);
+    let next = allGoals.filter(x => x.id !== id);
+    await db.goals.delete(id);
+    if (g?.type === "daily" && g.parent_id) next = await applyCascade(next, [g.parent_id]);
+    setAllGoals(next);
+  };
+
+  const scheduleGoal = async (id: string, date: string) => {
+    setAllGoals(gs => gs.map(x => x.id === id ? { ...x, scheduled_date: date } : x));
+    await db.goals.update(id, { scheduled_date: date });
+  };
+  const unscheduleGoal = async (id: string) => {
+    setAllGoals(gs => gs.map(x => x.id === id ? { ...x, scheduled_date: undefined } : x));
+    await db.goals.update(id, { scheduled_date: null });
+  };
+
+  const weeklyGoals = allGoals.filter(g => g.type === "weekly");
+  const dailyGoals = allGoals.filter(g => g.type === "daily");
+  const focusAssignOptions = focusPoints.filter(fp => !fp.done).map(fp => ({ id: fp.id, label: `${fp.category} · ${fp.title}`, color: fp.color }));
+  const weeklyAssignOptions = weeklyGoals.filter(g => !g.done).map(g => ({ id: g.id, label: g.title, color: colorFor(g) }));
+
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -2621,10 +2742,22 @@ export default function PersonalOS() {
         <div className="flex flex-col gap-5">
           <FocusPointsBox goals={allGoals} />
           <div className="flex-1">
-            <GoalsBox type="weekly" label="Weekly Goals" focusPoints={focusPoints} />
+            <GoalsBox
+              type="weekly" label="Weekly Goals"
+              goals={weeklyGoals} assignOptions={focusAssignOptions} colorFor={colorFor}
+              onAdd={(title, assignId) => addGoal("weekly", title, assignId)}
+              onToggleDone={toggleGoalDone} onToggleStar={toggleGoalStar}
+              onRemove={removeGoal} onAssign={assignGoal}
+            />
           </div>
           <div className="flex-1">
-            <GoalsBox type="daily" label="Daily Goals" focusPoints={focusPoints} />
+            <GoalsBox
+              type="daily" label="Daily Tasks"
+              goals={dailyGoals} assignOptions={weeklyAssignOptions} colorFor={colorFor}
+              onAdd={(title, assignId) => addGoal("daily", title, assignId)}
+              onToggleDone={toggleGoalDone} onToggleStar={toggleGoalStar}
+              onRemove={removeGoal} onAssign={assignGoal}
+            />
           </div>
           <DefunctWidget />
         </div>
@@ -2632,7 +2765,13 @@ export default function PersonalOS() {
         {/* ── Middle column: Finance + Habits/Calendar ── */}
         <div className="flex flex-col gap-5">
           <FinanceBox onOpenBudget={() => setShowBudget(true)} />
-          <HabitsCalendar />
+          <HabitsCalendar
+            dailyGoals={dailyGoals}
+            colorFor={colorFor}
+            onScheduleGoal={scheduleGoal}
+            onUnscheduleGoal={unscheduleGoal}
+            onToggleGoalDone={toggleGoalDone}
+          />
           <NewsWidget />
         </div>
 
