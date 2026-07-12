@@ -95,6 +95,16 @@ export interface Meal {
   created_at: string;
 }
 
+// ─── Trip Cost Tracker (England & Dublin) ─────────────────────────────────────
+
+export interface TripExpense {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;       // YYYY-MM-DD
+  created_at: string;
+}
+
 // ─── UI state ─────────────────────────────────────────────────────────────────
 
 /** The four top-level views controlled by the sidebar nav. */

@@ -29,6 +29,7 @@ export default async function handler(req, res) {
     case "grocery-hauls":        return handleGroceryHauls(req, res);
     case "meals":                return handleMeals(req, res);
     case "running-completions":  return handleRunningCompletions(req, res);
+    case "trip-expenses":        return handleTripExpenses(req, res);
     case "yt-feed":          return handleYtFeed(req, res);
     case "news":             return handleNews(req, res);
     case "widget":           return handleWidget(req, res);
@@ -656,6 +657,27 @@ async function handleMeals(req, res) {
   if (req.method === "DELETE") {
     const { id } = req.body;
     const { error } = await supabase.from("meals").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  }
+  res.status(405).end();
+}
+
+// ─── Trip Expenses (England & Dublin) ─────────────────────────────────────────
+async function handleTripExpenses(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase.from("trip_expenses").select("*").order("date", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+  if (req.method === "POST") {
+    const { data, error } = await supabase.from("trip_expenses").insert(req.body).select();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
+  }
+  if (req.method === "DELETE") {
+    const { id } = req.body;
+    const { error } = await supabase.from("trip_expenses").delete().eq("id", id);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ ok: true });
   }

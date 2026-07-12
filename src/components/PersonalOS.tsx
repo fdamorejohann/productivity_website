@@ -9,6 +9,7 @@ import WorkoutPanel from "./WorkoutPanel";
 import DndPanel from "./DndPanel";
 import FoodCostPanel from "./FoodCostPanel";
 import RunningPanel from "./RunningPanel";
+import TripPanel from "./TripPanel";
 import { db } from "../lib/db";
 const uid = () => crypto.randomUUID();
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -122,6 +123,7 @@ function FocusPointsBox({ goals }: { goals: Goal[] }) {
   const [notesValue, setNotesValue] = useState("");
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [openNotes, setOpenNotes] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     db.focusPoints.list().then((data: FocusPoint[]) => setPoints(data));
@@ -325,13 +327,22 @@ function FocusPointsBox({ goals }: { goals: Goal[] }) {
                               className="w-5 h-5 rounded border flex-shrink-0"
                               style={{ borderColor: fp.color, backgroundColor: "transparent" }} />
                             <span className="flex-1 text-base font-medium text-gray-200">{fp.title}</span>
+                            <button
+                              onClick={() => setOpenNotes(o => ({ ...o, [fp.id]: !o[fp.id] }))}
+                              title={openNotes[fp.id] ? "Hide notes" : "Show notes"}
+                              className={`text-xs flex items-center gap-0.5 transition-colors ${fp.notes ? "text-gray-400" : "text-gray-600"} hover:text-gray-200`}
+                            >
+                              📝<span className="text-[10px]">{openNotes[fp.id] ? "▲" : "▼"}</span>
+                            </button>
                             <button onClick={() => remove(fp.id)} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-500 text-sm">✕</button>
                           </div>
-                          <textarea rows={2}
-                            className="w-full mt-2 bg-[#252525] border border-[#333] rounded-lg p-2 text-sm text-gray-400 resize-none focus:outline-none focus:border-[#555]"
-                            placeholder="Notes…" value={fp.notes}
-                            onChange={e => setPoints(ps => ps.map(p => p.id === fp.id ? { ...p, notes: e.target.value } : p))}
-                            onBlur={e => db.focusPoints.update(fp.id, { notes: e.target.value })} />
+                          {openNotes[fp.id] && (
+                            <textarea rows={2} autoFocus
+                              className="w-full mt-2 bg-[#252525] border border-[#333] rounded-lg p-2 text-sm text-gray-400 resize-none focus:outline-none focus:border-[#555]"
+                              placeholder="Notes…" value={fp.notes}
+                              onChange={e => setPoints(ps => ps.map(p => p.id === fp.id ? { ...p, notes: e.target.value } : p))}
+                              onBlur={e => db.focusPoints.update(fp.id, { notes: e.target.value })} />
+                          )}
                         </div>
                       ))}
 
@@ -2579,6 +2590,7 @@ export default function PersonalOS() {
   const [showPowder, setShowPowder] = useState(false);
   const [showFood, setShowFood] = useState(false);
   const [showRunning, setShowRunning] = useState(false);
+  const [showTrip, setShowTrip] = useState(false);
   const [focusPoints, setFocusPoints] = useState<FocusPoint[]>([]);
   const [allGoals, setAllGoals] = useState<Goal[]>([]);
 
@@ -2737,6 +2749,15 @@ export default function PersonalOS() {
     );
   }
 
+  if (showTrip) {
+    return (
+      <div className="min-h-screen bg-[#111] text-white p-8">
+        <button onClick={() => setShowTrip(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition-colors">← Back</button>
+        <TripPanel />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#111] text-white p-6">
       <div className="grid grid-cols-[1fr_3fr_1fr] gap-5 max-w-7xl mx-auto pt-8">
@@ -2791,6 +2812,7 @@ export default function PersonalOS() {
               <button onClick={() => setShowPowder(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Powder tracker">❄️</button>
               <button onClick={() => setShowFood(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="Food cost">🛒</button>
               <button onClick={() => setShowRunning(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="10K plan">🏃</button>
+              <button onClick={() => setShowTrip(true)} className="text-xl leading-none bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors" title="England & Dublin trip">🍀</button>
             </h1>
             <p className="text-xs text-gray-600 mt-2">
               {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}

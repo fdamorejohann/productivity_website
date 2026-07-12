@@ -70,6 +70,15 @@ create table if not exists meals (
   created_at timestamptz default now()
 );
 
+-- Trip cost tracker (England & Dublin) — logged in a single currency (£)
+create table if not exists trip_expenses (
+  id uuid primary key default gen_random_uuid(),
+  description text not null,
+  amount numeric(10,2) not null,
+  date text not null, -- YYYY-MM-DD
+  created_at timestamptz default now()
+);
+
 -- Running plan completions
 create table if not exists running_completions (
   id uuid primary key default gen_random_uuid(),

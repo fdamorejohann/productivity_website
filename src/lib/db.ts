@@ -95,6 +95,11 @@ export const db = {
     add: (meal: unknown) => api.post("/api/data/meals", meal),
     delete: (id: string) => api.delete("/api/data/meals", { id }),
   },
+  tripExpenses: {
+    list: () => api.get("/api/data/trip-expenses"),
+    add: (expense: unknown) => api.post("/api/data/trip-expenses", expense),
+    delete: (id: string) => api.delete("/api/data/trip-expenses", { id }),
+  },
   dnd: {
     campaigns: {
       list: () => api.get("/api/data/dnd-campaigns"),
