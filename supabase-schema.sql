@@ -74,7 +74,8 @@ create table if not exists meals (
 create table if not exists trip_expenses (
   id uuid primary key default gen_random_uuid(),
   description text not null,
-  amount numeric(10,2) not null,
+  amount numeric(10,2) not null default 0, -- £ paid; 0 when paid with points
+  points integer not null default 0,       -- points paid; 0 when paid with £
   date text not null, -- YYYY-MM-DD
   created_at timestamptz default now()
 );

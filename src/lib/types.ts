@@ -100,7 +100,8 @@ export interface Meal {
 export interface TripExpense {
   id: string;
   description: string;
-  amount: number;
+  amount: number;     // £ paid; 0 when paid with points
+  points: number;     // points paid; 0 when paid with £
   date: string;       // YYYY-MM-DD
   created_at: string;
 }
