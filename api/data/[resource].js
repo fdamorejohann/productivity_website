@@ -790,7 +790,10 @@ async function handleWidget(req, res) {
     // ── Runway ────────────────────────────────────────────────────────────────
     const summaryRows = summaryData.data ?? [];
     const currentMonthKey = new Date().toISOString().slice(0, 7);
-    const months = [...new Set(summaryRows.map(r => r.month))].sort().filter(m => m <= currentMonthKey);
+    const excludedSet = new Set(
+      summaryRows.filter(r => r.category === "excluded" && Number(r.value) === 1).map(r => r.month)
+    );
+    const months = [...new Set(summaryRows.map(r => r.month))].sort().filter(m => m <= currentMonthKey && !excludedSet.has(m));
     let cumTotal = 0;
     const monthlyS = [];
     for (const m of months) {

@@ -795,6 +795,7 @@ export default function BudgetPanel() {
   const [month, setMonth] = useState<string>(todayMonthKey);
   const [data, setData] = useState<MonthBudget | null>(null);
   const [nextMonthExists, setNextMonthExists] = useState(false);
+  const [excluded, setExcluded] = useState(false);
 
   // One-time migration: set all existing logs to Reserve - Chase with correct points
   useEffect(() => {
@@ -826,7 +827,17 @@ export default function BudgetPanel() {
       }
     });
     db.budget.get(nk).then((d: MonthBudget | null) => setNextMonthExists(!!d));
+    db.summary.list().then((rows: { month: string; category: string; value: number }[]) => {
+      const row = rows.find(r => r.month === month && r.category === "excluded");
+      setExcluded(Number(row?.value ?? 0) === 1);
+    });
   }, [month]);
+
+  function toggleExcluded() {
+    const next = !excluded;
+    setExcluded(next);
+    db.summary.upsert(month, "excluded", next ? 1 : 0);
+  }
 
   useEffect(() => {
     if (!data) return;
@@ -1125,6 +1136,8 @@ export default function BudgetPanel() {
           onResetMonth={createMonth}
           onExport={exportCsv}
           onExportForClaude={exportForClaude}
+          excluded={excluded}
+          onToggleExcluded={toggleExcluded}
         />
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="text-5xl mb-4">📅</div>
@@ -1183,6 +1196,8 @@ export default function BudgetPanel() {
         onResetMonth={resetCurrentMonth}
         onExport={exportCsv}
         onExportForClaude={exportForClaude}
+        excluded={excluded}
+        onToggleExcluded={toggleExcluded}
       />
 
       {/* Summary cards */}
@@ -1569,7 +1584,7 @@ function ImportStatusBadge({ status, reason }: { status: ImportStatus; reason?: 
 
 // ─── BudgetHeader ─────────────────────────────────────────────────────────────
 
-function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onNewMonth, onResetMonth, onExport, onExportForClaude }: {
+function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onNewMonth, onResetMonth, onExport, onExportForClaude, excluded, onToggleExcluded }: {
   month: string;
   isCurrentMonth: boolean;
   showNewMonth: boolean;
@@ -1579,11 +1594,31 @@ function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onN
   onResetMonth: () => void;
   onExport: () => void;
   onExportForClaude: () => void;
+  excluded: boolean;
+  onToggleExcluded: () => void;
 }) {
   return (
     <div className="flex items-center justify-between">
-      <h1 className="text-3xl font-bold text-white">Budget</h1>
       <div className="flex items-center gap-3">
+        <h1 className="text-3xl font-bold text-white">Budget</h1>
+        {excluded && (
+          <span className="px-2 py-0.5 text-xs font-medium text-amber-300 bg-amber-900/30 border border-amber-800 rounded-full">
+            Excluded from charts
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onToggleExcluded}
+          title={excluded ? "Include this month in the trend charts" : "Exclude this month from the trend charts"}
+          className={`px-3 py-1.5 text-sm font-medium border rounded-lg transition-colors ${
+            excluded
+              ? "text-amber-300 border-amber-700 bg-amber-900/30 hover:bg-amber-900/50"
+              : "text-gray-300 border-[#333] hover:bg-[#2a2a2a]"
+          }`}
+        >
+          {excluded ? "Excluded" : "Exclude from charts"}
+        </button>
         {showNewMonth && (
           <button onClick={onNewMonth} className="px-3 py-1.5 text-sm font-medium text-blue-400 border border-blue-800 rounded-lg hover:bg-blue-900/30 transition-colors">
             + New Month

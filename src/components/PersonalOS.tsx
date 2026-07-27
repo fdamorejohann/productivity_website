@@ -602,6 +602,11 @@ function GoalsBox({
 
 type SummaryRow = { month: string; category: string; value: number };
 
+// Months the user has toggled off — excluded from all trend/runway charts.
+function excludedMonths(rows: SummaryRow[]): Set<string> {
+  return new Set(rows.filter(r => r.category === "excluded" && Number(r.value) === 1).map(r => r.month));
+}
+
 function buildCumulativeLine(rows: SummaryRow[], category: string, sortedMonths: string[]): number[] {
   let cum = 0;
   return [0, ...sortedMonths.map(m => {
@@ -637,7 +642,8 @@ function RunwayInline({ rows, loading, hoveredIdx, setHoveredIdx }: {
   hoveredIdx: number | null; setHoveredIdx: (i: number | null) => void;
 }) {
   const currentMonthKey = new Date().toISOString().slice(0, 7);
-  const sortedMonths = [...new Set(rows.map(r => r.month))].sort().filter(m => m <= currentMonthKey);
+  const excluded = excludedMonths(rows);
+  const sortedMonths = [...new Set(rows.map(r => r.month))].sort().filter(m => m <= currentMonthKey && !excluded.has(m));
   const monthlySavings  = sortedMonths.map(m => Number(rows.find(r => r.month === m && r.category === "savings")?.value ?? 0));
   const monthlyLeftover = sortedMonths.map(m => Number(rows.find(r => r.month === m && r.category === "leftover")?.value ?? 0));
   let cum = 0;
@@ -724,7 +730,8 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   }, []);
 
   const currentMonthKey = new Date().toISOString().slice(0, 7);
-  const sortedMonths = [...new Set(rows.map(r => r.month))].sort().filter(m => m <= currentMonthKey);
+  const excluded = excludedMonths(rows);
+  const sortedMonths = [...new Set(rows.map(r => r.month))].sort().filter(m => m <= currentMonthKey && !excluded.has(m));
   const savingsLine  = buildCumulativeLine(rows, "savings", sortedMonths);
   const investLine   = buildCumulativeLine(rows, "investments", sortedMonths);
   const leftoverLine = buildCumulativeLine(rows, "leftover", sortedMonths);
