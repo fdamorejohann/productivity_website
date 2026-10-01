@@ -1,6 +1,6 @@
 /**
  * PersonalOS.tsx — Dark mode personal dashboard
- * 3-column layout: Goals | Finance + Habits/Calendar | Hello Finn
+ * 3-column layout: Goals | Finance + Jobs + News | Hello Finn
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -11,6 +11,7 @@ import FoodCostPanel from "./FoodCostPanel";
 import RunningPanel from "./RunningPanel";
 import TripPanel from "./TripPanel";
 import { db } from "../lib/db";
+import type { JobPosting, JobStatus } from "../lib/types";
 const uid = () => crypto.randomUUID();
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -71,45 +72,6 @@ interface PlannedHabit {
   habitId: string;
   date: string; // YYYY-MM-DD
   done: boolean;
-}
-
-interface CalendarEvent {
-  id: string;
-  date: string;
-  title: string;
-  time: string;
-  description?: string;
-  gcalId?: string; // Google Calendar event ID, stored after push
-}
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const HABIT_COLORS = [
-  "#3b82f6", "#10b981", "#f59e0b", "#ef4444",
-  "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16",
-];
-
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function getMondayOf(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function getWeekDates(monday: Date): Date[] {
-  return DAYS.map((_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d;
-  });
-}
-
-function dateStr(d: Date) {
-  return d.toISOString().slice(0, 10);
 }
 
 // ─── Focus Points Box ────────────────────────────────────────────────────────
@@ -428,10 +390,10 @@ function GoalsBox({
       </div>
 
       {isDaily ? (
-        /* ── Daily: draggable chips (drag onto a calendar day) ── */
+        /* ── Daily: task chips ── */
         <div className="flex-1 overflow-y-auto">
           {active.length === 0 && done.length === 0 && (
-            <p className="text-xs text-gray-600 text-center py-4">Add tasks in “All →”, then drag onto the calendar</p>
+            <p className="text-xs text-gray-600 text-center py-4">Add tasks in “All →”</p>
           )}
           <div className="flex flex-wrap gap-2">
             {active.map(g => {
@@ -439,10 +401,7 @@ function GoalsBox({
               return (
                 <div
                   key={g.id}
-                  draggable
-                  onDragStart={e => { e.dataTransfer.setData("text/plain", `goal:${g.id}`); e.dataTransfer.effectAllowed = "copyMove"; }}
-                  title="Drag onto a calendar day"
-                  className="group/chip flex items-center gap-1.5 rounded-full pl-1 pr-2 py-1 text-xs font-medium cursor-grab active:cursor-grabbing"
+                  className="group/chip flex items-center gap-1.5 rounded-full pl-1 pr-2 py-1 text-xs font-medium"
                   style={{ backgroundColor: `${color}22`, color }}
                 >
                   <button onClick={() => onToggleDone(g.id)} className="w-3.5 h-3.5 rounded-full border flex-shrink-0" style={{ borderColor: color, backgroundColor: "transparent" }} />
@@ -838,718 +797,6 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   );
 }
 
-// ─── Habits + Calendar ───────────────────────────────────────────────────────
-
-function HabitsCalendar({ dailyGoals, colorFor, onScheduleGoal, onUnscheduleGoal, onToggleGoalDone }: {
-  dailyGoals: Goal[];
-  colorFor: (g: Goal) => string;
-  onScheduleGoal: (id: string, date: string) => void;
-  onUnscheduleGoal: (id: string) => void;
-  onToggleGoalDone: (id: string) => void;
-}) {
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
-  const [planned, setPlanned] = useState<PlannedHabit[]>([]);
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [newHabit, setNewHabit] = useState("");
-  const [newFreq, setNewFreq] = useState(3);
-  const [selectedHabit, setSelectedHabit] = useState<string | null>(null);
-  const [fullCalOpen, setFullCalOpen] = useState(false);
-  const [quickAdd, setQuickAdd] = useState<{ date: string; title: string; time: string } | null>(null);
-  const [histExpanded, setHistExpanded] = useState(false);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [gcalEvents, setGcalEvents] = useState<CalendarEvent[]>([]);
-  const [gcalConnected, setGcalConnected] = useState(false);
-  const [gcalRefreshing, setGcalRefreshing] = useState(false);
-  const [calMonth, setCalMonth] = useState(() => {
-    const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() };
-  });
-  const [newEventDate, setNewEventDate] = useState(todayStr());
-  const [newEventTitle, setNewEventTitle] = useState("");
-  const [newEventTime, setNewEventTime] = useState("09:00");
-  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-
-  const fetchGcal = () => {
-    setGcalRefreshing(true);
-    db.gcal.get().then((res: { connected: boolean; events: { id: string; title: string; start: string; allDay: boolean }[] }) => {
-      if (!res?.connected) { setGcalRefreshing(false); return; }
-      setGcalConnected(true);
-      const mapped: CalendarEvent[] = res.events.map(e => {
-        const dt = new Date(e.start);
-        const date = e.allDay ? e.start.slice(0, 10) : `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
-        const time = e.allDay ? "" : dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-        return { id: `gcal_${e.id}`, date, title: e.title, time };
-      });
-      setGcalEvents(mapped);
-      setGcalRefreshing(false);
-    }).catch(() => setGcalRefreshing(false));
-  };
-
-  useEffect(() => {
-    db.habits.list().then((h: Habit[]) => setHabits(h));
-    db.planned.list().then((p: PlannedHabit[]) => setPlanned(p.map((x: PlannedHabit & { habit_id?: string }) => ({ ...x, habitId: x.habit_id ?? x.habitId }))));
-    db.events.list().then((e: CalendarEvent[]) => setEvents(e));
-    fetchGcal();
-  }, []);
-
-  const monday = getMondayOf(new Date());
-  monday.setDate(monday.getDate() + weekOffset * 7);
-  const weekDates = getWeekDates(monday);
-
-  const addHabit = async () => {
-    if (!newHabit.trim()) return;
-    const color = HABIT_COLORS[habits.length % HABIT_COLORS.length];
-    const habit = { id: uid(), label: newHabit.trim(), color, frequency: newFreq };
-    const saved = await db.habits.upsert(habit);
-    setHabits(h => [...h, saved]);
-    setNewHabit("");
-  };
-
-  const assignHabit = async (date: string) => {
-    if (!selectedHabit) return;
-    const plan = { id: uid(), habit_id: selectedHabit, date, done: false };
-    const saved = await db.planned.upsert(plan);
-    setPlanned(p => [...p, { ...saved, habitId: saved.habit_id }]);
-  };
-
-  const toggleDone = async (id: string) => {
-    const plan = planned.find(x => x.id === id)!;
-    setPlanned(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x));
-    await db.planned.update(id, { done: !plan.done });
-  };
-
-  const removePlan = async (id: string) => {
-    setPlanned(p => p.filter(x => x.id !== id));
-    await db.planned.delete(id);
-  };
-
-  const removeHabit = async (id: string) => {
-    setHabits(h => h.filter(x => x.id !== id));
-    setPlanned(p => p.filter(x => x.habitId !== id));
-    await db.habits.delete(id);
-  };
-
-  const habit = (id: string) => habits.find(h => h.id === id);
-
-  // Full calendar helpers
-  const addEvent = async () => {
-    if (!newEventTitle.trim()) return;
-    const event = { id: uid(), date: newEventDate, title: newEventTitle.trim(), time: newEventTime, description: "" };
-    const saved = await db.events.upsert(event);
-    setEvents(e => [...e, saved]);
-    setNewEventTitle("");
-    // Push to Google Calendar if connected, then save returned GCal ID
-    if (gcalConnected) {
-      fetch("/api/data/gcal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: event.title, date: event.date, time: event.time, description: "" }),
-      }).then(r => r.json()).then(gcal => {
-        if (gcal.id) {
-          const withGcalId = { ...saved, gcalId: gcal.id };
-          db.events.upsert(withGcalId);
-          setEvents(es => es.map(e => e.id === saved.id ? withGcalId : e));
-        }
-      }).catch(() => {});
-    }
-  };
-
-  const saveEvent = async (ev: CalendarEvent) => {
-    await db.events.upsert(ev);
-    setEvents(es => es.map(e => e.id === ev.id ? ev : e));
-    setEditingEvent(null);
-  };
-
-  const deleteEvent = async (id: string) => {
-    if (gcalConnected) {
-      const localEv = events.find(e => e.id === id);
-      const gcalEventId = localEv?.gcalId ?? (gcalEvents.some(g => g.id === id) ? id : null);
-      if (gcalEventId) {
-        fetch("/api/data/gcal", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ eventId: gcalEventId }),
-        }).catch(() => {});
-      }
-    }
-    await db.events.delete(id);
-    setEvents(es => es.filter(e => e.id !== id));
-    setEditingEvent(null);
-  };
-
-  const calDays = () => {
-    const { year, month } = calMonth;
-    const first = new Date(year, month, 1);
-    const startOffset = first.getDay() === 0 ? 6 : first.getDay() - 1;
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const cells: (number | null)[] = Array(startOffset).fill(null);
-    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-    while (cells.length % 7 !== 0) cells.push(null);
-    return cells;
-  };
-
-  const monthLabel = new Date(calMonth.year, calMonth.month).toLocaleDateString("en-US", { month: "long", year: "numeric" });
-
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Habit chips */}
-      <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Weekly Habits</span>
-          <div className="flex items-center gap-2">
-            {selectedHabit && (
-              <button onClick={() => setSelectedHabit(null)} className="text-xs text-gray-500 hover:text-white">
-                ✕ Deselect
-              </button>
-            )}
-            <button
-              onClick={async () => {
-                const weekDateStrs = new Set(weekDates.map(d => dateStr(d)));
-                const toDelete = planned.filter(x => weekDateStrs.has(x.date));
-                setPlanned(p => p.filter(x => !weekDateStrs.has(x.date)));
-                await Promise.all(toDelete.map(x => db.planned.delete(x.id)));
-              }}
-              className="text-xs text-gray-500 hover:text-red-400 border border-[#333] rounded-lg px-2 py-1 transition-colors"
-            >
-              Clear week
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 mb-3">
-          {habits.map(h => {
-            const weekDateStrs = new Set(weekDates.map(d => dateStr(d)));
-            const assignedThisWeek = planned.filter(p =>
-              p.habitId === h.id && weekDateStrs.has(p.date)
-            ).length;
-            return (
-              <div key={h.id} className="flex items-center gap-1 group">
-                <button
-                  onClick={() => setSelectedHabit(selectedHabit === h.id ? null : h.id)}
-                  className="text-xs px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1.5"
-                  style={{
-                    backgroundColor: selectedHabit === h.id ? h.color : `${h.color}22`,
-                    color: selectedHabit === h.id ? "#fff" : h.color,
-                    outline: selectedHabit === h.id ? `2px solid ${h.color}` : "none",
-                  }}
-                >
-                  {h.label}
-                  <span className="opacity-70 text-[10px]">{h.frequency - assignedThisWeek}/{h.frequency}x</span>
-                </button>
-                <button onClick={() => removeHabit(h.id)} className="text-gray-700 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">✕</button>
-              </div>
-            );
-          })}
-          {habits.length === 0 && <p className="text-xs text-gray-600">Add habits below to assign them to days</p>}
-        </div>
-
-        <div className="flex gap-2">
-          <input
-            className="flex-1 bg-[#252525] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500"
-            placeholder="New habit…"
-            value={newHabit}
-            onChange={e => setNewHabit(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && addHabit()}
-          />
-          <select
-            className="bg-[#252525] border border-[#333] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none"
-            value={newFreq}
-            onChange={e => setNewFreq(Number(e.target.value))}
-            title="Times per week"
-          >
-            {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n}x/wk</option>)}
-          </select>
-          <button onClick={addHabit} className="bg-white text-black px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-200">+</button>
-        </div>
-
-        {selectedHabit && (
-          <p className="text-xs text-gray-500 mt-2">Click a day below to assign <strong className="text-gray-300">{habit(selectedHabit)?.label}</strong></p>
-        )}
-      </div>
-
-      {/* Weekly calendar grid */}
-      <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
-        {/* Week nav + completion bar */}
-        {(() => {
-          const weekDateStrs = new Set(weekDates.map(d => dateStr(d)));
-          const weekPlans = planned.filter(p => weekDateStrs.has(p.date));
-          const weekDone = weekPlans.filter(p => p.done).length;
-          const weekTotal = habits.reduce((s, h) => s + h.frequency, 0);
-          const pct = weekTotal === 0 ? 0 : Math.round((weekDone / weekTotal) * 100);
-          return (
-            <div className="mb-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setWeekOffset(w => w - 1)} className="text-gray-500 hover:text-white text-sm px-1">‹</button>
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-                    {dateStr(weekDates[0])} — {dateStr(weekDates[6])}
-                  </span>
-                  <button onClick={() => setWeekOffset(w => w + 1)} className="text-gray-500 hover:text-white text-sm px-1">›</button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500">{weekDone}/{weekTotal} done · {pct}%</span>
-                  {!gcalConnected && (
-                    <a
-                      href="/api/auth/google"
-                      className="text-xs text-blue-400 hover:text-blue-300 border border-blue-900 rounded-lg px-2 py-1 transition-colors"
-                    >
-                      + Google Cal
-                    </a>
-                  )}
-                  {gcalConnected && (
-                    <button
-                      onClick={() => fetchGcal()}
-                      disabled={gcalRefreshing}
-                      className="text-xs text-green-500 hover:text-green-400 transition-colors disabled:opacity-50"
-                      title="Refresh Google Calendar"
-                    >
-                      {gcalRefreshing ? "↻ Syncing…" : "● Google Cal ↻"}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setFullCalOpen(true)}
-                    className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-2 py-1"
-                  >
-                    Full Cal →
-                  </button>
-                </div>
-              </div>
-              {weekTotal > 0 && (
-                <div className="h-1.5 bg-[#2a2a2a] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${pct}%`, backgroundColor: pct === 100 ? "#22c55e" : "#3b82f6" }}
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-        <div className="grid grid-cols-7 gap-1.5">
-          {weekDates.map((d, i) => {
-            const ds = dateStr(d);
-            const isToday = ds === todayStr();
-            const dayPlans = planned.filter(p => p.date === ds);
-            const dayEvents = [...events, ...gcalEvents].filter(e => e.date === ds);
-            const dayGoals = dailyGoals.filter(g => g.scheduled_date === ds);
-
-            return (
-              <div
-                key={i}
-                onClick={() => assignHabit(ds)}
-                onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverDay !== ds) setDragOverDay(ds); }}
-                onDragLeave={() => setDragOverDay(d => (d === ds ? null : d))}
-                onDrop={e => {
-                  setDragOverDay(null);
-                  const data = e.dataTransfer.getData("text/plain");
-                  if (data.startsWith("goal:")) { e.preventDefault(); onScheduleGoal(data.slice(5), ds); }
-                }}
-                className={`rounded-xl p-2 min-h-48 cursor-pointer transition-colors ${
-                  selectedHabit ? "hover:bg-[#2a2a2a]" : ""
-                } ${dragOverDay === ds ? "border border-gray-400 bg-[#2a2a2a]" : isToday ? "border border-[#3a3a3a] bg-[#242424]" : "border border-[#262626]"}`}
-              >
-                <div className={`text-xs font-semibold mb-0.5 ${isToday ? "text-white" : "text-gray-600"}`}>{DAYS[i]}</div>
-                <div className={`text-lg font-bold mb-1.5 ${isToday ? "text-white" : "text-gray-500"}`}>{d.getDate()}</div>
-                <div className="space-y-1">
-                  {dayGoals.map(g => {
-                    const color = colorFor(g);
-                    return (
-                      <div
-                        key={g.id}
-                        className="group/task relative flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium cursor-pointer transition-all"
-                        style={{ backgroundColor: g.done ? `${color}60` : `${color}22`, color, textDecoration: g.done ? "line-through" : "none", opacity: g.done ? 0.7 : 1 }}
-                        onClick={e => { e.stopPropagation(); onToggleGoalDone(g.id); }}
-                      >
-                        <span className="w-2 h-2 rounded-sm flex-shrink-0 border" style={{ backgroundColor: g.done ? color : "transparent", borderColor: color }} />
-                        <span className="break-words min-w-0">{g.title}</span>
-                        <button
-                          className="absolute -top-1 -right-1 w-3 h-3 bg-[#1e1e1e] border border-[#333] rounded-full text-gray-500 hover:text-red-400 hidden group-hover/task:flex items-center justify-center text-xs leading-none"
-                          onClick={e => { e.stopPropagation(); onUnscheduleGoal(g.id); }}
-                          title="Remove from this day"
-                        >×</button>
-                      </div>
-                    );
-                  })}
-                  {dayPlans.map(p => {
-                    const h = habit(p.habitId);
-                    if (!h) return null;
-                    return (
-                      <div
-                        key={p.id}
-                        className="group/chip relative flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium cursor-pointer transition-all"
-                        style={{
-                          backgroundColor: p.done ? `${h.color}60` : `${h.color}22`,
-                          color: h.color,
-                          textDecoration: p.done ? "line-through" : "none",
-                          opacity: p.done ? 0.7 : 1,
-                        }}
-                        onClick={e => { e.stopPropagation(); toggleDone(p.id); }}
-                      >
-                        <span
-                          className="w-2 h-2 rounded-full flex-shrink-0 border transition-all"
-                          style={{
-                            backgroundColor: p.done ? h.color : "transparent",
-                            borderColor: h.color,
-                          }}
-                        />
-                        <span className="break-words min-w-0">{h.label}</span>
-                        <button
-                          className="absolute -top-1 -right-1 w-3 h-3 bg-[#1e1e1e] border border-[#333] rounded-full text-gray-500 hover:text-red-400 hidden group-hover/chip:flex items-center justify-center text-xs leading-none"
-                          onClick={e => { e.stopPropagation(); removePlan(p.id); }}
-                        >×</button>
-                      </div>
-                    );
-                  })}
-                  {dayEvents.map(ev => (
-                    <div
-                      key={ev.id}
-                      onClick={e => { e.stopPropagation(); if (!ev.id.startsWith("gcal_")) setEditingEvent(ev); }}
-                      className={`text-xs rounded-md px-1.5 py-1 mb-0.5 leading-tight break-words ${ev.id.startsWith("gcal_") ? "bg-green-900/40 text-green-400 border border-green-900/60" : "bg-blue-900/40 text-blue-300 border border-blue-900/60 cursor-pointer hover:bg-blue-900/60"}`}
-                    >
-                      {ev.time && <span className="opacity-60 mr-1">{ev.time}</span>}{ev.title}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Historical completion chart */}
-      {(() => {
-        const totalFreq = habits.reduce((s, h) => s + h.frequency, 0);
-        if (totalFreq === 0 || planned.length === 0) return null;
-
-        // Group planned entries by their Monday date key
-        const weekMap = new Map<string, { done: number }>();
-        for (const p of planned) {
-          const monday = getMondayOf(new Date(p.date + "T00:00:00"));
-          const key = dateStr(monday);
-          if (!weekMap.has(key)) weekMap.set(key, { done: 0 });
-          if (p.done) weekMap.get(key)!.done++;
-        }
-
-        const weeks = Array.from(weekMap.entries())
-          .sort((a, b) => a[0].localeCompare(b[0]))
-          .map(([, v]) => Math.min(100, Math.round((v.done / totalFreq) * 100)));
-
-        if (weeks.length < 1) return null;
-
-        // Convert to running average (each point = avg of all weeks so far)
-        const runningAvg = weeks.map((_, i) =>
-          Math.round(weeks.slice(0, i + 1).reduce((s, v) => s + v, 0) / (i + 1))
-        );
-
-        const W = 400;
-        const H = 60;
-        const pad = 8;
-        const innerW = W - pad * 2;
-        const innerH = H - pad * 2;
-
-        const pts = runningAvg.map((pct, i) => {
-          const x = runningAvg.length === 1 ? pad + innerW / 2 : pad + (i / (runningAvg.length - 1)) * innerW;
-          const y = pad + innerH - (pct / 100) * innerH;
-          return [x, y] as [number, number];
-        });
-
-        const linePath = pts.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x} ${y}`).join(" ");
-        const areaPath = `${linePath} L ${pts[pts.length - 1][0]} ${pad + innerH} L ${pts[0][0]} ${pad + innerH} Z`;
-
-        return (
-          <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Completion History</span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600">{weeks.length} week{weeks.length !== 1 ? "s" : ""}</span>
-                <button
-                  onClick={() => setHistExpanded(x => !x)}
-                  className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-2 py-1 transition-colors"
-                >
-                  ⤢
-                </button>
-              </div>
-            </div>
-            {/* Compact sparkline (always visible) */}
-            <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-14" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="histGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <line x1={pad} y1={pad + innerH / 2} x2={W - pad} y2={pad + innerH / 2} stroke="#2a2a2a" strokeWidth="1" strokeDasharray="4 4" />
-              <path d={areaPath} fill="url(#histGrad)" />
-              <path d={linePath} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              {pts.map(([x, y], i) => (
-                <circle key={i} cx={x} cy={y} r="2.5" fill="#3b82f6" />
-              ))}
-            </svg>
-            <div className="flex justify-between text-[10px] text-gray-700 mt-1">
-              <span>0%</span>
-              <span>50%</span>
-              <span>100%</span>
-            </div>
-
-            {/* Expanded modal */}
-            {histExpanded && (
-              <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-8" onClick={() => setHistExpanded(false)}>
-                <div
-                  className="bg-[#181818] border border-[#2e2e2e] rounded-2xl p-8 shadow-2xl w-full max-w-3xl"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <span className="text-sm font-semibold text-white">Completion History</span>
-                      <span className="text-xs text-gray-600 ml-3">{weeks.length} week{weeks.length !== 1 ? "s" : ""} logged</span>
-                    </div>
-                    <button onClick={() => setHistExpanded(false)} className="text-gray-500 hover:text-white text-lg">✕</button>
-                  </div>
-                  {(() => {
-                    const EW = 600;
-                    const EH = 200;
-                    const ep = 28;
-                    const eiW = EW - ep * 2;
-                    const eiH = EH - ep * 2;
-                    const epts = runningAvg.map((pct, i) => {
-                      const x = runningAvg.length === 1 ? ep + eiW / 2 : ep + (i / (runningAvg.length - 1)) * eiW;
-                      const y = ep + eiH - (pct / 100) * eiH;
-                      return [x, y] as [number, number];
-                    });
-                    const eLine = epts.map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x} ${y}`).join(" ");
-                    const eArea = `${eLine} L ${epts[epts.length - 1][0]} ${ep + eiH} L ${epts[0][0]} ${ep + eiH} Z`;
-                    return (
-                      <>
-                        <svg viewBox={`0 0 ${EW} ${EH}`} className="w-full" style={{ height: 220 }} preserveAspectRatio="none">
-                          <defs>
-                            <linearGradient id="histGradE" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-                              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                            </linearGradient>
-                          </defs>
-                          {[0, 25, 50, 75, 100].map(pct => {
-                            const ly = ep + eiH - (pct / 100) * eiH;
-                            return (
-                              <g key={pct}>
-                                <line x1={ep} y1={ly} x2={EW - ep} y2={ly} stroke="#252525" strokeWidth="1" strokeDasharray="4 4" />
-                                <text x={ep - 6} y={ly + 4} fontSize="9" fill="#555" textAnchor="end">{pct}%</text>
-                              </g>
-                            );
-                          })}
-                          <path d={eArea} fill="url(#histGradE)" />
-                          <path d={eLine} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                          {epts.map(([x, y], i) => (
-                            <g key={i}>
-                              <circle cx={x} cy={y} r="5" fill="#1e1e1e" stroke="#3b82f6" strokeWidth="2" />
-                              <text x={x} y={y - 12} fontSize="10" fill="#9ca3af" textAnchor="middle">{runningAvg[i]}%</text>
-                              <text x={x} y={ep + eiH + 16} fontSize="9" fill="#555" textAnchor="middle">W{i + 1}</text>
-                            </g>
-                          ))}
-                        </svg>
-                        <div className="flex gap-6 mt-4 pt-4 border-t border-[#2a2a2a]">
-                          <div><p className="text-xs text-gray-600">Current avg</p><p className="text-lg font-bold text-white">{runningAvg[runningAvg.length - 1]}%</p></div>
-                          <div><p className="text-xs text-gray-600">Best week</p><p className="text-lg font-bold text-white">{Math.max(...weeks)}%</p></div>
-                          <div><p className="text-xs text-gray-600">Latest week</p><p className="text-lg font-bold text-white">{weeks[weeks.length - 1]}%</p></div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* Full calendar modal */}
-      {fullCalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6" onClick={() => setFullCalOpen(false)}>
-          <div className="bg-[#181818] border border-[#2e2e2e] rounded-2xl w-full max-w-2xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-3">
-                <button onClick={() => setCalMonth(m => {
-                  const d = new Date(m.year, m.month - 1);
-                  return { year: d.getFullYear(), month: d.getMonth() };
-                })} className="text-gray-500 hover:text-white">‹</button>
-                <span className="text-sm font-semibold text-white">{monthLabel}</span>
-                <button onClick={() => setCalMonth(m => {
-                  const d = new Date(m.year, m.month + 1);
-                  return { year: d.getFullYear(), month: d.getMonth() };
-                })} className="text-gray-500 hover:text-white">›</button>
-              </div>
-              <button onClick={() => setFullCalOpen(false)} className="text-gray-500 hover:text-white text-lg">✕</button>
-            </div>
-
-            {/* Month grid */}
-            <div className="grid grid-cols-7 gap-1 mb-5">
-              {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
-                <div key={i} className="text-center text-xs text-gray-600 font-medium pb-1">{d}</div>
-              ))}
-              {calDays().map((day, i) => {
-                if (!day) return <div key={i} />;
-                const ds = `${calMonth.year}-${String(calMonth.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                const dayEvents = [...events, ...gcalEvents].filter(e => e.date === ds);
-                const isToday = ds === todayStr();
-                const isQuickAdd = quickAdd?.date === ds;
-                return (
-                  <div key={i} className={`relative rounded-lg p-1.5 min-h-12 cursor-pointer ${isToday ? "bg-[#2a2a2a] border border-[#444]" : "hover:bg-[#222]"} ${isQuickAdd ? "ring-1 ring-blue-500" : ""}`}
-                    onClick={() => setQuickAdd(isQuickAdd ? null : { date: ds, title: "", time: "09:00" })}>
-                    <div className={`text-xs font-medium mb-1 ${isToday ? "text-white" : "text-gray-500"}`}>{day}</div>
-                    {dayEvents.map(ev => (
-                      <div
-                        key={ev.id}
-                        onClick={e => { e.stopPropagation(); if (!ev.id.startsWith("gcal_")) setEditingEvent(ev); }}
-                        className={`text-xs rounded px-1.5 py-0.5 mb-0.5 break-words leading-tight border ${ev.id.startsWith("gcal_") ? "bg-green-900/40 text-green-400 border-green-900/60" : "bg-blue-900/40 text-blue-300 border-blue-900/60 cursor-pointer hover:bg-blue-900/60"}`}
-                      >{ev.title}</div>
-                    ))}
-                    {/* Quick-add popover */}
-                    {isQuickAdd && (
-                      <div className="absolute top-full left-0 mt-1 z-50 bg-[#1a1a1a] border border-[#333] rounded-xl shadow-2xl p-3 w-56"
-                        onClick={e => e.stopPropagation()}>
-                        <input
-                          autoFocus
-                          className="w-full bg-[#252525] border border-[#333] rounded-lg px-2.5 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 mb-2"
-                          placeholder="Event title…"
-                          value={quickAdd.title}
-                          onChange={e => setQuickAdd({ ...quickAdd, title: e.target.value })}
-                          onKeyDown={async e => {
-                            if (e.key === "Enter" && quickAdd.title.trim()) {
-                              setNewEventDate(quickAdd.date);
-                              setNewEventTime(quickAdd.time);
-                              setNewEventTitle(quickAdd.title);
-                              const event = { id: uid(), date: quickAdd.date, title: quickAdd.title.trim(), time: quickAdd.time, description: "" };
-                              const saved = await db.events.upsert(event);
-                              setEvents(ev => [...ev, saved]);
-                              if (gcalConnected) {
-                                fetch("/api/data/gcal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: event.title, date: event.date, time: event.time }) })
-                                  .then(r => r.json()).then(gcal => { if (gcal.id) { const w = { ...saved, gcalId: gcal.id }; db.events.upsert(w); setEvents(es => es.map(ev => ev.id === saved.id ? w : ev)); } }).catch(() => {});
-                              }
-                              setQuickAdd(null);
-                            }
-                            if (e.key === "Escape") setQuickAdd(null);
-                          }}
-                        />
-                        <input type="time"
-                          className="w-full bg-[#252525] border border-[#333] rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 mb-2"
-                          value={quickAdd.time}
-                          onChange={e => setQuickAdd({ ...quickAdd, time: e.target.value })}
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg py-1.5 transition-colors"
-                            onClick={async () => {
-                              if (!quickAdd.title.trim()) return;
-                              const event = { id: uid(), date: quickAdd.date, title: quickAdd.title.trim(), time: quickAdd.time, description: "" };
-                              const saved = await db.events.upsert(event);
-                              setEvents(ev => [...ev, saved]);
-                              if (gcalConnected) {
-                                fetch("/api/data/gcal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: event.title, date: event.date, time: event.time }) })
-                                  .then(r => r.json()).then(gcal => { if (gcal.id) { const w = { ...saved, gcalId: gcal.id }; db.events.upsert(w); setEvents(es => es.map(ev => ev.id === saved.id ? w : ev)); } }).catch(() => {});
-                              }
-                              setQuickAdd(null);
-                            }}
-                          >Add</button>
-                          <button onClick={() => setQuickAdd(null)} className="px-2.5 text-gray-600 hover:text-white text-xs transition-colors">✕</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Add event */}
-            <div className="border-t border-[#2a2a2a] pt-4">
-              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Add Event</p>
-              <div className="flex gap-2 flex-wrap">
-                <input
-                  className="flex-1 min-w-0 bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none"
-                  placeholder="Event title…"
-                  value={newEventTitle}
-                  onChange={e => setNewEventTitle(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && addEvent()}
-                />
-                <input type="date" className="bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} />
-                <input type="time" className="bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none" value={newEventTime} onChange={e => setNewEventTime(e.target.value)} />
-                <button onClick={addEvent} className="bg-white text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">Add</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Event edit modal ── */}
-      {editingEvent && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6" onClick={() => setEditingEvent(null)}>
-          <div className="bg-[#181818] border border-[#2e2e2e] rounded-2xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <span className="text-sm font-semibold text-white">Edit Event</span>
-              <button onClick={() => setEditingEvent(null)} className="text-gray-500 hover:text-white text-lg">✕</button>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Title</label>
-                <input
-                  className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#555]"
-                  value={editingEvent.title}
-                  onChange={e => setEditingEvent({ ...editingEvent, title: e.target.value })}
-                />
-              </div>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Date</label>
-                  <input
-                    type="date"
-                    className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#555]"
-                    value={editingEvent.date}
-                    onChange={e => setEditingEvent({ ...editingEvent, date: e.target.value })}
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Time</label>
-                  <input
-                    type="time"
-                    className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#555]"
-                    value={editingEvent.time}
-                    onChange={e => setEditingEvent({ ...editingEvent, time: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Description</label>
-                <textarea
-                  className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#555] resize-none"
-                  rows={3}
-                  placeholder="Add a description…"
-                  value={editingEvent.description ?? ""}
-                  onChange={e => setEditingEvent({ ...editingEvent, description: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="flex justify-between mt-5">
-              <button
-                onClick={() => deleteEvent(editingEvent.id)}
-                className="text-sm text-red-400 hover:text-red-300 transition-colors"
-              >Delete</button>
-              <div className="flex gap-2">
-                <button onClick={() => setEditingEvent(null)} className="text-sm text-gray-500 hover:text-gray-300 px-3 py-1.5">Cancel</button>
-                <button
-                  onClick={() => saveEvent(editingEvent)}
-                  className="bg-white text-black px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-200"
-                >Save</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-
-
 // ─── Weather Box ─────────────────────────────────────────────────────────────
 
 const WMO_LABELS: Record<number, string> = {
@@ -1846,6 +1093,231 @@ function NewsWidget() {
                       Read full article →
                     </a>
                   </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Jobs Panel ──────────────────────────────────────────────────────────────
+// Rows come from public.job_postings (filled + scored by the external scanner).
+// Only status and notes are editable here.
+
+type JobTab = "new" | "interested" | "applied" | "all";
+const JOB_TABS: { key: JobTab; label: string; color: string }[] = [
+  { key: "new",        label: "New",        color: "#3b82f6" },
+  { key: "interested", label: "Interested", color: "#f59e0b" },
+  { key: "applied",    label: "Applied",    color: "#22c55e" },
+  { key: "all",        label: "All",        color: "#9ca3af" },
+];
+const JOB_HIDDEN: JobStatus[] = ["skipped", "closed"];
+
+function fitColor(score: number | null): string {
+  if (score === 5) return "#22c55e";
+  if (score === 4) return "#84cc16";
+  if (score === 3) return "#f59e0b";
+  return "#6b7280";
+}
+
+function jobAge(iso: string): string {
+  const h = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000);
+  if (h < 24) return `${Math.max(h, 0)}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function FitBadge({ score }: { score: number | null }) {
+  if (score == null) {
+    return <span className="w-6 h-6 rounded-md flex items-center justify-center text-xs text-gray-600 border border-[#333]" title="Not scored yet">—</span>;
+  }
+  const c = fitColor(score);
+  return (
+    <span className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold"
+      style={{ color: c, backgroundColor: `${c}22`, border: `1px solid ${c}55` }} title={`Fit ${score}/5`}>
+      {score}
+    </span>
+  );
+}
+
+function JobDetails({ job, onStatus, onNotes }: {
+  job: JobPosting;
+  onStatus: (status: JobStatus) => void;
+  onNotes: (notes: string | null) => void;
+}) {
+  const [draft, setDraft] = useState(job.notes ?? "");
+  const reasons = job.fit_details?.reasons ?? [];
+  const flags = job.fit_details?.red_flags ?? [];
+  const resume = job.fit_details?.resume ?? null;
+
+  const saveNotes = () => {
+    const next = draft.trim() === "" ? null : draft;
+    if (next !== job.notes) onNotes(next);
+  };
+
+  const STATUS_BTNS: { status: JobStatus; label: string; color: string }[] = [
+    { status: "interested", label: "Interested", color: "#f59e0b" },
+    { status: "applied",    label: "Applied",    color: "#22c55e" },
+    { status: "skipped",    label: "Skip",       color: "#6b7280" },
+  ];
+
+  return (
+    <div className="pb-4 pt-1 pl-9 pr-1 space-y-3">
+      {job.fit_score == null ? (
+        <p className="text-xs text-gray-600 italic">Not scored yet</p>
+      ) : (
+        <>
+          {job.fit_summary && <p className="text-xs text-gray-300 leading-relaxed">{job.fit_summary}</p>}
+          {(reasons.length > 0 || flags.length > 0) && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Reasons</p>
+                <ul className="space-y-0.5">
+                  {reasons.map((r, i) => <li key={i} className="text-xs text-gray-400 flex gap-1.5"><span className="text-emerald-500">+</span>{r}</li>)}
+                  {reasons.length === 0 && <li className="text-xs text-gray-700">—</li>}
+                </ul>
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Red flags</p>
+                <ul className="space-y-0.5">
+                  {flags.map((r, i) => <li key={i} className="text-xs text-gray-400 flex gap-1.5"><span className="text-red-400">!</span>{r}</li>)}
+                  {flags.length === 0 && <li className="text-xs text-gray-700">—</li>}
+                </ul>
+              </div>
+            </div>
+          )}
+          {resume && (
+            <p className="text-xs text-gray-500">
+              Resume: <span className="font-mono text-gray-300">{resume}</span>
+            </p>
+          )}
+        </>
+      )}
+
+      {job.description && (
+        <p className="text-xs text-gray-500 leading-relaxed line-clamp-4">{job.description}</p>
+      )}
+
+      <textarea
+        className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#555] resize-none"
+        rows={2}
+        placeholder="Notes…"
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={saveNotes}
+      />
+
+      <div className="flex items-center gap-2">
+        {STATUS_BTNS.map(b => {
+          const active = job.status === b.status;
+          return (
+            <button key={b.status}
+              onClick={() => onStatus(active ? "new" : b.status)}
+              title={active ? "Click again to move back to New" : undefined}
+              className="text-xs font-medium px-2.5 py-1 rounded-md border transition-colors"
+              style={active
+                ? { color: "#111", backgroundColor: b.color, borderColor: b.color }
+                : { color: b.color, borderColor: `${b.color}55` }}>
+              {b.label}
+            </button>
+          );
+        })}
+        <a href={job.url} target="_blank" rel="noopener noreferrer"
+          className="ml-auto text-xs font-medium text-blue-400 hover:underline">
+          Apply →
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function JobsPanel() {
+  const [jobs, setJobs] = useState<JobPosting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<JobTab>("new");
+  const [showHidden, setShowHidden] = useState(false);
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  useEffect(() => {
+    db.jobs.list()
+      .then(data => { if (Array.isArray(data)) setJobs(data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const inTab = (j: JobPosting, t: JobTab) =>
+    t === "all" ? (showHidden || !JOB_HIDDEN.includes(j.status)) : j.status === t;
+  const visible = jobs.filter(j => inTab(j, tab));
+  const activeColor = JOB_TABS.find(t => t.key === tab)!.color;
+
+  // Optimistic: apply locally, then persist; roll back that row if the API fails.
+  const update = async (id: number, updates: { status?: JobStatus; notes?: string | null }) => {
+    const prev = jobs.find(j => j.id === id);
+    if (!prev) return;
+    setJobs(js => js.map(j => j.id === id ? { ...j, ...updates } : j));
+    try {
+      const res = await db.jobs.update(id, updates);
+      if (!res || "error" in res) throw new Error();
+    } catch {
+      setJobs(js => js.map(j => j.id === id ? prev : j));
+    }
+  };
+
+  return (
+    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Jobs</span>
+        <div className="flex items-center gap-3">
+          {JOB_TABS.map(t => (
+            <button key={t.key} onClick={() => { setTab(t.key); setExpanded(null); }}
+              className="text-xs font-medium transition-colors"
+              style={{ color: t.color, opacity: tab === t.key ? 1 : 0.4 }}>
+              {t.label} <span className="tabular-nums opacity-70">{jobs.filter(j => inTab(j, t.key)).length}</span>
+            </button>
+          ))}
+          {tab === "all" && (
+            <button onClick={() => setShowHidden(s => !s)}
+              className="text-[10px] text-gray-500 hover:text-gray-300 border border-[#333] rounded px-1.5 py-0.5"
+              title="Show skipped + closed">
+              {showHidden ? "Hide" : "Show"} skipped/closed
+            </button>
+          )}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          {[1,2,3].map(i => <div key={i} className="h-8 bg-[#252525] rounded-lg animate-pulse" />)}
+        </div>
+      ) : visible.length === 0 ? (
+        <p className="text-xs text-gray-600 text-center py-4">No jobs here</p>
+      ) : (
+        <div className="divide-y divide-[#2a2a2a]">
+          {visible.map(job => {
+            const isOpen = expanded === job.id;
+            const dim = JOB_HIDDEN.includes(job.status);
+            return (
+              <div key={job.id} className={`-mx-2 px-2 rounded-lg transition-colors hover:bg-[#252525] ${dim ? "opacity-50" : ""}`}>
+                <div className="py-2.5 cursor-pointer grid grid-cols-[24px_minmax(0,1fr)_minmax(0,9rem)_6.5rem_3rem] items-center gap-3"
+                  onClick={() => setExpanded(isOpen ? null : job.id)}>
+                  <FitBadge score={job.fit_score} />
+                  <div className="min-w-0">
+                    <div className="text-xs text-gray-200 truncate" title={job.title}>{job.title}</div>
+                    <div className="text-[10px] font-medium truncate" style={{ color: activeColor }} title={job.company}>{job.company}</div>
+                  </div>
+                  <span className="text-[11px] text-gray-500 flex items-center gap-1.5 min-w-0">
+                    <span className="truncate" title={job.location ?? ""}>{job.location ?? "—"}</span>
+                    {job.remote && <span className="flex-shrink-0 text-[9px] uppercase tracking-wider text-cyan-400 border border-cyan-400/40 rounded px-1">Remote</span>}
+                  </span>
+                  <span className="text-[11px] text-gray-400 truncate tabular-nums text-right" title={job.salary ?? ""}>{job.salary ?? "—"}</span>
+                  <span className="text-[10px] text-gray-600 text-right tabular-nums">{jobAge(job.first_seen_at)}</span>
+                </div>
+                {isOpen && (
+                  <JobDetails key={job.id} job={job}
+                    onStatus={status => update(job.id, { status })}
+                    onNotes={notes => update(job.id, { notes })} />
                 )}
               </div>
             );
@@ -2688,15 +2160,6 @@ export default function PersonalOS() {
     setAllGoals(next);
   };
 
-  const scheduleGoal = async (id: string, date: string) => {
-    setAllGoals(gs => gs.map(x => x.id === id ? { ...x, scheduled_date: date } : x));
-    await db.goals.update(id, { scheduled_date: date });
-  };
-  const unscheduleGoal = async (id: string) => {
-    setAllGoals(gs => gs.map(x => x.id === id ? { ...x, scheduled_date: undefined } : x));
-    await db.goals.update(id, { scheduled_date: null });
-  };
-
   const weeklyGoals = allGoals.filter(g => g.type === "weekly");
   const dailyGoals = allGoals.filter(g => g.type === "daily");
   const focusAssignOptions = focusPoints.filter(fp => !fp.done).map(fp => ({ id: fp.id, label: `${fp.category} · ${fp.title}`, color: fp.color }));
@@ -2789,16 +2252,10 @@ export default function PersonalOS() {
           <DefunctWidget />
         </div>
 
-        {/* ── Middle column: Finance + Habits/Calendar ── */}
+        {/* ── Middle column: Finance + Jobs + News ── */}
         <div className="flex flex-col gap-5">
           <FinanceBox onOpenBudget={() => setShowBudget(true)} />
-          <HabitsCalendar
-            dailyGoals={dailyGoals}
-            colorFor={colorFor}
-            onScheduleGoal={scheduleGoal}
-            onUnscheduleGoal={unscheduleGoal}
-            onToggleGoalDone={toggleGoalDone}
-          />
+          <JobsPanel />
           <NewsWidget />
         </div>
 

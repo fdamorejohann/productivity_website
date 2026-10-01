@@ -34,6 +34,7 @@ export default async function handler(req, res) {
     case "news":             return handleNews(req, res);
     case "widget":           return handleWidget(req, res);
     case "site-usage":       return handleSiteUsage(req, res);
+    case "jobs":             return handleJobs(req, res);
     default:                 return res.status(404).json({ error: "Not found" });
   }
 }
@@ -465,6 +466,38 @@ async function handleYtFeed(req, res) {
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
+}
+
+// ─── Jobs (job_postings, populated by the external scanner) ──────────────────
+// GET: all rows, best fit first (unscored last), then newest.
+// PATCH { id, status?, notes? }: only status/notes are user-editable — the scanner owns the rest.
+const JOB_STATUSES = ["new", "interested", "applied", "skipped", "closed"];
+async function handleJobs(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase
+      .from("job_postings")
+      .select("*")
+      .order("fit_score", { ascending: false, nullsFirst: false })
+      .order("first_seen_at", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+  if (req.method === "PATCH") {
+    const { id, status, notes } = req.body ?? {};
+    if (id == null) return res.status(400).json({ error: "id required" });
+    const updates = {};
+    if (status !== undefined) {
+      if (!JOB_STATUSES.includes(status)) return res.status(400).json({ error: "invalid status" });
+      updates.status = status;
+    }
+    if (notes !== undefined) updates.notes = notes;
+    if (Object.keys(updates).length === 0) return res.status(400).json({ error: "nothing to update" });
+    const { data, error } = await supabase.from("job_postings").update(updates).eq("id", id).select();
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data?.length) return res.status(404).json({ error: "Not found" });
+    return res.json(data[0]);
+  }
+  res.status(405).end();
 }
 
 // ─── Site Usage (Reddit tracker) ──────────────────────────────────────────────

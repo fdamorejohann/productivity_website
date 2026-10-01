@@ -2,6 +2,8 @@
 // Thin fetch wrapper around our /api/data/* endpoints.
 // Falls back to localStorage on network error so the app still works offline.
 
+import type { JobPosting, JobStatus } from "./types";
+
 const json = (res: Response) => res.json();
 
 const api = {
@@ -99,6 +101,12 @@ export const db = {
     list: () => api.get("/api/data/trip-expenses"),
     add: (expense: unknown) => api.post("/api/data/trip-expenses", expense),
     delete: (id: string) => api.delete("/api/data/trip-expenses", { id }),
+  },
+  jobs: {
+    list: (): Promise<JobPosting[]> => api.get("/api/data/jobs"),
+    // Only status/notes are writable — the scanner owns every other column.
+    update: (id: number, updates: { status?: JobStatus; notes?: string | null }): Promise<JobPosting> =>
+      api.patch("/api/data/jobs", { id, ...updates }),
   },
   dnd: {
     campaigns: {

@@ -10,8 +10,8 @@ This file is the project memory. Read it at the start of every session before to
 
 Core panels:
 - **Goals** — weekly/daily goals with focus points, starred items, done state
-- **Habits** — weekly habit tracker with Mon–Sun grid
-- **Calendar** — personal events + Google Calendar sync
+- **Jobs** — job postings found + fit-scored by the external scanner (`job_postings`); triage by status, notes, apply link
+- **Habits Today** — today's planned habits (right column, read-only; the weekly habit grid/calendar panel was removed)
 - **Notes** — freeform scratchpad
 - **Budget** — monthly income/expense tracker
 - **Workout** — exercise sessions and sets logger
@@ -74,7 +74,7 @@ codeProject/
     │   └── storage.ts               ← Legacy localStorage facade (still used by WeekDashboard)
     └── components/
         ├── LockScreen.tsx           ← Password gate — shown if not authed
-        ├── PersonalOS.tsx           ← ROOT dashboard: 3-column layout, all panels
+        ├── PersonalOS.tsx           ← ROOT dashboard: 3-column layout (Goals | Finance + Jobs + News | Hello + widgets)
         ├── BudgetPanel.tsx          ← Monthly budget: income/expenses/summary
         ├── WorkoutPanel.tsx         ← Exercise sessions and sets logger
         ├── DndPanel.tsx             ← D&D campaign manager
@@ -108,6 +108,7 @@ The `db.ts` client calls these endpoints. Every resource supports a consistent p
 | `/api/data/exercises` | `exercises` | Exercise definitions |
 | `/api/data/sessions` | `workout_sessions` | Workout sessions |
 | `/api/data/sets` | `workout_sets` | Sets within a session |
+| `/api/data/jobs` | `job_postings` | GET all (fit_score desc nulls last, first_seen_at desc); PATCH `{ id, status?, notes? }` only — scanner owns all other columns. No POST/DELETE |
 | `/api/data/dnd-campaigns` | `dnd_campaigns` | D&D campaigns |
 | `/api/data/dnd-characters` | `dnd_characters` | Characters (filtered by campaign_id) |
 | `/api/data/dnd-locations` | `dnd_locations` | Locations (filtered by campaign_id) |
@@ -145,6 +146,7 @@ See `supabase-schema.sql` for the full schema. Key tables:
 - `workout_sessions` — session records
 - `workout_sets` — sets within a session
 - `dnd_*` tables — campaign, characters, locations, sessions, lore, quests, concepts
+- `job_postings` — `id, url (unique), source, company, title, location, remote, salary, description, status (new|interested|applied|skipped|closed), notes, fit_score (1–5, null = unscored), fit_summary, fit_details jsonb {reasons, red_flags, resume}, first_seen_at, …` — written by the external scanner; RLS on, no policies (service key only)
 
 ---
 

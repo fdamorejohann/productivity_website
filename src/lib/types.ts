@@ -106,6 +106,41 @@ export interface TripExpense {
   created_at: string;
 }
 
+// ─── Job Postings (Jobs panel) ────────────────────────────────────────────────
+
+export type JobStatus = "new" | "interested" | "applied" | "skipped" | "closed";
+
+export interface JobFitDetails {
+  reasons: string[];
+  red_flags: string[];
+  resume: string | null;   // suggested resume variant
+}
+
+/** A row from public.job_postings. Only `status` and `notes` are editable from the app. */
+export interface JobPosting {
+  id: number;
+  url: string;
+  source: string;
+  source_job_id: string | null;
+  company: string;
+  title: string;
+  location: string | null;
+  remote: boolean | null;
+  salary: string | null;
+  description: string | null;
+  posted_at: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  closed_at: string | null;
+  status: JobStatus;
+  notes: string | null;
+  fit_score: number | null;  // 1–5; null = not scored yet
+  fit_summary: string | null;
+  fit_details: JobFitDetails | null;
+  scored_at: string | null;
+  updated_at: string;
+}
+
 // ─── UI state ─────────────────────────────────────────────────────────────────
 
 /** The four top-level views controlled by the sidebar nav. */

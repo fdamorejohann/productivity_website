@@ -90,3 +90,46 @@ create table if not exists running_completions (
   created_at timestamptz default now(),
   unique(week, run_number)
 );
+
+-- ─── Job postings (Jobs panel) ───────────────────────────────────────────────
+-- Already exists in Supabase — documented here only, do NOT re-run.
+-- Populated by the external job scanner (it owns every column except status/notes).
+-- RLS is enabled with no policies: only the service key (our API) can read/write.
+create table if not exists public.job_postings (
+  id             bigint generated always as identity primary key,
+  url            text not null unique,
+  source         text not null,
+  source_job_id  text,
+  company        text not null,
+  title          text not null,
+  location       text,
+  remote         boolean,
+  salary         text,
+  description    text,
+  posted_at      timestamptz,
+  first_seen_at  timestamptz not null default now(),
+  last_seen_at   timestamptz not null default now(),
+  closed_at      timestamptz,
+  status         text not null default 'new'
+                 check (status in ('new','interested','applied','skipped','closed')),
+  notes          text,
+  fit_score      smallint check (fit_score between 1 and 5), -- null = not scored yet
+  fit_summary    text,
+  fit_details    jsonb, -- { reasons: string[], red_flags: string[], resume: string|null }
+  scored_at      timestamptz,
+  updated_at     timestamptz not null default now()
+);
+
+create index if not exists job_postings_status_idx   on public.job_postings (status);
+create index if not exists job_postings_fit_idx      on public.job_postings (fit_score desc nulls last);
+create index if not exists job_postings_unscored_idx on public.job_postings (first_seen_at) where scored_at is null;
+
+create or replace function public.job_postings_touch() returns trigger
+  language plpgsql set search_path = '' as $$
+begin new.updated_at = now(); return new; end $$;
+
+drop trigger if exists job_postings_touch on public.job_postings;
+create trigger job_postings_touch before update on public.job_postings
+  for each row execute function public.job_postings_touch();
+
+alter table public.job_postings enable row level security;
