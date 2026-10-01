@@ -9,9 +9,9 @@ This file is the project memory. Read it at the start of every session before to
 **Personal OS** is a private, password-protected personal dashboard deployed on Vercel. It started as a weekly goals tracker but has grown into a full personal operating system. It is Finn's personal app — there is no multi-user support, no sign-up flow.
 
 Core panels:
-- **Goals** — weekly/daily goals with focus points, starred items, done state
 - **Jobs** — job postings found + fit-scored by the external scanner (`job_postings`); triage by status, notes, apply link
-- **Habits Today** — today's planned habits (right column, read-only; the weekly habit grid/calendar panel was removed)
+- **News** — Tech/Finance/NYC headlines; hideable (✕ / "Show News", remembered in localStorage `pos_news_visible`)
+- Removed from the dashboard (tables/endpoints still exist, unused): Focus Points, Weekly Goals, Daily Tasks, Habits, Whoop, drink/powder trackers, food cost
 - **Notes** — freeform scratchpad
 - **Budget** — monthly income/expense tracker
 - **Workout** — exercise sessions and sets logger
@@ -74,7 +74,7 @@ codeProject/
     │   └── storage.ts               ← Legacy localStorage facade (still used by WeekDashboard)
     └── components/
         ├── LockScreen.tsx           ← Password gate — shown if not authed
-        ├── PersonalOS.tsx           ← ROOT dashboard: 3-column layout (Goals | Finance + Jobs + News | Hello + widgets)
+        ├── PersonalOS.tsx           ← ROOT dashboard: 3-column layout (Defunct | Finance + Jobs + News | Hello + Weather + Spent + Notes)
         ├── BudgetPanel.tsx          ← Monthly budget: income/expenses/summary
         ├── WorkoutPanel.tsx         ← Exercise sessions and sets logger
         ├── DndPanel.tsx             ← D&D campaign manager
