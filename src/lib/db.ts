@@ -2,7 +2,7 @@
 // Thin fetch wrapper around our /api/data/* endpoints.
 // Falls back to localStorage on network error so the app still works offline.
 
-import type { JobPosting, JobStatus } from "./types";
+import type { JobPosting, JobUpdate, NewJob } from "./types";
 
 const json = (res: Response) => res.json();
 
@@ -104,9 +104,19 @@ export const db = {
   },
   jobs: {
     list: (): Promise<JobPosting[]> => api.get("/api/data/jobs"),
-    // Only status/notes are writable — the scanner owns every other column.
-    update: (id: number, updates: { status?: JobStatus; notes?: string | null }): Promise<JobPosting> =>
+    // Only whitelisted fields are writable — the scanner and DB trigger own the rest.
+    update: (id: number, updates: JobUpdate): Promise<JobPosting | { error: string }> =>
       api.patch("/api/data/jobs", { id, ...updates }),
+    // Returns { ok, job } or { ok: false, error } (409 = url already tracked).
+    create: async (job: NewJob): Promise<{ ok: true; job: JobPosting } | { ok: false; error: string }> => {
+      try {
+        const res = await fetch("/api/data/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(job) });
+        const body = await res.json().catch(() => ({}));
+        return res.ok ? { ok: true, job: body } : { ok: false, error: body.error ?? `Request failed (${res.status})` };
+      } catch {
+        return { ok: false, error: "Network error — try again." };
+      }
+    },
   },
   dnd: {
     campaigns: {

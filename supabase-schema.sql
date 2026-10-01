@@ -93,31 +93,40 @@ create table if not exists running_completions (
 
 -- ─── Job postings (Jobs panel) ───────────────────────────────────────────────
 -- Already exists in Supabase — documented here only, do NOT re-run.
--- Populated by the external job scanner (it owns every column except status/notes).
+-- Rows come from the external job scanner (it owns posting + fit columns) or from the
+-- app's "+ Add job" form (source = 'manual'; may have no description / fit_score).
 -- RLS is enabled with no policies: only the service key (our API) can read/write.
 create table if not exists public.job_postings (
-  id             bigint generated always as identity primary key,
-  url            text not null unique,
-  source         text not null,
-  source_job_id  text,
-  company        text not null,
-  title          text not null,
-  location       text,
-  remote         boolean,
-  salary         text,
-  description    text,
-  posted_at      timestamptz,
-  first_seen_at  timestamptz not null default now(),
-  last_seen_at   timestamptz not null default now(),
-  closed_at      timestamptz,
-  status         text not null default 'new'
-                 check (status in ('new','interested','applied','skipped','closed')),
-  notes          text,
-  fit_score      smallint check (fit_score between 1 and 5), -- null = not scored yet
-  fit_summary    text,
-  fit_details    jsonb, -- { reasons: string[], red_flags: string[], resume: string|null }
-  scored_at      timestamptz,
-  updated_at     timestamptz not null default now()
+  id                bigint generated always as identity primary key,
+  url               text not null unique,          -- "manual:<slug>" for manual rows without a link
+  source            text not null,                 -- scanner source, or 'manual'
+  source_job_id     text,
+  company           text not null,
+  title             text not null,
+  location          text,
+  remote            boolean,
+  salary            text,
+  description       text,
+  posted_at         timestamptz,
+  first_seen_at     timestamptz not null default now(),
+  last_seen_at      timestamptz not null default now(),
+  closed_at         timestamptz,
+  status            text not null default 'new'
+                    check (status in ('new','interested',
+                                      'applied','screen','interview','offer',
+                                      'rejected','withdrawn','skipped','closed')),
+  status_changed_at timestamptz not null default now(), -- set by trigger; never written by the app
+  applied_at        date,                          -- trigger fills it on → 'applied' if empty
+  notes             text,
+  why_interested    text,
+  contact           text,
+  next_step         text,
+  follow_up_on      date,
+  fit_score         smallint check (fit_score between 1 and 5), -- null = not scored
+  fit_summary       text,
+  fit_details       jsonb, -- { reasons: string[], red_flags: string[], resume: string|null, ... }
+  scored_at         timestamptz,
+  updated_at        timestamptz not null default now()
 );
 
 create index if not exists job_postings_status_idx   on public.job_postings (status);
@@ -126,7 +135,16 @@ create index if not exists job_postings_unscored_idx on public.job_postings (fir
 
 create or replace function public.job_postings_touch() returns trigger
   language plpgsql set search_path = '' as $$
-begin new.updated_at = now(); return new; end $$;
+begin
+  new.updated_at = now();
+  if tg_op = 'UPDATE' and new.status is distinct from old.status then
+    new.status_changed_at = now();
+    if new.status = 'applied' and new.applied_at is null then
+      new.applied_at = current_date;
+    end if;
+  end if;
+  return new;
+end $$;
 
 drop trigger if exists job_postings_touch on public.job_postings;
 create trigger job_postings_touch before update on public.job_postings

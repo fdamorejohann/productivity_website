@@ -1,17 +1,17 @@
 /**
  * PersonalOS.tsx — Dark mode personal dashboard
- * 3-column layout: Defunct | Finance + Jobs + News (toggleable) | Hello + Weather + Spent + Notes
+ * 2-column layout: Finance + Jobs + News (toggleable) | Hello + Weather + Spent + Defunct + Notes
  */
 
 import { useState, useEffect, useRef } from "react";
-import type { ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
 import BudgetPanel from "./BudgetPanel";
 import WorkoutPanel from "./WorkoutPanel";
 import DndPanel from "./DndPanel";
 import RunningPanel from "./RunningPanel";
 import TripPanel from "./TripPanel";
 import { db } from "../lib/db";
-import type { JobPosting, JobStatus } from "../lib/types";
+import type { JobPosting, JobStatus, JobUpdate, NewJob } from "../lib/types";
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 // ─── Finance Box ─────────────────────────────────────────────────────────────
@@ -563,17 +563,49 @@ function NewsWidget({ onHide }: { onHide: () => void }) {
 }
 
 // ─── Jobs Panel ──────────────────────────────────────────────────────────────
-// Rows come from public.job_postings (filled + scored by the external scanner).
-// Only status and notes are editable here.
+// Rows come from public.job_postings — found + scored by the external scanner, or added
+// by hand via "+ Add" (source = 'manual', may have no description / fit score).
+// Editable here: status, notes, why_interested, contact, next_step, follow_up_on, applied_at.
+// status_changed_at (and applied_at on → applied) are set by a DB trigger.
 
-type JobTab = "new" | "interested" | "applied" | "all";
-const JOB_TABS: { key: JobTab; label: string; color: string }[] = [
-  { key: "new",        label: "New",        color: "#3b82f6" },
-  { key: "interested", label: "Interested", color: "#f59e0b" },
-  { key: "applied",    label: "Applied",    color: "#22c55e" },
-  { key: "all",        label: "All",        color: "#9ca3af" },
+type JobTab = "new" | "interested" | "pipeline" | "archive";
+const JOB_TABS: { key: JobTab; label: string; color: string; statuses: JobStatus[] }[] = [
+  { key: "new",        label: "New",        color: "#3b82f6", statuses: ["new"] },
+  { key: "interested", label: "Interested", color: "#f59e0b", statuses: ["interested"] },
+  { key: "pipeline",   label: "Pipeline",   color: "#a78bfa", statuses: ["applied", "screen", "interview", "offer"] },
+  { key: "archive",    label: "Archive",    color: "#9ca3af", statuses: ["rejected", "withdrawn", "skipped", "closed"] },
 ];
-const JOB_HIDDEN: JobStatus[] = ["skipped", "closed"];
+const PIPELINE: JobStatus[] = JOB_TABS[2].statuses;
+const ARCHIVE: JobStatus[] = JOB_TABS[3].statuses;
+
+const JOB_STATUS_META: Record<JobStatus, { label: string; color: string }> = {
+  new:        { label: "New",        color: "#9ca3af" },
+  interested: { label: "Interested", color: "#f59e0b" },
+  applied:    { label: "Applied",    color: "#a78bfa" },
+  screen:     { label: "Screen",     color: "#3b82f6" },
+  interview:  { label: "Interview",  color: "#3b82f6" },
+  offer:      { label: "Offer",      color: "#22c55e" },
+  rejected:   { label: "Rejected",   color: "#ef4444" },
+  withdrawn:  { label: "Withdrawn",  color: "#6b7280" },
+  skipped:    { label: "Skipped",    color: "#6b7280" },
+  closed:     { label: "Closed",     color: "#6b7280" },
+};
+
+/** Today as YYYY-MM-DD in local time (for comparing against date columns). */
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** "2026-09-09" → "Sep 9" (parsed as a local date, no timezone shift). */
+function fmtShortDate(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function daysSince(iso: string): number {
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
+}
 
 function fitColor(score: number | null): string {
   if (score === 5) return "#22c55e";
@@ -588,9 +620,13 @@ function jobAge(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+const isHttpUrl = (url: string) => /^https?:\/\//i.test(url);
+const needsFollowUp = (j: JobPosting) =>
+  !!j.follow_up_on && j.follow_up_on <= localToday() && !ARCHIVE.includes(j.status);
+
 function FitBadge({ score }: { score: number | null }) {
   if (score == null) {
-    return <span className="w-6 h-6 rounded-md flex items-center justify-center text-xs text-gray-600 border border-[#333]" title="Not scored yet">—</span>;
+    return <span className="w-6 h-6 rounded-md flex items-center justify-center text-xs text-gray-600 border border-[#333]" title="Not scored">—</span>;
   }
   const c = fitColor(score);
   return (
@@ -601,31 +637,79 @@ function FitBadge({ score }: { score: number | null }) {
   );
 }
 
-function JobDetails({ job, onStatus, onNotes }: {
-  job: JobPosting;
-  onStatus: (status: JobStatus) => void;
-  onNotes: (notes: string | null) => void;
+function StatusChip({ status }: { status: JobStatus }) {
+  const { label, color } = JOB_STATUS_META[status];
+  return (
+    <span className="flex-shrink-0 text-[9px] uppercase tracking-wider rounded px-1 border"
+      style={{ color, borderColor: `${color}66` }}>{label}</span>
+  );
+}
+
+const jobInputCls = "w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#555]";
+
+/** Text / textarea / date input that saves on blur when the value changed ("" → null). */
+function JobField({ label, value, kind = "text", placeholder, onSave }: {
+  label: string;
+  value: string | null;
+  kind?: "text" | "textarea" | "date";
+  placeholder?: string;
+  onSave: (v: string | null) => void;
 }) {
-  const [draft, setDraft] = useState(job.notes ?? "");
+  const [draft, setDraft] = useState(value ?? "");
+  const commit = () => {
+    const next = draft.trim() === "" ? null : draft.trim();
+    if (next !== (value ?? null)) onSave(next);
+  };
+  return (
+    <label className="block">
+      <span className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1">{label}</span>
+      {kind === "textarea" ? (
+        <textarea className={`${jobInputCls} resize-none`} rows={2} placeholder={placeholder}
+          value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit} />
+      ) : (
+        <input type={kind} className={`${jobInputCls} [color-scheme:dark]`} placeholder={placeholder}
+          value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit} />
+      )}
+    </label>
+  );
+}
+
+function JobDetails({ job, onUpdate }: {
+  job: JobPosting;
+  onUpdate: (updates: JobUpdate) => void;
+}) {
   const reasons = job.fit_details?.reasons ?? [];
   const flags = job.fit_details?.red_flags ?? [];
   const resume = job.fit_details?.resume ?? null;
-
-  const saveNotes = () => {
-    const next = draft.trim() === "" ? null : draft;
-    if (next !== job.notes) onNotes(next);
-  };
-
-  const STATUS_BTNS: { status: JobStatus; label: string; color: string }[] = [
-    { status: "interested", label: "Interested", color: "#f59e0b" },
-    { status: "applied",    label: "Applied",    color: "#22c55e" },
-    { status: "skipped",    label: "Skip",       color: "#6b7280" },
-  ];
+  const save = (field: keyof JobUpdate) => (v: string | null) => onUpdate({ [field]: v });
 
   return (
     <div className="pb-4 pt-1 pl-9 pr-1 space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-gray-500 uppercase tracking-widest">Status</span>
+        <select
+          value={job.status}
+          onChange={e => onUpdate({ status: e.target.value as JobStatus })}
+          className="bg-[#252525] border border-[#333] rounded-md px-2 py-1 text-xs focus:outline-none focus:border-[#555] [color-scheme:dark]"
+          style={{ color: JOB_STATUS_META[job.status].color }}>
+          {JOB_TABS.map(t => (
+            <optgroup key={t.key} label={t.label}>
+              {t.statuses.map(s => <option key={s} value={s}>{JOB_STATUS_META[s].label}</option>)}
+            </optgroup>
+          ))}
+        </select>
+        <span className="text-[10px] text-gray-600">{daysSince(job.status_changed_at)}d in stage</span>
+        {isHttpUrl(job.url) && (
+          <a href={job.url} target="_blank" rel="noopener noreferrer"
+            className="ml-auto text-xs font-medium text-blue-400 hover:underline">
+            Apply →
+          </a>
+        )}
+      </div>
+
+      {/* Fit (scanner rows only — manual rows show "—") */}
       {job.fit_score == null ? (
-        <p className="text-xs text-gray-600 italic">Not scored yet</p>
+        <p className="text-xs text-gray-600"><span className="text-[10px] uppercase tracking-widest text-gray-500 mr-2">Fit</span>—</p>
       ) : (
         <>
           {job.fit_summary && <p className="text-xs text-gray-300 leading-relaxed">{job.fit_summary}</p>}
@@ -648,47 +732,60 @@ function JobDetails({ job, onStatus, onNotes }: {
             </div>
           )}
           {resume && (
-            <p className="text-xs text-gray-500">
-              Resume: <span className="font-mono text-gray-300">{resume}</span>
-            </p>
+            <p className="text-xs text-gray-500">Resume: <span className="font-mono text-gray-300">{resume}</span></p>
           )}
         </>
       )}
 
-      {job.description && (
-        <p className="text-xs text-gray-500 leading-relaxed line-clamp-4">{job.description}</p>
-      )}
+      <p className="text-xs text-gray-500 leading-relaxed line-clamp-4">
+        <span className="text-[10px] uppercase tracking-widest mr-2">Posting</span>{job.description || "—"}
+      </p>
 
-      <textarea
-        className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#555] resize-none"
-        rows={2}
-        placeholder="Notes…"
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
-        onBlur={saveNotes}
-      />
-
-      <div className="flex items-center gap-2">
-        {STATUS_BTNS.map(b => {
-          const active = job.status === b.status;
-          return (
-            <button key={b.status}
-              onClick={() => onStatus(active ? "new" : b.status)}
-              title={active ? "Click again to move back to New" : undefined}
-              className="text-xs font-medium px-2.5 py-1 rounded-md border transition-colors"
-              style={active
-                ? { color: "#111", backgroundColor: b.color, borderColor: b.color }
-                : { color: b.color, borderColor: `${b.color}55` }}>
-              {b.label}
-            </button>
-          );
-        })}
-        <a href={job.url} target="_blank" rel="noopener noreferrer"
-          className="ml-auto text-xs font-medium text-blue-400 hover:underline">
-          Apply →
-        </a>
+      <JobField label="Why interested" kind="textarea" value={job.why_interested} placeholder="What draws you to this one?" onSave={save("why_interested")} />
+      <div className="grid grid-cols-2 gap-3">
+        <JobField label="Contact" value={job.contact} placeholder="Recruiter / referral" onSave={save("contact")} />
+        <JobField label="Next step" value={job.next_step} placeholder="e.g. Onsite Tue" onSave={save("next_step")} />
+        <JobField label="Follow up on" kind="date" value={job.follow_up_on} onSave={save("follow_up_on")} />
+        <JobField label="Applied on" kind="date" value={job.applied_at} onSave={save("applied_at")} />
       </div>
+      <JobField label="Notes" kind="textarea" value={job.notes} placeholder="Notes…" onSave={save("notes")} />
     </div>
+  );
+}
+
+function AddJobForm({ onAdded, onCancel }: { onAdded: (job: JobPosting) => void; onCancel: () => void }) {
+  const [form, setForm] = useState<NewJob>({ url: "", company: "", title: "", location: "", why_interested: "" });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const set = (k: keyof NewJob) => (e: { target: { value: string } }) => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!form.company.trim() || !form.title.trim()) { setError("Company and title are required."); return; }
+    setSaving(true); setError(null);
+    const res = await db.jobs.create(form);
+    setSaving(false);
+    if (res.ok) onAdded(res.job); else setError(res.error);
+  };
+
+  return (
+    <form onSubmit={submit} className="mb-4 p-3 rounded-xl border border-[#2e2e2e] bg-[#191919] space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <input className={jobInputCls} placeholder="Company *" value={form.company} onChange={set("company")} autoFocus />
+        <input className={jobInputCls} placeholder="Title *" value={form.title} onChange={set("title")} />
+        <input className={jobInputCls} placeholder="URL (optional)" value={form.url} onChange={set("url")} />
+        <input className={jobInputCls} placeholder="Location" value={form.location} onChange={set("location")} />
+      </div>
+      <textarea className={`${jobInputCls} resize-none`} rows={2} placeholder="Why interested?" value={form.why_interested} onChange={set("why_interested")} />
+      <div className="flex items-center gap-2">
+        {error && <span className="text-xs text-red-400">{error}</span>}
+        <button type="button" onClick={onCancel} className="ml-auto text-xs text-gray-500 hover:text-gray-300 px-2 py-1">Cancel</button>
+        <button type="submit" disabled={saving}
+          className="text-xs font-medium bg-white text-black rounded-md px-3 py-1 hover:bg-gray-200 disabled:opacity-50">
+          {saving ? "Adding…" : "Add job"}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -696,8 +793,8 @@ function JobsPanel() {
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<JobTab>("new");
-  const [showHidden, setShowHidden] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     db.jobs.list()
@@ -706,28 +803,47 @@ function JobsPanel() {
       .finally(() => setLoading(false));
   }, []);
 
-  const inTab = (j: JobPosting, t: JobTab) =>
-    t === "all" ? (showHidden || !JOB_HIDDEN.includes(j.status)) : j.status === t;
-  const visible = jobs.filter(j => inTab(j, tab));
+  const inTab = (j: JobPosting, t: JobTab) => JOB_TABS.find(x => x.key === t)!.statuses.includes(j.status);
+  // The open row stays visible even if its status moves it to another tab, until collapsed.
+  const visible = jobs.filter(j => inTab(j, tab) || j.id === expanded);
   const activeColor = JOB_TABS.find(t => t.key === tab)!.color;
 
-  // Optimistic: apply locally, then persist; roll back that row if the API fails.
-  const update = async (id: number, updates: { status?: JobStatus; notes?: string | null }) => {
+  // Optimistic: apply locally (mirroring the DB trigger), persist, then take the server's row.
+  const update = async (id: number, updates: JobUpdate) => {
     const prev = jobs.find(j => j.id === id);
     if (!prev) return;
-    setJobs(js => js.map(j => j.id === id ? { ...j, ...updates } : j));
+    const optimistic: JobPosting = { ...prev, ...updates };
+    if (updates.status && updates.status !== prev.status) {
+      optimistic.status_changed_at = new Date().toISOString();
+      if (updates.status === "applied" && !prev.applied_at && updates.applied_at === undefined) optimistic.applied_at = localToday();
+    }
+    setJobs(js => js.map(j => j.id === id ? optimistic : j));
     try {
       const res = await db.jobs.update(id, updates);
       if (!res || "error" in res) throw new Error();
+      setJobs(js => js.map(j => j.id === id ? res : j));
     } catch {
       setJobs(js => js.map(j => j.id === id ? prev : j));
     }
   };
 
+  const onAdded = (job: JobPosting) => {
+    setJobs(js => [job, ...js]);
+    setAdding(false);
+    setTab("interested");
+    setExpanded(job.id);
+  };
+
   return (
     <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Jobs</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Jobs</span>
+          <button onClick={() => setAdding(a => !a)}
+            className="text-[10px] text-gray-500 hover:text-gray-200 border border-[#333] rounded px-1.5 py-0.5 transition-colors">
+            {adding ? "× Close" : "+ Add"}
+          </button>
+        </div>
         <div className="flex items-center gap-3">
           {JOB_TABS.map(t => (
             <button key={t.key} onClick={() => { setTab(t.key); setExpanded(null); }}
@@ -736,15 +852,10 @@ function JobsPanel() {
               {t.label} <span className="tabular-nums opacity-70">{jobs.filter(j => inTab(j, t.key)).length}</span>
             </button>
           ))}
-          {tab === "all" && (
-            <button onClick={() => setShowHidden(s => !s)}
-              className="text-[10px] text-gray-500 hover:text-gray-300 border border-[#333] rounded px-1.5 py-0.5"
-              title="Show skipped + closed">
-              {showHidden ? "Hide" : "Show"} skipped/closed
-            </button>
-          )}
         </div>
       </div>
+
+      {adding && <AddJobForm onAdded={onAdded} onCancel={() => setAdding(false)} />}
 
       {loading ? (
         <div className="space-y-3">
@@ -756,28 +867,39 @@ function JobsPanel() {
         <div className="divide-y divide-[#2a2a2a]">
           {visible.map(job => {
             const isOpen = expanded === job.id;
-            const dim = JOB_HIDDEN.includes(job.status);
+            const inPipeline = PIPELINE.includes(job.status);
+            const showStatus = tab === "pipeline" || tab === "archive" || !inTab(job, tab);
             return (
-              <div key={job.id} className={`-mx-2 px-2 rounded-lg transition-colors hover:bg-[#252525] ${dim ? "opacity-50" : ""}`}>
-                <div className="py-2.5 cursor-pointer grid grid-cols-[24px_minmax(0,1fr)_minmax(0,9rem)_6.5rem_3rem] items-center gap-3"
+              <div key={job.id} className={`-mx-2 px-2 rounded-lg transition-colors hover:bg-[#252525] ${ARCHIVE.includes(job.status) && tab !== "archive" ? "opacity-60" : ""}`}>
+                <div className="py-2.5 cursor-pointer grid grid-cols-[24px_minmax(0,1fr)_minmax(0,9rem)_6.5rem_auto] items-center gap-3"
                   onClick={() => setExpanded(isOpen ? null : job.id)}>
                   <FitBadge score={job.fit_score} />
                   <div className="min-w-0">
-                    <div className="text-xs text-gray-200 truncate" title={job.title}>{job.title}</div>
-                    <div className="text-[10px] font-medium truncate" style={{ color: activeColor }} title={job.company}>{job.company}</div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-xs text-gray-200 truncate" title={job.title}>{job.title}</span>
+                      {showStatus && <StatusChip status={job.status} />}
+                      {needsFollowUp(job) && (
+                        <span className="flex-shrink-0 text-[9px] uppercase tracking-wider rounded px-1 bg-orange-500/15 text-orange-400 border border-orange-400/40"
+                          title={`Follow up on ${fmtShortDate(job.follow_up_on!)}`}>Follow up</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 min-w-0 text-[10px]">
+                      <span className="font-medium truncate flex-shrink-0 max-w-[50%]" style={{ color: activeColor }} title={job.company}>{job.company}</span>
+                      {job.next_step && <span className="text-gray-500 truncate" title={job.next_step}>· {job.next_step}</span>}
+                    </div>
                   </div>
                   <span className="text-[11px] text-gray-500 flex items-center gap-1.5 min-w-0">
                     <span className="truncate" title={job.location ?? ""}>{job.location ?? "—"}</span>
                     {job.remote && <span className="flex-shrink-0 text-[9px] uppercase tracking-wider text-cyan-400 border border-cyan-400/40 rounded px-1">Remote</span>}
                   </span>
                   <span className="text-[11px] text-gray-400 truncate tabular-nums text-right" title={job.salary ?? ""}>{job.salary ?? "—"}</span>
-                  <span className="text-[10px] text-gray-600 text-right tabular-nums">{jobAge(job.first_seen_at)}</span>
+                  <span className="text-[10px] text-gray-600 text-right tabular-nums whitespace-nowrap">
+                    {inPipeline
+                      ? `${job.applied_at ? `Applied ${fmtShortDate(job.applied_at)} · ` : ""}${daysSince(job.status_changed_at)}d in stage`
+                      : jobAge(job.first_seen_at)}
+                  </span>
                 </div>
-                {isOpen && (
-                  <JobDetails key={job.id} job={job}
-                    onStatus={status => update(job.id, { status })}
-                    onNotes={notes => update(job.id, { notes })} />
-                )}
+                {isOpen && <JobDetails key={job.id} job={job} onUpdate={u => update(job.id, u)} />}
               </div>
             );
           })}
@@ -957,14 +1079,9 @@ export default function PersonalOS() {
 
   return (
     <div className="min-h-screen bg-[#111] text-white p-6">
-      <div className="grid grid-cols-[1fr_3fr_1fr] gap-5 max-w-7xl mx-auto pt-8">
+      <div className="grid grid-cols-[3fr_1fr] gap-5 max-w-7xl mx-auto pt-8">
 
-        {/* ── Left column: Defunct ── */}
-        <div className="flex flex-col gap-5">
-          <DefunctWidget />
-        </div>
-
-        {/* ── Middle column: Finance + Jobs + News ── */}
+        {/* ── Main column: Finance + Jobs + News ── */}
         <div className="flex flex-col gap-5">
           <FinanceBox onOpenBudget={() => setShowBudget(true)} />
           <JobsPanel />
@@ -978,7 +1095,7 @@ export default function PersonalOS() {
           )}
         </div>
 
-        {/* ── Right column: Hello + Weather + Spent + Notes ── */}
+        {/* ── Right column: Hello + Weather + Spent + Defunct + Notes ── */}
         <div className="flex flex-col gap-5">
           <div className="relative bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-6">
             <button
@@ -1001,6 +1118,7 @@ export default function PersonalOS() {
           {showBible && <BibleModal onClose={() => setShowBible(false)} />}
           <WeatherBox />
           <SpentToday />
+          <DefunctWidget />
           <NotesBox />
         </div>
 

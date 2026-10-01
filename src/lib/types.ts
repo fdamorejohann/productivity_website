@@ -108,18 +108,22 @@ export interface TripExpense {
 
 // ─── Job Postings (Jobs panel) ────────────────────────────────────────────────
 
-export type JobStatus = "new" | "interested" | "applied" | "skipped" | "closed";
+export type JobStatus =
+  | "new" | "interested"
+  | "applied" | "screen" | "interview" | "offer"          // pipeline
+  | "rejected" | "withdrawn" | "skipped" | "closed";      // archive
 
 export interface JobFitDetails {
-  reasons: string[];
-  red_flags: string[];
-  resume: string | null;   // suggested resume variant
+  reasons?: string[];
+  red_flags?: string[];
+  resume?: string | null;   // suggested resume variant
+  [extra: string]: unknown; // scanner may add more (checks, dimensions, …)
 }
 
-/** A row from public.job_postings. Only `status` and `notes` are editable from the app. */
+/** A row from public.job_postings. Manual rows (source = 'manual') may lack description/fit fields. */
 export interface JobPosting {
   id: number;
-  url: string;
+  url: string;              // "manual:<slug>" for manual rows without a link
   source: string;
   source_job_id: string | null;
   company: string;
@@ -133,12 +137,30 @@ export interface JobPosting {
   last_seen_at: string;
   closed_at: string | null;
   status: JobStatus;
+  status_changed_at: string;   // set by DB trigger — never written by the app
+  applied_at: string | null;   // YYYY-MM-DD; trigger fills it on → 'applied' if empty
   notes: string | null;
-  fit_score: number | null;  // 1–5; null = not scored yet
+  why_interested: string | null;
+  contact: string | null;
+  next_step: string | null;
+  follow_up_on: string | null; // YYYY-MM-DD
+  fit_score: number | null;    // 1–5; null = not scored
   fit_summary: string | null;
   fit_details: JobFitDetails | null;
   scored_at: string | null;
   updated_at: string;
+}
+
+/** Fields the app may PATCH (mirrors the API whitelist). */
+export type JobUpdate = Partial<Pick<JobPosting,
+  "status" | "notes" | "why_interested" | "contact" | "next_step" | "follow_up_on" | "applied_at">>;
+
+export interface NewJob {
+  url?: string;
+  company: string;
+  title: string;
+  location?: string;
+  why_interested?: string;
 }
 
 // ─── UI state ─────────────────────────────────────────────────────────────────

@@ -468,10 +468,21 @@ async function handleYtFeed(req, res) {
   }
 }
 
-// ─── Jobs (job_postings, populated by the external scanner) ──────────────────
-// GET: all rows, best fit first (unscored last), then newest.
-// PATCH { id, status?, notes? }: only status/notes are user-editable — the scanner owns the rest.
-const JOB_STATUSES = ["new", "interested", "applied", "skipped", "closed"];
+// ─── Jobs (job_postings) ─────────────────────────────────────────────────────
+// Rows come from the external scanner (source != 'manual') or the "+ Add job" form (source = 'manual').
+// GET:   all rows, best fit first (unscored last), then newest.
+// POST:  { url?, company, title, location?, why_interested? } → manual row, status 'interested'.
+//        Blank url → "manual:<company>-<title>" slug. 409 if the url is already tracked.
+// PATCH: { id, ...whitelisted fields }. The scanner owns everything else; status_changed_at,
+//        updated_at (and applied_at on → 'applied') are set by the DB trigger — never write them here.
+const JOB_STATUSES = ["new", "interested", "applied", "screen", "interview", "offer", "rejected", "withdrawn", "skipped", "closed"];
+const JOB_TEXT_FIELDS = ["notes", "why_interested", "contact", "next_step"];
+const JOB_DATE_FIELDS = ["follow_up_on", "applied_at"];
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+const cleanText = v => (typeof v === "string" && v.trim() !== "" ? v.trim() : null);
+const slugify = s => s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
 async function handleJobs(req, res) {
   if (req.method === "GET") {
     const { data, error } = await supabase
@@ -482,21 +493,55 @@ async function handleJobs(req, res) {
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data);
   }
-  if (req.method === "PATCH") {
-    const { id, status, notes } = req.body ?? {};
-    if (id == null) return res.status(400).json({ error: "id required" });
-    const updates = {};
-    if (status !== undefined) {
-      if (!JOB_STATUSES.includes(status)) return res.status(400).json({ error: "invalid status" });
-      updates.status = status;
+
+  if (req.method === "POST") {
+    const body = req.body ?? {};
+    const company = cleanText(body.company);
+    const title = cleanText(body.title);
+    if (!company || !title) return res.status(400).json({ error: "Company and title are required." });
+    const url = cleanText(body.url) ?? `manual:${slugify(`${company}-${title}`)}`;
+    const row = {
+      url, company, title,
+      location: cleanText(body.location),
+      why_interested: cleanText(body.why_interested),
+      source: "manual",
+      status: "interested",
+    };
+    const { data, error } = await supabase.from("job_postings").insert(row).select();
+    if (error) {
+      if (error.code === "23505") {
+        const { data: existing } = await supabase
+          .from("job_postings").select("company,title,status").eq("url", url).maybeSingle();
+        const what = existing ? `${existing.company} — ${existing.title} (${existing.status})` : "this job";
+        return res.status(409).json({ error: `Already tracking ${what}.` });
+      }
+      return res.status(500).json({ error: error.message });
     }
-    if (notes !== undefined) updates.notes = notes;
+    return res.status(201).json(data[0]);
+  }
+
+  if (req.method === "PATCH") {
+    const body = req.body ?? {};
+    if (body.id == null) return res.status(400).json({ error: "id required" });
+    const updates = {};
+    if (body.status !== undefined) {
+      if (!JOB_STATUSES.includes(body.status)) return res.status(400).json({ error: "invalid status" });
+      updates.status = body.status;
+    }
+    for (const f of JOB_TEXT_FIELDS) if (body[f] !== undefined) updates[f] = cleanText(body[f]);
+    for (const f of JOB_DATE_FIELDS) {
+      if (body[f] === undefined) continue;
+      const v = cleanText(body[f]);
+      if (v !== null && !ISO_DATE.test(v)) return res.status(400).json({ error: `${f} must be YYYY-MM-DD` });
+      updates[f] = v;
+    }
     if (Object.keys(updates).length === 0) return res.status(400).json({ error: "nothing to update" });
-    const { data, error } = await supabase.from("job_postings").update(updates).eq("id", id).select();
+    const { data, error } = await supabase.from("job_postings").update(updates).eq("id", body.id).select();
     if (error) return res.status(500).json({ error: error.message });
     if (!data?.length) return res.status(404).json({ error: "Not found" });
     return res.json(data[0]);
   }
+
   res.status(405).end();
 }
 

@@ -9,7 +9,7 @@ This file is the project memory. Read it at the start of every session before to
 **Personal OS** is a private, password-protected personal dashboard deployed on Vercel. It started as a weekly goals tracker but has grown into a full personal operating system. It is Finn's personal app — there is no multi-user support, no sign-up flow.
 
 Core panels:
-- **Jobs** — job postings found + fit-scored by the external scanner (`job_postings`); triage by status, notes, apply link
+- **Jobs** — job postings found + fit-scored by the external scanner, plus manual "+ Add" rows (`job_postings`). Tabs: New / Interested / Pipeline (applied·screen·interview·offer) / Archive (rejected·withdrawn·skipped·closed). Expanded row: status dropdown, why interested, contact, next step, follow-up date ("Follow up" chip when due), applied date, notes
 - **News** — Tech/Finance/NYC headlines; hideable (✕ / "Show News", remembered in localStorage `pos_news_visible`)
 - Removed from the dashboard (tables/endpoints still exist, unused): Focus Points, Weekly Goals, Daily Tasks, Habits, Whoop, drink/powder trackers, food cost
 - **Notes** — freeform scratchpad
@@ -74,7 +74,7 @@ codeProject/
     │   └── storage.ts               ← Legacy localStorage facade (still used by WeekDashboard)
     └── components/
         ├── LockScreen.tsx           ← Password gate — shown if not authed
-        ├── PersonalOS.tsx           ← ROOT dashboard: 3-column layout (Defunct | Finance + Jobs + News | Hello + Weather + Spent + Notes)
+        ├── PersonalOS.tsx           ← ROOT dashboard: 2-column layout (Finance + Jobs + News | Hello + Weather + Spent + Defunct + Notes)
         ├── BudgetPanel.tsx          ← Monthly budget: income/expenses/summary
         ├── WorkoutPanel.tsx         ← Exercise sessions and sets logger
         ├── DndPanel.tsx             ← D&D campaign manager
@@ -108,7 +108,7 @@ The `db.ts` client calls these endpoints. Every resource supports a consistent p
 | `/api/data/exercises` | `exercises` | Exercise definitions |
 | `/api/data/sessions` | `workout_sessions` | Workout sessions |
 | `/api/data/sets` | `workout_sets` | Sets within a session |
-| `/api/data/jobs` | `job_postings` | GET all (fit_score desc nulls last, first_seen_at desc); PATCH `{ id, status?, notes? }` only — scanner owns all other columns. No POST/DELETE |
+| `/api/data/jobs` | `job_postings` | GET all (fit_score desc nulls last, first_seen_at desc). POST `{ url?, company, title, location?, why_interested? }` → `source='manual'`, `status='interested'`; blank url → `manual:<slug>`; 409 if url exists. PATCH `{ id, …}` whitelist: status, notes, why_interested, contact, next_step, follow_up_on, applied_at. Never write `status_changed_at` (DB trigger). No DELETE |
 | `/api/data/dnd-campaigns` | `dnd_campaigns` | D&D campaigns |
 | `/api/data/dnd-characters` | `dnd_characters` | Characters (filtered by campaign_id) |
 | `/api/data/dnd-locations` | `dnd_locations` | Locations (filtered by campaign_id) |
@@ -146,7 +146,7 @@ See `supabase-schema.sql` for the full schema. Key tables:
 - `workout_sessions` — session records
 - `workout_sets` — sets within a session
 - `dnd_*` tables — campaign, characters, locations, sessions, lore, quests, concepts
-- `job_postings` — `id, url (unique), source, company, title, location, remote, salary, description, status (new|interested|applied|skipped|closed), notes, fit_score (1–5, null = unscored), fit_summary, fit_details jsonb {reasons, red_flags, resume}, first_seen_at, …` — written by the external scanner; RLS on, no policies (service key only)
+- `job_postings` — `id, url (unique), source ('manual' for hand-added), company, title, location, remote, salary, description, status (new|interested|applied|screen|interview|offer|rejected|withdrawn|skipped|closed), status_changed_at (trigger), applied_at, why_interested, contact, next_step, follow_up_on, notes, fit_score (1–5, null = unscored), fit_summary, fit_details jsonb {reasons, red_flags, resume}, first_seen_at, …` — scanner + manual rows; RLS on, no policies (service key only)
 
 ---
 
