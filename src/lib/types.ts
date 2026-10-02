@@ -113,6 +113,9 @@ export type JobStatus =
   | "applied" | "screen" | "interview" | "offer"          // pipeline
   | "rejected" | "withdrawn" | "skipped" | "closed";      // archive
 
+/** lead = EM / tech lead / staff+, engineer = senior IC, product = PM / TPM / product engineer. */
+export type JobCategory = "lead" | "engineer" | "product";
+
 export interface JobFitDetails {
   reasons?: string[];
   red_flags?: string[];
@@ -137,6 +140,7 @@ export interface JobPosting {
   last_seen_at: string;
   closed_at: string | null;
   status: JobStatus;
+  category: JobCategory | null; // set from title by DB trigger on insert; editable via PATCH
   status_changed_at: string;   // set by DB trigger — never written by the app
   applied_at: string | null;   // YYYY-MM-DD; trigger fills it on → 'applied' if empty
   notes: string | null;
@@ -153,7 +157,7 @@ export interface JobPosting {
 
 /** Fields the app may PATCH (mirrors the API whitelist). */
 export type JobUpdate = Partial<Pick<JobPosting,
-  "status" | "notes" | "why_interested" | "contact" | "next_step" | "follow_up_on" | "applied_at">>;
+  "status" | "category" | "notes" | "why_interested" | "contact" | "next_step" | "follow_up_on" | "applied_at">>;
 
 export interface NewJob {
   url?: string;

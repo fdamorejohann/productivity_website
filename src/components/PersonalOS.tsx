@@ -11,7 +11,7 @@ import DndPanel from "./DndPanel";
 import RunningPanel from "./RunningPanel";
 import TripPanel from "./TripPanel";
 import { db } from "../lib/db";
-import type { JobPosting, JobStatus, JobUpdate, NewJob } from "../lib/types";
+import type { JobCategory, JobPosting, JobStatus, JobUpdate, NewJob } from "../lib/types";
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 // ─── Finance Box ─────────────────────────────────────────────────────────────
@@ -653,6 +653,25 @@ function FitBadge({ score }: { score: number | null }) {
   );
 }
 
+// Category is set from the title by a DB trigger on insert; can be overridden per job.
+const JOB_CATEGORY_META: Record<JobCategory, { label: string; color: string }> = {
+  lead:     { label: "Lead",     color: "#f472b6" },
+  engineer: { label: "Engineer", color: "#2dd4bf" },
+  product:  { label: "Product",  color: "#facc15" },
+};
+const JOB_CATEGORIES = Object.keys(JOB_CATEGORY_META) as JobCategory[];
+type JobCategoryFilter = "all" | JobCategory;
+const JOBS_CATEGORY_KEY = "pos_jobs_category";
+
+function CategoryChip({ category }: { category: JobCategory | null }) {
+  if (!category) return null;
+  const { label, color } = JOB_CATEGORY_META[category];
+  return (
+    <span className="flex-shrink-0 text-[9px] uppercase tracking-wider rounded px-1"
+      style={{ color, backgroundColor: `${color}1a` }} title="Category">{label}</span>
+  );
+}
+
 function StatusChip({ status }: { status: JobStatus }) {
   const { label, color } = JOB_STATUS_META[status];
   return (
@@ -726,6 +745,15 @@ function JobDetails({ job, onUpdate }: {
           ))}
         </select>
         <span className="text-[10px] text-gray-600">{daysSince(job.status_changed_at)}d in stage</span>
+        <select
+          value={job.category ?? ""}
+          onChange={e => onUpdate({ category: e.target.value as JobCategory })}
+          title="Category (auto-set from title — change if it's wrong)"
+          className="bg-[#252525] border border-[#333] rounded-md px-2 py-1 text-xs focus:outline-none focus:border-[#555] [color-scheme:dark]"
+          style={{ color: job.category ? JOB_CATEGORY_META[job.category].color : "#6b7280" }}>
+          {!job.category && <option value="" disabled>Category —</option>}
+          {JOB_CATEGORIES.map(c => <option key={c} value={c}>{JOB_CATEGORY_META[c].label}</option>)}
+        </select>
         {isHttpUrl(job.url) && (
           <a href={job.url} target="_blank" rel="noopener noreferrer"
             className="ml-auto text-xs font-medium text-blue-400 hover:underline">
@@ -822,6 +850,17 @@ function JobsPanel() {
   const [tab, setTab] = useState<JobTab>("new");
   const [expanded, setExpanded] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
+  const [query, setQuery] = useState("");
+  const [category, setCategoryState] = useState<JobCategoryFilter>(() => {
+    try {
+      const v = localStorage.getItem(JOBS_CATEGORY_KEY);
+      return v && (JOB_CATEGORIES as string[]).includes(v) ? (v as JobCategory) : "all";
+    } catch { return "all"; }
+  });
+  const setCategory = (c: JobCategoryFilter) => {
+    setCategoryState(c);
+    try { localStorage.setItem(JOBS_CATEGORY_KEY, c); } catch { /* ignore */ }
+  };
 
   useEffect(() => {
     db.jobs.list()
@@ -831,8 +870,19 @@ function JobsPanel() {
   }, []);
 
   const inTab = (j: JobPosting, t: JobTab) => JOB_TABS.find(x => x.key === t)!.statuses.includes(j.status);
-  // The open row stays visible even if its status moves it to another tab, until collapsed.
-  const visible = jobs.filter(j => inTab(j, tab) || j.id === expanded);
+  // Search spans every tab: all words must match (id, company, title, location, next step, contact, notes, why).
+  const q = query.trim().toLowerCase();
+  const searching = q !== "";
+  const matches = (j: JobPosting) => {
+    const hay = [`#${j.id}`, j.company, j.title, j.location, j.next_step, j.contact, j.notes, j.why_interested, j.salary]
+      .filter(Boolean).join(" ").toLowerCase();
+    return q.split(/\s+/).every(w => hay.includes(w) || (/^#?\d+$/.test(w) && String(j.id) === w.replace("#", "")));
+  };
+  const inCategory = (j: JobPosting) => category === "all" || j.category === category;
+  // Rows in the current view before the category filter (used for the category counts).
+  const inView = (j: JobPosting) => searching ? matches(j) : inTab(j, tab);
+  // The open row stays visible even if a status/category change moves it out of view, until collapsed.
+  const visible = jobs.filter(j => (inView(j) && inCategory(j)) || (!searching && j.id === expanded));
   const activeColor = JOB_TABS.find(t => t.key === tab)!.color;
 
   // Optimistic: apply locally (mirroring the DB trigger), persist, then take the server's row.
@@ -873,12 +923,40 @@ function JobsPanel() {
         </div>
         <div className="flex items-center gap-3">
           {JOB_TABS.map(t => (
-            <button key={t.key} onClick={() => { setTab(t.key); setExpanded(null); }}
+            <button key={t.key} onClick={() => { setTab(t.key); setExpanded(null); setQuery(""); }}
               className="text-xs font-medium transition-colors"
-              style={{ color: t.color, opacity: tab === t.key ? 1 : 0.4 }}>
-              {t.label} <span className="tabular-nums opacity-70">{jobs.filter(j => inTab(j, t.key)).length}</span>
+              style={{ color: t.color, opacity: !searching && tab === t.key ? 1 : 0.4 }}>
+              {t.label} <span className="tabular-nums opacity-70">{jobs.filter(j => inTab(j, t.key) && inCategory(j) && (!searching || matches(j))).length}</span>
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 mb-3">
+        <div className="relative flex-1">
+          <input
+            type="search"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => { if (e.key === "Escape") setQuery(""); }}
+            placeholder="Search all jobs — company, title, #id, contact, notes…"
+            className="w-full bg-[#252525] border border-[#333] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#555] [color-scheme:dark]"
+          />
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs pointer-events-none">⌕</span>
+        </div>
+        <div className="flex items-center rounded-lg border border-[#333] overflow-hidden flex-shrink-0">
+          {(["all", ...JOB_CATEGORIES] as JobCategoryFilter[]).map(c => {
+            const active = category === c;
+            const color = c === "all" ? "#e5e7eb" : JOB_CATEGORY_META[c].color;
+            const n = jobs.filter(j => inView(j) && (c === "all" || j.category === c)).length;
+            return (
+              <button key={c} onClick={() => { setCategory(c); setExpanded(null); }}
+                className="text-[11px] font-medium px-2.5 py-1.5 transition-colors border-l border-[#333] first:border-l-0"
+                style={{ color, opacity: active ? 1 : 0.45, backgroundColor: active ? `${color}1f` : "transparent" }}>
+                {c === "all" ? "All" : JOB_CATEGORY_META[c].label} <span className="tabular-nums opacity-70">{n}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -889,13 +967,13 @@ function JobsPanel() {
           {[1,2,3].map(i => <div key={i} className="h-8 bg-[#252525] rounded-lg animate-pulse" />)}
         </div>
       ) : visible.length === 0 ? (
-        <p className="text-xs text-gray-600 text-center py-4">No jobs here</p>
+        <p className="text-xs text-gray-600 text-center py-4">{searching ? `No jobs match “${query.trim()}”` : "No jobs here"}{category !== "all" ? ` (${JOB_CATEGORY_META[category].label} only)` : ""}</p>
       ) : (
         <div className="divide-y divide-[#2a2a2a]">
           {visible.map(job => {
             const isOpen = expanded === job.id;
             const inPipeline = PIPELINE.includes(job.status);
-            const showStatus = tab === "pipeline" || tab === "archive" || !inTab(job, tab);
+            const showStatus = searching || tab === "pipeline" || tab === "archive" || !inTab(job, tab);
             return (
               <div key={job.id} className={`-mx-2 px-2 rounded-lg transition-colors hover:bg-[#252525] ${ARCHIVE.includes(job.status) && tab !== "archive" ? "opacity-60" : ""}`}>
                 <div className="py-2.5 cursor-pointer grid grid-cols-[24px_minmax(0,1fr)_minmax(0,9rem)_6.5rem_auto] items-center gap-3"
@@ -904,6 +982,7 @@ function JobsPanel() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className="text-xs text-gray-200 truncate" title={job.title}>{job.title}</span>
+                      <CategoryChip category={job.category} />
                       {showStatus && <StatusChip status={job.status} />}
                       {needsFollowUp(job) && (
                         <span className="flex-shrink-0 text-[9px] uppercase tracking-wider rounded px-1 bg-orange-500/15 text-orange-400 border border-orange-400/40"

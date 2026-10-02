@@ -9,7 +9,7 @@ This file is the project memory. Read it at the start of every session before to
 **Personal OS** is a private, password-protected personal dashboard deployed on Vercel. It started as a weekly goals tracker but has grown into a full personal operating system. It is Finn's personal app — there is no multi-user support, no sign-up flow.
 
 Core panels:
-- **Jobs** — job postings found + fit-scored by the external scanner, plus manual "+ Add" rows (`job_postings`). Tabs: New / Interested / Applied / Pipeline (screen·interview·offer) / Archive (rejected·withdrawn·skipped·closed). Expanded row: one-click next-step buttons per stage (e.g. Interested / I applied / Skip) + full status dropdown, why interested, contact, next step, follow-up date ("Follow up" chip when due), applied date, notes
+- **Jobs** — job postings found + fit-scored by the external scanner, plus manual "+ Add" rows (`job_postings`). Tabs: New / Interested / Applied / Pipeline (screen·interview·offer) / Archive (rejected·withdrawn·skipped·closed). Search box searches across all tabs (id, company, title, location, next step, contact, notes, why interested; Esc clears). Category filter All / Lead / Engineer / Product next to search (remembered in localStorage `pos_jobs_category`); category badge on each row; category editable in the expanded row. Expanded row: one-click next-step buttons per stage (e.g. Interested / I applied / Skip) + full status dropdown, why interested, contact, next step, follow-up date ("Follow up" chip when due), applied date, notes
 - **News** — Tech/Finance/NYC headlines; hideable (✕ / "Show News", remembered in localStorage `pos_news_visible`)
 - Removed from the dashboard (tables/endpoints still exist, unused): Focus Points, Weekly Goals, Daily Tasks, Habits, Whoop, drink/powder trackers, food cost
 - **Notes** — freeform scratchpad
@@ -108,7 +108,7 @@ The `db.ts` client calls these endpoints. Every resource supports a consistent p
 | `/api/data/exercises` | `exercises` | Exercise definitions |
 | `/api/data/sessions` | `workout_sessions` | Workout sessions |
 | `/api/data/sets` | `workout_sets` | Sets within a session |
-| `/api/data/jobs` | `job_postings` | GET all (fit_score desc nulls last, first_seen_at desc). POST `{ url?, company, title, location?, why_interested? }` → `source='manual'`, `status='interested'`; blank url → `manual:<slug>`; 409 if url exists. PATCH `{ id, …}` whitelist: status, notes, why_interested, contact, next_step, follow_up_on, applied_at. Never write `status_changed_at` (DB trigger). No DELETE |
+| `/api/data/jobs` | `job_postings` | GET all (fit_score desc nulls last, first_seen_at desc). POST `{ url?, company, title, location?, why_interested? }` → `source='manual'`, `status='interested'`; blank url → `manual:<slug>`; 409 if url exists. PATCH `{ id, …}` whitelist: status, category (`lead`\|`engineer`\|`product` only), notes, why_interested, contact, next_step, follow_up_on, applied_at. Never write `status_changed_at` (DB trigger). `category` comes back via `select('*')`. No DELETE |
 | `/api/data/dnd-campaigns` | `dnd_campaigns` | D&D campaigns |
 | `/api/data/dnd-characters` | `dnd_characters` | Characters (filtered by campaign_id) |
 | `/api/data/dnd-locations` | `dnd_locations` | Locations (filtered by campaign_id) |
@@ -146,7 +146,7 @@ See `supabase-schema.sql` for the full schema. Key tables:
 - `workout_sessions` — session records
 - `workout_sets` — sets within a session
 - `dnd_*` tables — campaign, characters, locations, sessions, lore, quests, concepts
-- `job_postings` — `id, url (unique), source ('manual' for hand-added), company, title, location, remote, salary, description, status (new|interested|applied|screen|interview|offer|rejected|withdrawn|skipped|closed), status_changed_at (trigger), applied_at, why_interested, contact, next_step, follow_up_on, notes, fit_score (1–5, null = unscored), fit_summary, fit_details jsonb {reasons, red_flags, resume}, first_seen_at, …` — scanner + manual rows; RLS on, no policies (service key only)
+- `job_postings` — `id, url (unique), source ('manual' for hand-added), company, title, location, remote, salary, description, status (new|interested|applied|screen|interview|offer|rejected|withdrawn|skipped|closed), category (lead|engineer|product, check constraint; set from title on insert by trigger `job_postings_set_category` → `public.job_category(title)` when null; overridable via PATCH), status_changed_at (trigger), applied_at, why_interested, contact, next_step, follow_up_on, notes, fit_score (1–5, null = unscored), fit_summary, fit_details jsonb {reasons, red_flags, resume}, first_seen_at, …` — scanner + manual rows; RLS on, no policies (service key only)
 
 ---
 

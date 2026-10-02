@@ -473,9 +473,11 @@ async function handleYtFeed(req, res) {
 // GET:   all rows, best fit first (unscored last), then newest.
 // POST:  { url?, company, title, location?, why_interested? } → manual row, status 'interested'.
 //        Blank url → "manual:<company>-<title>" slug. 409 if the url is already tracked.
-// PATCH: { id, ...whitelisted fields }. The scanner owns everything else; status_changed_at,
+// PATCH: { id, ...whitelisted fields } (incl. category override: lead|engineer|product).
+//        The scanner owns everything else; status_changed_at,
 //        updated_at (and applied_at on → 'applied') are set by the DB trigger — never write them here.
 const JOB_STATUSES = ["new", "interested", "applied", "screen", "interview", "offer", "rejected", "withdrawn", "skipped", "closed"];
+const JOB_CATEGORIES = ["lead", "engineer", "product"]; // set from title by a before-insert trigger
 const JOB_TEXT_FIELDS = ["notes", "why_interested", "contact", "next_step"];
 const JOB_DATE_FIELDS = ["follow_up_on", "applied_at"];
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -527,6 +529,10 @@ async function handleJobs(req, res) {
     if (body.status !== undefined) {
       if (!JOB_STATUSES.includes(body.status)) return res.status(400).json({ error: "invalid status" });
       updates.status = body.status;
+    }
+    if (body.category !== undefined) {
+      if (!JOB_CATEGORIES.includes(body.category)) return res.status(400).json({ error: "invalid category" });
+      updates.category = body.category;
     }
     for (const f of JOB_TEXT_FIELDS) if (body[f] !== undefined) updates[f] = cleanText(body[f]);
     for (const f of JOB_DATE_FIELDS) {

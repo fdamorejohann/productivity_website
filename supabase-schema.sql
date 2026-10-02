@@ -115,6 +115,9 @@ create table if not exists public.job_postings (
                     check (status in ('new','interested',
                                       'applied','screen','interview','offer',
                                       'rejected','withdrawn','skipped','closed')),
+  category          text check (category in ('lead','engineer','product')),
+                    -- lead = EM/tech lead/staff+, engineer = senior IC, product = PM/TPM/product engineer.
+                    -- Set from title by job_postings_set_category (before insert) when null; editable via PATCH.
   status_changed_at timestamptz not null default now(), -- set by trigger; never written by the app
   applied_at        date,                          -- trigger fills it on → 'applied' if empty
   notes             text,
@@ -149,5 +152,31 @@ end $$;
 drop trigger if exists job_postings_touch on public.job_postings;
 create trigger job_postings_touch before update on public.job_postings
   for each row execute function public.job_postings_touch();
+
+-- Title → category classifier (product checked first; Capital One "(Manager, IC)" titles are IC).
+create or replace function public.job_category(title text) returns text
+  language sql immutable set search_path = '' as $$
+  select case
+    when title ~* '(product (manager|management|owner|lead|engineer|delivery))|program manag|\yTPM\y' then 'product'
+    -- Capital One "(Manager, IC)" / "(Senior Manager, IC)" are IC titles, not people leads
+    when title ~* '\(\s*(senior\s+|sr\.?\s+)?manager,?\s*ic' then 'engineer'
+    when title ~* 'manager|management|\ylead\y|head of|director|\yTLM\y|staff|principal|architect|\yVP\y' then 'lead'
+    else 'engineer'
+  end
+$$;
+
+-- Fill category on insert when the writer didn't set one.
+create or replace function public.job_postings_set_category() returns trigger
+  language plpgsql set search_path = '' as $$
+begin
+  if new.category is null and new.title is not null then
+    new.category := public.job_category(new.title);
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists job_postings_set_category on public.job_postings;
+create trigger job_postings_set_category before insert on public.job_postings
+  for each row execute function public.job_postings_set_category();
 
 alter table public.job_postings enable row level security;
