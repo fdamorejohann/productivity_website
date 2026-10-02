@@ -911,6 +911,7 @@ function JobsPanel() {
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 min-w-0 text-[10px]">
+                      <span className="flex-shrink-0 font-mono text-gray-600 tabular-nums" title="Supabase job_postings.id">#{job.id}</span>
                       <span className="font-medium truncate flex-shrink-0 max-w-[50%]" style={{ color: activeColor }} title={job.company}>{job.company}</span>
                       {job.next_step && <span className="text-gray-500 truncate" title={job.next_step}>· {job.next_step}</span>}
                     </div>
