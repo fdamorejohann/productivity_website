@@ -9,7 +9,7 @@ This file is the project memory. Read it at the start of every session before to
 **Personal OS** is a private, password-protected personal dashboard deployed on Vercel. It started as a weekly goals tracker but has grown into a full personal operating system. It is Finn's personal app — there is no multi-user support, no sign-up flow.
 
 Core panels:
-- **Jobs** — job postings found + fit-scored by the external scanner, plus manual "+ Add" rows (`job_postings`). Tabs: New / Interested / Pipeline (applied·screen·interview·offer) / Archive (rejected·withdrawn·skipped·closed). Expanded row: status dropdown, why interested, contact, next step, follow-up date ("Follow up" chip when due), applied date, notes
+- **Jobs** — job postings found + fit-scored by the external scanner, plus manual "+ Add" rows (`job_postings`). Tabs: New / Interested / Applied / Pipeline (screen·interview·offer) / Archive (rejected·withdrawn·skipped·closed). Expanded row: one-click next-step buttons per stage (e.g. Interested / I applied / Skip) + full status dropdown, why interested, contact, next step, follow-up date ("Follow up" chip when due), applied date, notes
 - **News** — Tech/Finance/NYC headlines; hideable (✕ / "Show News", remembered in localStorage `pos_news_visible`)
 - Removed from the dashboard (tables/endpoints still exist, unused): Focus Points, Weekly Goals, Daily Tasks, Habits, Whoop, drink/powder trackers, food cost
 - **Notes** — freeform scratchpad

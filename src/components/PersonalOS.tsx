@@ -568,15 +568,31 @@ function NewsWidget({ onHide }: { onHide: () => void }) {
 // Editable here: status, notes, why_interested, contact, next_step, follow_up_on, applied_at.
 // status_changed_at (and applied_at on → applied) are set by a DB trigger.
 
-type JobTab = "new" | "interested" | "pipeline" | "archive";
+type JobTab = "new" | "interested" | "applied" | "pipeline" | "archive";
 const JOB_TABS: { key: JobTab; label: string; color: string; statuses: JobStatus[] }[] = [
   { key: "new",        label: "New",        color: "#3b82f6", statuses: ["new"] },
   { key: "interested", label: "Interested", color: "#f59e0b", statuses: ["interested"] },
-  { key: "pipeline",   label: "Pipeline",   color: "#a78bfa", statuses: ["applied", "screen", "interview", "offer"] },
+  { key: "applied",    label: "Applied",    color: "#a78bfa", statuses: ["applied"] },
+  { key: "pipeline",   label: "Pipeline",   color: "#22d3ee", statuses: ["screen", "interview", "offer"] },
   { key: "archive",    label: "Archive",    color: "#9ca3af", statuses: ["rejected", "withdrawn", "skipped", "closed"] },
 ];
-const PIPELINE: JobStatus[] = JOB_TABS[2].statuses;
-const ARCHIVE: JobStatus[] = JOB_TABS[3].statuses;
+// "In process" = applied or further along (used for the "Applied <date> · Nd in stage" line).
+const PIPELINE: JobStatus[] = ["applied", "screen", "interview", "offer"];
+const ARCHIVE: JobStatus[] = JOB_TABS[4].statuses;
+
+// One-click next moves, per current status. The full dropdown stays available for anything else.
+const JOB_QUICK_ACTIONS: Record<JobStatus, { to: JobStatus; label: string }[]> = {
+  new:        [{ to: "interested", label: "Interested" }, { to: "applied", label: "I applied" }, { to: "skipped", label: "Skip" }],
+  interested: [{ to: "applied", label: "I applied" }, { to: "skipped", label: "Not for me" }],
+  applied:    [{ to: "screen", label: "Got a screen" }, { to: "rejected", label: "Rejected" }, { to: "withdrawn", label: "Withdraw" }],
+  screen:     [{ to: "interview", label: "Interviewing" }, { to: "rejected", label: "Rejected" }, { to: "withdrawn", label: "Withdraw" }],
+  interview:  [{ to: "offer", label: "Got an offer" }, { to: "rejected", label: "Rejected" }, { to: "withdrawn", label: "Withdraw" }],
+  offer:      [{ to: "withdrawn", label: "Declined" }],
+  rejected:   [{ to: "interested", label: "Reopen" }],
+  withdrawn:  [{ to: "interested", label: "Reopen" }],
+  skipped:    [{ to: "interested", label: "Interested after all" }],
+  closed:     [{ to: "interested", label: "Reopen" }],
+};
 
 const JOB_STATUS_META: Record<JobStatus, { label: string; color: string }> = {
   new:        { label: "New",        color: "#9ca3af" },
@@ -647,7 +663,8 @@ function StatusChip({ status }: { status: JobStatus }) {
 
 const jobInputCls = "w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#555]";
 
-/** Text / textarea / date input that saves on blur when the value changed ("" → null). */
+/** Text / textarea / date input that saves on blur when the value changed ("" → null).
+ *  Callers key it by value so it resets when the server changes the field (e.g. applied_at via trigger). */
 function JobField({ label, value, kind = "text", placeholder, onSave }: {
   label: string;
   value: string | null;
@@ -685,11 +702,21 @@ function JobDetails({ job, onUpdate }: {
 
   return (
     <div className="pb-4 pt-1 pl-9 pr-1 space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] text-gray-500 uppercase tracking-widest">Status</span>
+      <div className="flex flex-wrap items-center gap-2">
+        {JOB_QUICK_ACTIONS[job.status].map(a => {
+          const c = JOB_STATUS_META[a.to].color;
+          return (
+            <button key={a.to} onClick={() => onUpdate({ status: a.to })}
+              className="text-xs font-medium px-2.5 py-1 rounded-md border transition-colors hover:bg-white/5"
+              style={{ color: c, borderColor: `${c}66` }}>
+              {a.label}
+            </button>
+          );
+        })}
         <select
           value={job.status}
           onChange={e => onUpdate({ status: e.target.value as JobStatus })}
+          title="Set any status"
           className="bg-[#252525] border border-[#333] rounded-md px-2 py-1 text-xs focus:outline-none focus:border-[#555] [color-scheme:dark]"
           style={{ color: JOB_STATUS_META[job.status].color }}>
           {JOB_TABS.map(t => (
@@ -741,14 +768,14 @@ function JobDetails({ job, onUpdate }: {
         <span className="text-[10px] uppercase tracking-widest mr-2">Posting</span>{job.description || "—"}
       </p>
 
-      <JobField label="Why interested" kind="textarea" value={job.why_interested} placeholder="What draws you to this one?" onSave={save("why_interested")} />
+      <JobField key={`why_interested:${job.why_interested ?? ""}`} label="Why interested" kind="textarea" value={job.why_interested} placeholder="What draws you to this one?" onSave={save("why_interested")} />
       <div className="grid grid-cols-2 gap-3">
-        <JobField label="Contact" value={job.contact} placeholder="Recruiter / referral" onSave={save("contact")} />
-        <JobField label="Next step" value={job.next_step} placeholder="e.g. Onsite Tue" onSave={save("next_step")} />
-        <JobField label="Follow up on" kind="date" value={job.follow_up_on} onSave={save("follow_up_on")} />
-        <JobField label="Applied on" kind="date" value={job.applied_at} onSave={save("applied_at")} />
+        <JobField key={`contact:${job.contact ?? ""}`} label="Contact" value={job.contact} placeholder="Recruiter / referral" onSave={save("contact")} />
+        <JobField key={`next_step:${job.next_step ?? ""}`} label="Next step" value={job.next_step} placeholder="e.g. Onsite Tue" onSave={save("next_step")} />
+        <JobField key={`follow_up_on:${job.follow_up_on ?? ""}`} label="Follow up on" kind="date" value={job.follow_up_on} onSave={save("follow_up_on")} />
+        <JobField key={`applied_at:${job.applied_at ?? ""}`} label="Applied on" kind="date" value={job.applied_at} onSave={save("applied_at")} />
       </div>
-      <JobField label="Notes" kind="textarea" value={job.notes} placeholder="Notes…" onSave={save("notes")} />
+      <JobField key={`notes:${job.notes ?? ""}`} label="Notes" kind="textarea" value={job.notes} placeholder="Notes…" onSave={save("notes")} />
     </div>
   );
 }
