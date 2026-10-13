@@ -43,19 +43,19 @@ interface Session {
 }
 
 const WORKOUT_COLORS: Record<string, string> = {
-  lifting: "#ef4444",
-  running: "#f97316",
-  rollerblading: "#a78bfa",
-  muaythai: "#ec4899",
-  biking: "#3b82f6",
+  lifting: "#2a78d6",
+  running: "#eb6834",
+  rollerblading: "#1baf7a",
+  muaythai: "#eda100",
+  biking: "#e87ba4",
 };
 
 const WORKOUT_TYPES: { key: WorkoutType; label: string; emoji: string; color: string }[] = [
-  { key: "lifting",       label: "Lifting",       emoji: "🏋️",  color: "#ef4444" },
-  { key: "running",       label: "Running",       emoji: "🏃",  color: "#f97316" },
-  { key: "rollerblading", label: "Rollerblading", emoji: "🛼",  color: "#a78bfa" },
-  { key: "muaythai",      label: "Muay Thai",     emoji: "🥊",  color: "#ec4899" },
-  { key: "biking",        label: "Biking",        emoji: "🚴",  color: "#3b82f6" },
+  { key: "lifting",       label: "Lifting",       emoji: "🏋️",  color: "#2a78d6" },
+  { key: "running",       label: "Running",       emoji: "🏃",  color: "#eb6834" },
+  { key: "rollerblading", label: "Rollerblading", emoji: "🛼",  color: "#1baf7a" },
+  { key: "muaythai",      label: "Muay Thai",     emoji: "🥊",  color: "#eda100" },
+  { key: "biking",        label: "Biking",        emoji: "🚴",  color: "#e87ba4" },
 ];
 
 // Draft set used while logging
@@ -128,7 +128,7 @@ export default function WorkoutPanel() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-[#111]">⚔️ Workouts</h1>
+          <h2 className="text-2xl font-medium tracking-[-0.03em] text-[#111]">Workouts</h2>
           <p className="text-xs text-gray-500 mt-1">{sessions.length} sessions logged</p>
         </div>
         <div className="flex gap-2">
@@ -136,7 +136,7 @@ export default function WorkoutPanel() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize ${
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors capitalize ${
                 tab === t ? "bg-[#111] text-[#F5F4F0]" : "text-gray-500 hover:text-[#111] border border-[#D9D7CF]"
               }`}
             >{t}</button>
@@ -352,7 +352,7 @@ function LogTab({ exercises, sessions, onSaved }: {
       {/* Cardio form */}
       {!isLifting && (
         <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5" style={{ borderColor: t.color + "44" }}>
-          <p className="text-xs uppercase tracking-wider mb-4" style={{ color: t.color }}>{t.emoji} {t.label} Details</p>
+          <p className="text-xs uppercase tracking-wider mb-4 text-gray-500">{t.emoji} {t.label} Details</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-gray-500 mb-1">Duration (min)</p>
@@ -656,7 +656,7 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
               <div className="text-left">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-[#111] font-medium text-sm">{formatDate(s.date)}</p>
-                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: t.color + "33", color: t.color }}>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: t.color + "26", color: "#111" }}>
                     {t.emoji} {t.label}
                   </span>
                   {s.notes && (
@@ -716,7 +716,7 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
                             <span key={st.id + "n"} className="text-xs text-gray-500">{i + 1}</span>
                             <span key={st.id + "w"} className="text-xs text-[#111]">{st.is_amrap ? "—" : `${st.weight_lbs ?? "—"} lbs`}</span>
                             <span key={st.id + "r"} className="text-xs text-[#111]">{st.reps ?? "—"} reps</span>
-                            <span key={st.id + "t"} className="text-xs" style={{ color: st.is_amrap ? "#a78bfa" : "#6b7280" }}>{st.is_amrap ? "AMRAP" : "Weighted"}</span>
+                            <span key={st.id + "t"} className="text-xs" style={{ color: st.is_amrap ? "#4a3aa7" : "#898781" }}>{st.is_amrap ? "AMRAP" : "Weighted"}</span>
                           </>
                         ))}
                       </div>
@@ -911,7 +911,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
         {values.map((v, i) => {
           const x = (i / (values.length - 1)) * W;
           const y = H - ((v - minV) / range) * (H - 4) - 2;
-          return <circle key={i} cx={x} cy={y} r="2.5" fill={color} />;
+          return <circle key={i} cx={x} cy={y} r="4" fill={color} stroke="#F5F4F0" strokeWidth="2" />;
         })}
       </svg>
     );
@@ -934,7 +934,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
           <div className="flex items-center justify-between mb-3">
             <button onClick={() => { const d = new Date(calYear, calMonth - 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }} className="text-gray-500 hover:text-[#111] w-6 h-6 flex items-center justify-center transition-colors">‹</button>
             <p className="text-sm font-medium text-[#111]">{calLabel} <span className="text-gray-500 font-normal text-xs">· {monthSessions.length} sessions</span></p>
-            <button onClick={() => { const d = new Date(calYear, calMonth + 1, 1); if (d <= now) { setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); } }} className={`w-6 h-6 flex items-center justify-center transition-colors ${new Date(calYear, calMonth + 1, 1) > now ? "text-gray-400 cursor-default" : "text-gray-500 hover:text-[#111]"}`}>›</button>
+            <button onClick={() => { const d = new Date(calYear, calMonth + 1, 1); if (d <= now) { setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); } }} className={`w-6 h-6 flex items-center justify-center transition-colors ${new Date(calYear, calMonth + 1, 1) > now ? "text-gray-600 cursor-default" : "text-gray-500 hover:text-[#111]"}`}>›</button>
           </div>
           <div className="grid grid-cols-10 gap-1">
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
@@ -943,7 +943,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
               const isToday = ds === todayStr();
               return (
                 <div key={d} className={`rounded-lg p-1.5 flex flex-col items-center gap-1 ${isToday ? "bg-[#E6E4DE]" : types.length > 0 ? "bg-white" : ""}`}>
-                  <span className={`text-xs leading-none ${isToday ? "font-bold text-[#111]" : types.length > 0 ? "text-gray-400" : "text-gray-500"}`}>{d}</span>
+                  <span className={`text-xs leading-none ${isToday ? "font-bold text-[#111]" : types.length > 0 ? "text-gray-600" : "text-gray-500"}`}>{d}</span>
                   {types.length > 0 && (
                     <div className="flex gap-0.5 flex-wrap justify-center">
                       {types.map(t => (
@@ -990,7 +990,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
                         {first > 0 ? `${delta >= 0 ? "+" : ""}${delta} lbs` : "—"}
                       </span>
                     </div>
-                    <Sparkline values={values} color="#3b82f6" isAmrap={false} />
+                    <Sparkline values={values} color="#111111" isAmrap={false} />
                     <p className="text-xs text-gray-500 mt-2">Est. 1RM: <span className="text-[#111]">{best} lbs</span> · {pts.length} sessions</p>
                   </button>
                 );
@@ -1020,7 +1020,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
                         {first > 0 ? `${delta >= 0 ? "+" : ""}${delta} reps` : "—"}
                       </span>
                     </div>
-                    <Sparkline values={values} color="#a78bfa" isAmrap={true} />
+                    <Sparkline values={values} color="#4a3aa7" isAmrap={true} />
                     <p className="text-xs text-gray-500 mt-2">Best: <span className="text-[#111]">{best} reps</span> · {pts.length} sessions</p>
                   </button>
                 );
@@ -1074,7 +1074,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
     const H = 140;
     const W = 560;
     const unit = isAmrap ? "reps" : "lbs";
-    const color = isAmrap ? "#a78bfa" : "#3b82f6";
+    const color = isAmrap ? "#4a3aa7" : "#111111";
 
     return (
       <div className="space-y-4">
@@ -1120,7 +1120,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
                 return (
                   <g key={pct}>
                     <line x1="30" y1={y} x2={W} y2={y} stroke="#D9D7CF" strokeWidth="1" />
-                    <text x="0" y={y + 4} fill="#555" fontSize="9">{val}</text>
+                    <text x="0" y={y + 4} fill="#5f5e5a" fontSize="9">{val}</text>
                   </g>
                 );
               })}
@@ -1132,14 +1132,14 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
                 }).join(" ");
                 return (
                   <>
-                    <polyline points={pointsStr} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <polyline points={pointsStr} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     {values.map((v, i) => {
                       const x = 30 + (i / (values.length - 1)) * (W - 30);
                       const y = H - (v / maxVal) * (H - 10);
                       return (
                         <g key={i}>
-                          <circle cx={x} cy={y} r="4" fill={color} />
-                          <text x={x} y={H + 20} fill="#555" fontSize="9" textAnchor="middle">
+                          <circle cx={x} cy={y} r="4" fill={color} stroke="#F5F4F0" strokeWidth="2" />
+                          <text x={x} y={H + 20} fill="#5f5e5a" fontSize="9" textAnchor="middle">
                             {new Date(pts[i].date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                           </text>
                         </g>
@@ -1164,7 +1164,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
                     className="w-full flex items-center justify-between px-5 py-3 hover:bg-[#E6E4DE] transition-colors text-left"
                     onClick={() => setExpandedSession(isOpen ? null : key)}
                   >
-                    <span className="text-sm text-gray-400">{formatDate(p.date)}</span>
+                    <span className="text-sm text-gray-600">{formatDate(p.date)}</span>
                     <div className="flex items-center gap-4">
                       {isAmrap
                         ? <span className="text-xs text-gray-500">Max reps <span style={{ color }}>{p.maxReps}</span></span>
@@ -1188,7 +1188,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
                             <span key={st.id + "n"} className="text-xs text-gray-500">{si + 1}</span>
                             <span key={st.id + "w"} className="text-xs text-[#111]">{st.is_amrap ? "—" : `${st.weight_lbs ?? "—"} lbs`}</span>
                             <span key={st.id + "r"} className="text-xs text-[#111]">{st.reps ?? "—"}</span>
-                            <span key={st.id + "t"} className="text-xs" style={{ color: st.is_amrap ? "#a78bfa" : "#6b7280" }}>{st.is_amrap ? "AMRAP" : ""}</span>
+                            <span key={st.id + "t"} className="text-xs" style={{ color: st.is_amrap ? "#4a3aa7" : "#898781" }}>{st.is_amrap ? "AMRAP" : ""}</span>
                           </>
                         ))}
                       </div>
@@ -1214,25 +1214,25 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
       const pts = cs.map(s => ({ date: s.date, val: getValue(s) ?? 0 })).filter(p => p.val > 0);
       if (pts.length < 2) return null;
       const maxVal = Math.max(...pts.map(p => p.val));
-      const H = 100;
-      const W = 500;
-      const pointsStr = pts.map((p, i) => {
-        const x = (i / (pts.length - 1)) * W;
-        const y = H - (p.val / maxVal) * (H - 10);
-        return `${x},${y}`;
-      }).join(" ");
+      const H = 110;
+      const W = 900;
+      const PX = 32;
+      const xOf = (i: number) => PX + (i / (pts.length - 1)) * (W - 2 * PX);
+      const yOf = (v: number) => H - (v / maxVal) * (H - 14);
+      const pointsStr = pts.map((p, i) => `${xOf(i)},${yOf(p.val)}`).join(" ");
       return (
         <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">{label}</p>
-          <svg viewBox={`0 0 ${W} ${H + 20}`} className="w-full">
-            <polyline points={pointsStr} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg viewBox={`0 0 ${W} ${H + 24}`} className="w-full">
+            <line x1={PX} y1={H} x2={W - PX} y2={H} stroke="#D9D7CF" strokeWidth="1" />
+            <polyline points={pointsStr} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             {pts.map((p, i) => {
-              const x = (i / (pts.length - 1)) * W;
-              const y = H - (p.val / maxVal) * (H - 10);
+              const x = xOf(i);
+              const y = yOf(p.val);
               return (
                 <g key={i}>
-                  <circle cx={x} cy={y} r="4" fill={color} />
-                  <text x={x} y={H + 15} fill="#555" fontSize="8" textAnchor="middle">
+                  <circle cx={x} cy={y} r="4" fill={color} stroke="#F5F4F0" strokeWidth="2" />
+                  <text x={x} y={H + 18} fill="#5f5e5a" fontSize="12" textAnchor="middle">
                     {new Date(p.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </text>
                 </g>

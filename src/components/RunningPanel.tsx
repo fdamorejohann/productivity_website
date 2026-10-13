@@ -102,8 +102,8 @@ function RunGraph({ completions }: { completions: Completion[] }) {
       <div className="flex items-center justify-between mb-4">
         <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">12-Week Progression</span>
         <div className="flex items-center gap-4 text-[10px] text-gray-500">
-          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-orange-400 inline-block rounded" />Easy run</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-blue-400 inline-block rounded" />Long run</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 inline-block rounded" style={{ backgroundColor: "#eb6834" }} />Easy run</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 inline-block rounded" style={{ backgroundColor: "#2a78d6" }} />Long run</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#E6E4DE] border border-[#C9C7BF] inline-block" />Cutback week</span>
         </div>
       </div>
@@ -117,7 +117,7 @@ function RunGraph({ completions }: { completions: Completion[] }) {
             y={PAD.top}
             width={xStep}
             height={innerH}
-            fill="#D9D7CF"
+            fill="#E6E4DE"
             rx="2"
           />
         ))}
@@ -137,17 +137,17 @@ function RunGraph({ completions }: { completions: Completion[] }) {
           const y = toY(v);
           return (
             <g key={v}>
-              <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#F5F4F0" strokeWidth="1" strokeDasharray="4 3" />
-              <text x={PAD.left - 6} y={y + 4} fontSize="9" fill="#555" textAnchor="end">{v}mi</text>
+              <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#D9D7CF" strokeWidth="1" />
+              <text x={PAD.left - 6} y={y + 4} fontSize="9" fill="#5f5e5a" textAnchor="end">{v}mi</text>
             </g>
           );
         })}
 
         {/* Easy run line */}
-        <polyline points={easyPts} fill="none" stroke="#f97316" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity="0.7" />
+        <polyline points={easyPts} fill="none" stroke="#eb6834" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"  />
 
         {/* Long run line */}
-        <polyline points={longPts} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        <polyline points={longPts} fill="none" stroke="#2a78d6" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
 
         {/* Easy run dots */}
         {easyRuns.map(r => {
@@ -156,8 +156,8 @@ function RunGraph({ completions }: { completions: Completion[] }) {
             <circle
               key={`e${r.week}`}
               cx={toX(r.week)} cy={toY(r.miles)} r={done ? 6 : 4}
-              fill={done ? "#f97316" : "#F5F4F0"}
-              stroke="#f97316" strokeWidth="2"
+              fill={done ? "#eb6834" : "#F5F4F0"}
+              stroke="#eb6834" strokeWidth="2"
             />
           );
         })}
@@ -169,15 +169,15 @@ function RunGraph({ completions }: { completions: Completion[] }) {
             <circle
               key={`l${r.week}`}
               cx={toX(r.week)} cy={toY(r.miles)} r={done ? 6 : 4}
-              fill={done ? "#3b82f6" : "#F5F4F0"}
-              stroke={r.isRace ? "#22c55e" : "#3b82f6"} strokeWidth="2"
+              fill={done ? "#2a78d6" : "#F5F4F0"}
+              stroke={r.isRace ? "#111111" : "#2a78d6"} strokeWidth="2"
             />
           );
         })}
 
         {/* X axis week labels */}
         {weeks.map(w => (
-          <text key={w} x={toX(w)} y={H - 8} fontSize="9" fill="#555" textAnchor="middle">
+          <text key={w} x={toX(w)} y={H - 8} fontSize="9" fill="#5f5e5a" textAnchor="middle">
             {w === 12 ? "🏁" : `W${w}`}
           </text>
         ))}
@@ -187,7 +187,7 @@ function RunGraph({ completions }: { completions: Completion[] }) {
       <div className="mt-3 flex items-center gap-3">
         <div className="flex-1 bg-white rounded-full h-1.5 overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-orange-500 to-blue-500 rounded-full transition-all duration-500"
+            className="h-full bg-[#111] rounded-full transition-all duration-500"
             style={{ width: `${(completions.length / 24) * 100}%` }}
           />
         </div>
@@ -280,7 +280,7 @@ export default function RunningPanel() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-[#111]">🏃 10K Plan</h2>
+        <h2 className="text-2xl font-medium tracking-[-0.03em] text-[#111]">10K plan</h2>
         <div className="text-right">
           <p className="text-xs text-gray-500">Week {Math.min(currentWeek, 12)} of 12</p>
           <p className="text-xs text-gray-500">{totalDone} runs complete</p>
@@ -307,7 +307,7 @@ export default function RunningPanel() {
                 {/* Week header */}
                 <div className={`flex items-center justify-between px-5 py-3 border-b ${isCutback ? "border-yellow-300 bg-yellow-100" : isRaceWeek ? "border-green-300 bg-green-100" : "border-[#D9D7CF]"}`}>
                   <span className="text-xs font-semibold text-[#111]">Week {week}</span>
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${isCutback ? "bg-yellow-100 text-yellow-600" : isRaceWeek ? "bg-green-100 text-green-600" : "text-gray-500"}`}>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${isCutback ? "bg-yellow-100 text-yellow-800" : isRaceWeek ? "bg-green-100 text-green-800" : "text-gray-500"}`}>
                     {isCutback ? "Cutback" : isRaceWeek ? "Race Week 🏁" : ""}
                   </span>
                 </div>
@@ -381,10 +381,10 @@ export default function RunningPanel() {
       <div className="mt-6 bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5">
         <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-3">Keys to success</p>
         <div className="space-y-2 text-xs text-gray-500 leading-relaxed">
-          <p><span className="text-gray-400">Easy means easy.</span> Run 1 should be conversational — you should be able to hold a sentence without gasping.</p>
-          <p><span className="text-gray-400">Don't skip cutback weeks.</span> They're where adaptation actually happens.</p>
-          <p><span className="text-gray-400">Time over pace on long runs.</span> Cover the distance, don't worry about speed.</p>
-          <p><span className="text-gray-400">Repeat weeks if needed.</span> Better to stay than push into injury.</p>
+          <p><span className="text-gray-600">Easy means easy.</span> Run 1 should be conversational — you should be able to hold a sentence without gasping.</p>
+          <p><span className="text-gray-600">Don't skip cutback weeks.</span> They're where adaptation actually happens.</p>
+          <p><span className="text-gray-600">Time over pace on long runs.</span> Cover the distance, don't worry about speed.</p>
+          <p><span className="text-gray-600">Repeat weeks if needed.</span> Better to stay than push into injury.</p>
         </div>
       </div>
     </div>

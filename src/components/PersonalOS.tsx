@@ -45,10 +45,10 @@ type FinanceTab = "total" | "savings" | "investments" | "leftover" | "runway";
 
 const FINANCE_TABS: { key: FinanceTab; label: string; color: string }[] = [
   { key: "total",       label: "Total",    color: "#111111" },
-  { key: "savings",     label: "Savings",  color: "#22c55e" },
-  { key: "investments", label: "Investing", color: "#a78bfa" },
-  { key: "leftover",    label: "Leftover", color: "#3b82f6" },
-  { key: "runway",      label: "20k",      color: "#22c55e" },
+  { key: "savings",     label: "Savings",  color: "#111111" },
+  { key: "investments", label: "Investing", color: "#111111" },
+  { key: "leftover",    label: "Leftover", color: "#111111" },
+  { key: "runway",      label: "20k",      color: "#111111" },
 ];
 
 const RUNWAY_TARGET = 20000;
@@ -95,23 +95,23 @@ function RunwayInline({ rows, loading, hoveredIdx, setHoveredIdx }: {
         {monthsLeft !== null && monthsLeft > 0 && (
           <span className="text-xs text-gray-500"><span className="font-semibold text-[#111]">{monthsLeft}mo</span> / <span className="font-semibold text-[#111]">{weeksLeft}wk</span> away</span>
         )}
-        {currentTotal >= RUNWAY_TARGET && <span className="text-xs font-semibold text-emerald-600">🎉 Goal reached!</span>}
+        {currentTotal >= RUNWAY_TARGET && <span className="text-xs font-semibold text-[#111]">Goal reached</span>}
       </div>
       {loading ? <div className="h-16 flex items-center justify-center text-xs text-gray-500">Loading…</div> : (
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-24" preserveAspectRatio="none">
           <line x1={0} y1={targetY} x2={W} y2={targetY} stroke="#C9C7BF" strokeWidth={1} strokeDasharray="4 3" />
-          <text x={W - 2} y={targetY - 3} textAnchor="end" fontSize={7} fill="#6b7280">$20k</text>
-          {solidPoints.length > 1 && <path d={`${solidPath} L ${currentX} ${H} L 0 ${H} Z`} fill="#22c55e" fillOpacity="0.08" />}
-          <path d={solidPath} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          {projPath && <path d={projPath} fill="none" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="5 4" strokeOpacity="0.5" strokeLinecap="round" />}
+          <text x={W - 2} y={targetY - 3} textAnchor="end" fontSize={7} fill="#898781">$20k</text>
+          {solidPoints.length > 1 && <path d={`${solidPath} L ${currentX} ${H} L 0 ${H} Z`} fill="#111111" fillOpacity="0.08" />}
+          <path d={solidPath} fill="none" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          {projPath && <path d={projPath} fill="none" stroke="#111111" strokeWidth="1.5" strokeDasharray="5 4" strokeOpacity="0.5" strokeLinecap="round" />}
           {solidPoints.slice(1).map((v, i) => {
             const cx = xScale(i + 1), cy = yScale(v), isH = hoveredIdx === i;
             return (
               <g key={i}>
-                <circle cx={cx} cy={cy} r={isH ? 4.5 : 3} fill="#22c55e" stroke="#F5F4F0" strokeWidth="1.5" />
+                <circle cx={cx} cy={cy} r={isH ? 4.5 : 3} fill="#111111" stroke="#F5F4F0" strokeWidth="1.5" />
                 {isH && (
                   <g>
-                    <rect x={cx - 38} y={cy - 23} width={76} height={16} rx={4} fill="#F5F4F0" stroke="#333" strokeWidth={1} />
+                    <rect x={cx - 38} y={cy - 23} width={76} height={16} rx={4} fill="#F5F4F0" stroke="#C9C7BF" strokeWidth={1} />
                     <text x={cx} y={cy - 12} textAnchor="middle" fontSize={8} fill="#5f5e5a">{sortedMonths[i]} · ${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}</text>
                   </g>
                 )}
@@ -119,12 +119,12 @@ function RunwayInline({ rows, loading, hoveredIdx, setHoveredIdx }: {
               </g>
             );
           })}
-          {projPoints.length > 0 && <circle cx={xScale(projPoints[projPoints.length - 1].x)} cy={targetY} r="3.5" fill="#fff" stroke="#22c55e" strokeWidth="1.5" />}
-          {sortedMonths.map((m, i) => <text key={m} x={xScale(i + 1)} y={H - 1} textAnchor="middle" fontSize={7} fill="#4b5563">{m.slice(5)}</text>)}
+          {projPoints.length > 0 && <circle cx={xScale(projPoints[projPoints.length - 1].x)} cy={targetY} r="3.5" fill="#F5F4F0" stroke="#111111" strokeWidth="1.5" />}
+          {sortedMonths.map((m, i) => <text key={m} x={xScale(i + 1)} y={H - 1} textAnchor="middle" fontSize={7} fill="#898781">{m.slice(5)}</text>)}
         </svg>
       )}
       <div className="mt-2 bg-[#E6E4DE] rounded-full h-1 overflow-hidden">
-        <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-[#111] transition-all" style={{ width: `${pct}%` }} />
       </div>
     </>
   );
@@ -197,7 +197,7 @@ function FinanceBox() {
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-24" preserveAspectRatio="none">
           <defs>
             <linearGradient id="finGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={activeColor} stopOpacity="0.2" />
+              <stop offset="0%" stopColor={activeColor} stopOpacity="0.1" />
               <stop offset="100%" stopColor={activeColor} stopOpacity="0" />
             </linearGradient>
           </defs>
@@ -207,15 +207,15 @@ function FinanceBox() {
           <path d={activePath} fill="none" stroke={activeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           {prevMonthX !== null && prevMonthY !== null && (
             <>
-              <line x1={prevMonthX} y1={0} x2={prevMonthX} y2={H} stroke="#C9C7BF" strokeWidth={1} strokeDasharray="3 3" />
-              <circle cx={prevMonthX} cy={prevMonthY} r="3" fill="#C9C7BF" stroke={activeColor} strokeWidth="1.5" />
+              <line x1={prevMonthX} y1={0} x2={prevMonthX} y2={H} stroke="#D9D7CF" strokeWidth={1} />
+              <circle cx={prevMonthX} cy={prevMonthY} r="4" fill={activeColor} stroke="#F5F4F0" strokeWidth="2" />
               <circle cx={prevMonthX} cy={prevMonthY} r="8" fill="transparent" className="cursor-pointer"
                 onMouseEnter={() => setHoveredNode("prev")} onMouseLeave={() => setHoveredNode(null)} />
             </>
           )}
           {sortedMonths.length > 0 && (
             <>
-              <circle cx={W} cy={lastY} r="3" fill={activeColor} />
+              <circle cx={W} cy={lastY} r="4" fill={activeColor} stroke="#F5F4F0" strokeWidth="2" />
               <circle cx={W} cy={lastY} r="8" fill="transparent" className="cursor-pointer"
                 onMouseEnter={() => setHoveredNode("curr")} onMouseLeave={() => setHoveredNode(null)} />
             </>
@@ -326,9 +326,9 @@ function daysSince(iso: string): number {
 }
 
 function fitColor(score: number | null): string {
-  if (score === 5) return "#22c55e";
-  if (score === 4) return "#84cc16";
-  if (score === 3) return "#f59e0b";
+  if (score === 5) return "#006300";
+  if (score === 4) return "#3f6212";
+  if (score === 3) return "#a16207";
   return "#6b7280";
 }
 
@@ -469,27 +469,27 @@ function JobDetails({ job, onUpdate }: {
         <p className="text-xs text-gray-500"><span className="text-[10px] uppercase tracking-widest text-gray-500 mr-2">Fit</span>—</p>
       ) : (
         <>
-          {job.fit_summary && <p className="text-xs text-gray-400 leading-relaxed">{job.fit_summary}</p>}
+          {job.fit_summary && <p className="text-xs text-gray-600 leading-relaxed">{job.fit_summary}</p>}
           {(reasons.length > 0 || flags.length > 0) && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Reasons</p>
                 <ul className="space-y-0.5">
                   {reasons.map((r, i) => <li key={i} className="text-xs text-gray-500 flex gap-1.5"><span className="text-emerald-500">+</span>{r}</li>)}
-                  {reasons.length === 0 && <li className="text-xs text-gray-400">—</li>}
+                  {reasons.length === 0 && <li className="text-xs text-gray-600">—</li>}
                 </ul>
               </div>
               <div>
                 <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Red flags</p>
                 <ul className="space-y-0.5">
                   {flags.map((r, i) => <li key={i} className="text-xs text-gray-500 flex gap-1.5"><span className="text-red-600">!</span>{r}</li>)}
-                  {flags.length === 0 && <li className="text-xs text-gray-400">—</li>}
+                  {flags.length === 0 && <li className="text-xs text-gray-600">—</li>}
                 </ul>
               </div>
             </div>
           )}
           {resume && (
-            <p className="text-xs text-gray-500">Resume: <span className="font-mono text-gray-400">{resume}</span></p>
+            <p className="text-xs text-gray-500">Resume: <span className="font-mono text-gray-600">{resume}</span></p>
           )}
         </>
       )}
@@ -647,9 +647,9 @@ function JobsPanel() {
             const n = jobs.filter(j => inView(j) && (c === "all" || j.category === c)).length;
             return (
               <button key={c} onClick={() => { setCategory(c); setExpanded(null); }}
-                className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
-                style={{ color, opacity: active ? 1 : 0.5, backgroundColor: active ? `${color}1f` : "transparent" }}>
-                {c === "all" ? "All" : JOB_CATEGORY_META[c].label} <span className="tabular-nums opacity-70">{n}</span>
+                className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${active ? "bg-[#111] text-[#F5F4F0]" : "text-gray-600 hover:text-[#111]"}`}>
+                {c !== "all" && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />}
+                {c === "all" ? "All" : JOB_CATEGORY_META[c].label} <span className="tabular-nums opacity-60">{n}</span>
               </button>
             );
           })}
@@ -691,7 +691,7 @@ function JobsPanel() {
                     </div>
                     <div className="flex items-center gap-1.5 min-w-0 text-[11px] mt-0.5">
                       <span className="flex-shrink-0 font-mono text-gray-500 tabular-nums" title="Supabase job_postings.id">#{job.id}</span>
-                      <span className="font-medium truncate flex-shrink-0 max-w-[50%] text-gray-400" title={job.company}>{job.company}</span>
+                      <span className="font-medium truncate flex-shrink-0 max-w-[50%] text-gray-600" title={job.company}>{job.company}</span>
                       {job.next_step && <span className="text-gray-500 truncate" title={job.next_step}>· {job.next_step}</span>}
                     </div>
                   </div>
@@ -743,12 +743,14 @@ function NotesBox() {
   }, [notes]);
 
   return (
-    <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5 flex flex-col">
-      <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Notes</p>
+    <div className="flex flex-col">
+      <p className="text-[13px] text-[#5f5e5a] mb-4">
+        Saves as you type. Lines starting with <span className="font-mono text-[#111]">[ ]</span>, <span className="font-mono text-[#111]">- [ ]</span> or <span className="font-mono text-[#111]">todo:</span> show up as reminders on Home.
+      </p>
       <textarea
         ref={textareaRef}
-        className="bg-transparent text-sm text-gray-400 placeholder-gray-400 resize-none focus:outline-none leading-relaxed overflow-hidden"
-        style={{ minHeight: "10rem", maxHeight: "30rem" }}
+        className="bg-[#F5F4F0] border border-[#111] rounded-[28px] px-7 py-6 text-base text-[#111] placeholder-gray-400 resize-none focus:outline-none leading-relaxed overflow-hidden"
+        style={{ minHeight: "60vh" }}
         placeholder="Jot something down…"
         value={notes}
         onChange={e => handleChange(e.target.value)}

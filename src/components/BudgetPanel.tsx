@@ -451,7 +451,18 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
     points.push({ day: d, value: running });
   }
 
-  if (points.length < 2) {
+  const hasData = points.length >= 2;
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(560);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.max(320, Math.round(e.contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasData]);
+
+  if (!hasData) {
     return (
       <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
         <h2 className="text-sm font-semibold text-gray-800 mb-2">Leftover Balance</h2>
@@ -460,7 +471,7 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
     );
   }
 
-  const W = 560, H = 140, PAD = { top: 12, right: 16, bottom: 28, left: 52 };
+  const H = 160, PAD = { top: 12, right: 36, bottom: 28, left: 56 };
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
 
@@ -494,15 +505,16 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
     <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-800">Leftover Balance</h2>
-        <span className={`text-sm font-semibold tabular-nums ${isPositive ? "text-emerald-600" : "text-red-600"}`}>
+        <span className={`text-sm font-semibold tabular-nums ${isPositive ? "text-[#111]" : "text-red-600"}`}>
           {isPositive ? "+" : ""}{fmt(lastPoint.value)} today
         </span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }}>
+      <div ref={wrapRef}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="block">
         <defs>
           <linearGradient id="leftoverGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity="0.25" />
-            <stop offset="100%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity="0.02" />
+            <stop offset="0%" stopColor={isPositive ? "#111111" : "#d03b3b"} stopOpacity="0.1" />
+            <stop offset="100%" stopColor={isPositive ? "#111111" : "#d03b3b"} stopOpacity="0" />
           </linearGradient>
         </defs>
         <g transform={`translate(${PAD.left},${PAD.top})`}>
@@ -510,14 +522,14 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
           {yTicks.map((v, i) => (
             <g key={i}>
               <line x1={0} y1={yScale(v)} x2={innerW} y2={yScale(v)} stroke="#D9D7CF" strokeWidth={1} />
-              <text x={-6} y={yScale(v) + 4} textAnchor="end" fontSize={9} fill="#6b7280" className="tabular-nums">
+              <text x={-6} y={yScale(v) + 4} textAnchor="end" fontSize={9} fill="#898781" className="tabular-nums">
                 {v >= 0 ? "" : "−"}{fmt(Math.abs(v)).replace("$", "$")}
               </text>
             </g>
           ))}
           {/* Budget target line */}
           <line x1={0} y1={targetY} x2={innerW} y2={targetY} stroke="#6b7280" strokeWidth={1} strokeDasharray="4 3" />
-          <text x={innerW + 3} y={Number(targetY) + 4} fontSize={8} fill="#6b7280">target</text>
+          <text x={innerW + 3} y={Number(targetY) + 4} fontSize={8} fill="#898781">target</text>
           {/* Zero line if in view */}
           {minV < 0 && maxV > 0 && (
             <line x1={0} y1={yScale(0)} x2={innerW} y2={yScale(0)} stroke="#C9C7BF" strokeWidth={1} />
@@ -525,19 +537,19 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
           {/* Area fill */}
           <path d={areaPath} fill="url(#leftoverGrad)" transform={`translate(0,0)`} />
           {/* Line */}
-          <path d={linePath} fill="none" stroke={isPositive ? "#10b981" : "#ef4444"} strokeWidth={2} strokeLinejoin="round" />
+          <path d={linePath} fill="none" stroke={isPositive ? "#111111" : "#d03b3b"} strokeWidth={2} strokeLinejoin="round" />
           {/* Today dot */}
           {isCurrentMonth && (
             <circle
               cx={xScale(lastPoint.day)}
               cy={yScale(lastPoint.value)}
               r={3.5}
-              fill={isPositive ? "#10b981" : "#ef4444"}
+              fill={isPositive ? "#111111" : "#d03b3b"}
             />
           )}
           {/* X axis labels */}
           {xLabels.map(d => (
-            <text key={d} x={xScale(d)} y={innerH + 16} textAnchor="middle" fontSize={9} fill="#6b7280">
+            <text key={d} x={xScale(d)} y={innerH + 16} textAnchor="middle" fontSize={9} fill="#898781">
               {d}
             </text>
           ))}
@@ -553,6 +565,7 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
           )}
         </g>
       </svg>
+      </div>
     </div>
   );
 }
@@ -586,13 +599,13 @@ function DailyBudgetCard({ leftoverActual, month }: { leftoverActual: number; mo
     <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
       <div className="text-xs text-gray-500 mb-1">Daily spending budget</div>
       <div className="flex items-baseline gap-3 mb-1">
-        <div className={`text-3xl font-bold tabular-nums ${positive ? "text-emerald-600" : "text-red-600"}`}>
+        <div className={`text-3xl font-bold tabular-nums ${positive ? "text-[#111]" : "text-red-600"}`}>
           {positive ? "" : "−"}{fmt(Math.abs(perDay))}
           <span className="text-base font-normal text-gray-500 ml-1">/ day</span>
         </div>
         {tomorrowPerDay !== null && (
           <div className="text-sm text-gray-500">
-            → <span className="text-gray-400 font-medium">{fmt(tomorrowPerDay)}</span> tomorrow
+            → <span className="text-[#111] font-medium">{fmt(tomorrowPerDay)}</span> tomorrow
           </div>
         )}
       </div>
@@ -611,7 +624,7 @@ function DailyBudgetCard({ leftoverActual, month }: { leftoverActual: number; mo
       {expanded && (
         <div className="mt-3 border-t border-[#D9D7CF] pt-3 max-h-48 overflow-y-auto space-y-1">
           {remainingDays.map(({ label, rate, isToday }) => (
-            <div key={label} className={`flex justify-between text-xs ${isToday ? "text-emerald-600 font-semibold" : "text-gray-500"}`}>
+            <div key={label} className={`flex justify-between text-xs ${isToday ? "text-[#111] font-semibold" : "text-gray-500"}`}>
               <span>{label}</span>
               <span>{fmt(rate)}/day</span>
             </div>
@@ -632,6 +645,8 @@ interface BudgetMapProps {
   leftoverBudget: number;
 }
 
+const BUDGET_MAP_SLOTS = { fixed: "#2a78d6", variable: "#eb6834", savings: "#1baf7a", left: "#eda100" };
+
 function BudgetMapPanel({ incomeBudget, fixedBudget, variableBudget, savingsBudget, leftoverBudget }: BudgetMapProps) {
   const total = incomeBudget || 1;
   const fixedPct   = Math.round((fixedBudget / total) * 100);
@@ -639,52 +654,37 @@ function BudgetMapPanel({ incomeBudget, fixedBudget, variableBudget, savingsBudg
   const savingsPct = Math.round((savingsBudget / total) * 100);
   const leftPct    = Math.max(0, 100 - fixedPct - varPct - savingsPct);
   const leftoverPositive = leftoverBudget >= 0;
+  const parts = [
+    { key: "fixed",    label: "Fixed",               pct: fixedPct,   amount: -fixedBudget,    color: BUDGET_MAP_SLOTS.fixed },
+    { key: "variable", label: "Variable",            pct: varPct,     amount: -variableBudget, color: BUDGET_MAP_SLOTS.variable },
+    { key: "savings",  label: "Savings & investing", pct: savingsPct, amount: -savingsBudget,  color: BUDGET_MAP_SLOTS.savings },
+    { key: "left",     label: "Leftover",            pct: leftPct,    amount: leftoverBudget,  color: BUDGET_MAP_SLOTS.left },
+  ];
   return (
     <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
-      <h2 className="text-sm font-semibold text-gray-800 mb-4">Budget Map</h2>
-      {/* Stacked bar */}
-      <div className="flex rounded-lg overflow-hidden h-8 mb-4 text-xs font-medium">
-        <div className="flex items-center justify-center bg-blue-600 text-[#111] truncate px-2" style={{ width: `${fixedPct}%` }}>
-          Fixed {fixedPct}%
-        </div>
-        <div className="flex items-center justify-center bg-violet-600 text-[#111] truncate px-2" style={{ width: `${varPct}%` }}>
-          Variable {varPct}%
-        </div>
-        <div className="flex items-center justify-center bg-teal-600 text-[#111] truncate px-2" style={{ width: `${savingsPct}%` }}>
-          Savings {savingsPct}%
-        </div>
-        <div className={`flex items-center justify-center truncate px-2 ${leftoverPositive ? "bg-emerald-600" : "bg-red-600"} text-[#111]`} style={{ width: `${leftPct}%` }}>
-          Left {leftPct}%
-        </div>
+      <div className="flex items-baseline justify-between mb-4">
+        <h2 className="text-sm font-semibold text-gray-800">Budget map</h2>
+        <span className="text-xs text-gray-500">Income <span className="text-[#111] font-semibold tabular-nums">{fmt(incomeBudget)}</span></span>
       </div>
-      {/* Flow */}
-      <div className="flex items-center gap-2 text-sm flex-wrap">
-        <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">Income</div>
-          <div className="bg-[#E6E4DE] rounded-lg px-3 py-2 font-semibold text-[#111] tabular-nums">{fmt(incomeBudget)}</div>
-        </div>
-        <div className="text-gray-500 text-lg">→</div>
-        <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">Fixed</div>
-          <div className="bg-blue-100 rounded-lg px-3 py-2 font-semibold text-blue-700 tabular-nums">−{fmt(fixedBudget)}</div>
-        </div>
-        <div className="text-gray-500 text-lg">→</div>
-        <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">Variable</div>
-          <div className="bg-violet-100 rounded-lg px-3 py-2 font-semibold text-violet-700 tabular-nums">−{fmt(variableBudget)}</div>
-        </div>
-        <div className="text-gray-500 text-lg">→</div>
-        <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">Savings & Investing</div>
-          <div className="bg-teal-100 rounded-lg px-3 py-2 font-semibold text-teal-700 tabular-nums">−{fmt(savingsBudget)}</div>
-        </div>
-        <div className="text-gray-500 text-lg">→</div>
-        <div className="text-center">
-          <div className="text-xs text-gray-500 mb-1">Leftover</div>
-          <div className={`rounded-lg px-3 py-2 font-semibold tabular-nums ${leftoverPositive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
-            {leftoverPositive ? "+" : ""}{fmt(leftoverBudget)}
+      {/* Stacked bar: 2px surface gaps between segments, rounded ends only */}
+      <div className="flex gap-[2px] h-6 mb-4">
+        {parts.filter(p => p.pct > 0).map(p => (
+          <div key={p.key} className="h-full first:rounded-l-md last:rounded-r-md" title={`${p.label} ${p.pct}%`}
+            style={{ width: `${p.pct}%`, backgroundColor: p.color }} />
+        ))}
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {parts.map(p => (
+          <div key={p.key}>
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+              {p.label} · {p.pct}%
+            </div>
+            <div className={`text-base font-semibold tabular-nums mt-0.5 ${p.key === "left" && !leftoverPositive ? "text-red-600" : "text-[#111]"}`}>
+              {p.amount >= 0 ? (p.key === "left" ? "+" : "") : "−"}{fmt(Math.abs(p.amount))}
+            </div>
           </div>
-        </div>
+        ))}
       </div>
     </div>
   );
@@ -693,9 +693,10 @@ function BudgetMapPanel({ incomeBudget, fixedBudget, variableBudget, savingsBudg
 // ─── Spend Pie Chart ──────────────────────────────────────────────────────────
 
 const PIE_COLORS = [
-  "#3b82f6","#8b5cf6","#10b981","#f59e0b","#ef4444",
-  "#06b6d4","#f97316","#ec4899","#84cc16","#a855f7",
+  "#2a78d6","#eb6834","#1baf7a","#eda100","#e87ba4","#008300","#4a3aa7",
 ];
+const PIE_OTHER = "#898781";
+const PIE_MAX_SLICES = 8; // 7 colored categories + "Other"
 
 interface SpendPieChartProps {
   entries: [string, number][];
@@ -714,12 +715,16 @@ function SpendPieChart({ entries, logs }: SpendPieChartProps) {
     );
   }
 
-  const total = entries.reduce((s, [, v]) => s + v, 0);
+  // Past 7 categories, fold the rest into "Other" rather than inventing more hues.
+  const shown: [string, number][] = entries.length > PIE_MAX_SLICES
+    ? [...entries.slice(0, PIE_MAX_SLICES - 1), ["Other", entries.slice(PIE_MAX_SLICES - 1).reduce((t, [, v]) => t + v, 0)]]
+    : entries;
+  const total = shown.reduce((s, [, v]) => s + v, 0);
   // Build pie slices
   const size = 180;
   const cx = size / 2, cy = size / 2, r = 75, inner = 40;
   let angle = -Math.PI / 2;
-  const slices = entries.map(([cat, val], i) => {
+  const slices = shown.map(([cat, val], i) => {
     const frac = val / total;
     const startAngle = angle;
     angle += frac * 2 * Math.PI;
@@ -730,7 +735,7 @@ function SpendPieChart({ entries, logs }: SpendPieChartProps) {
     const ix2 = cx + inner * Math.cos(endAngle),   iy2 = cy + inner * Math.sin(endAngle);
     const large = frac > 0.5 ? 1 : 0;
     const d = `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${inner} ${inner} 0 ${large} 0 ${ix1} ${iy1} Z`;
-    return { cat, val, frac, d, color: PIE_COLORS[i % PIE_COLORS.length] };
+    return { cat, val, frac, d, color: cat === "Other" ? PIE_OTHER : PIE_COLORS[i] };
   });
 
   const topLogs = selected
@@ -748,9 +753,11 @@ function SpendPieChart({ entries, logs }: SpendPieChartProps) {
               key={s.cat}
               d={s.d}
               fill={s.color}
+              stroke="#F5F4F0"
+              strokeWidth={2}
               opacity={selected && selected !== s.cat ? 0.35 : 1}
               className="cursor-pointer transition-opacity"
-              onClick={() => setSelected(selected === s.cat ? null : s.cat)}
+              onClick={() => s.cat !== "Other" && setSelected(selected === s.cat ? null : s.cat)}
             />
           ))}
         </svg>
@@ -760,10 +767,10 @@ function SpendPieChart({ entries, logs }: SpendPieChartProps) {
             <div
               key={s.cat}
               className={`flex items-center gap-2 text-xs cursor-pointer rounded px-1 py-0.5 transition-colors ${selected === s.cat ? "bg-[#E6E4DE]" : "hover:bg-[#E6E4DE]"}`}
-              onClick={() => setSelected(selected === s.cat ? null : s.cat)}
+              onClick={() => s.cat !== "Other" && setSelected(selected === s.cat ? null : s.cat)}
             >
               <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: s.color }} />
-              <span className="text-gray-400 truncate">{s.cat}</span>
+              <span className="text-gray-800 truncate">{s.cat}</span>
               <span className="ml-auto text-gray-500 tabular-nums flex-shrink-0">{fmt(s.val)}</span>
             </div>
           ))}
@@ -777,7 +784,7 @@ function SpendPieChart({ entries, logs }: SpendPieChartProps) {
             {topLogs.map((l, i) => (
               <div key={l.id} className="flex items-center gap-2 text-xs">
                 <span className="text-gray-500 w-4 tabular-nums">{i + 1}.</span>
-                <span className="text-gray-400 truncate flex-1">{l.vendor}</span>
+                <span className="text-gray-800 truncate flex-1">{l.vendor}</span>
                 <span className="text-gray-500 tabular-nums">{l.date}</span>
                 <span className="text-gray-800 tabular-nums font-medium">{fmt(effectiveCost(l))}</span>
               </div>
@@ -1162,7 +1169,7 @@ export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode }
           <div className="text-5xl mb-4">📅</div>
           <p className="text-xl font-semibold text-gray-800 mb-2">{formatMonthLabel(month)}</p>
           <p className="text-sm text-gray-500 mb-6">No budget data for this month yet.</p>
-          <button onClick={createMonth} className="px-5 py-2.5 bg-blue-500 text-[#111] text-sm font-medium rounded-xl hover:bg-blue-600 transition-colors">
+          <button onClick={createMonth} className="px-5 py-2.5 bg-[#111] text-[#F5F4F0] text-sm font-medium rounded-full hover:bg-[#333] transition-colors">
             Create Budget
           </button>
         </div>
@@ -1379,7 +1386,7 @@ export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode }
           <button
             type="submit"
             disabled={!vendor.trim() || !amount}
-            className="px-4 py-1.5 bg-blue-500 text-[#111] text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-40 self-end mb-0.5"
+            className="px-4 py-1.5 bg-[#111] text-[#F5F4F0] text-sm font-medium rounded-full hover:bg-[#333] transition-colors disabled:opacity-40 self-end mb-0.5"
           >
             Add
           </button>
@@ -1532,7 +1539,7 @@ function ImportCsvPanel({ fileName, rows, includeCredits, importError, onToggleI
             <button
               onClick={onImport}
               disabled={importable.length === 0}
-              className="px-4 py-1.5 bg-blue-500 text-[#111] text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-40"
+              className="px-4 py-1.5 bg-[#111] text-[#F5F4F0] text-sm font-medium rounded-full hover:bg-[#333] transition-colors disabled:opacity-40"
             >
               Import {importable.length} rows
             </button>
@@ -1627,7 +1634,7 @@ function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onN
         <button onClick={onPrev} className="w-9 h-9 rounded-full bg-[#F5F4F0] border border-[#D9D7CF] text-gray-500 hover:text-[#111] hover:border-[#111] transition-colors" aria-label="Previous month">&#8592;</button>
         <div className="text-center min-w-36">
           <div className="text-base font-semibold text-[#111]">{formatMonthLabel(month)}</div>
-          {isCurrentMonth && <div className="text-[11px] text-blue-600">Current month</div>}
+          {isCurrentMonth && <div className="text-[11px] text-gray-500">Current month</div>}
         </div>
         <button onClick={onNext} className="w-9 h-9 rounded-full bg-[#F5F4F0] border border-[#D9D7CF] text-gray-500 hover:text-[#111] hover:border-[#111] transition-colors" aria-label="Next month">&#8594;</button>
         {excluded && (
@@ -1638,7 +1645,7 @@ function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onN
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {showNewMonth && (
-          <button onClick={onNewMonth} className={`${btn} text-blue-600 border-blue-300 hover:bg-blue-100`}>+ New month</button>
+          <button onClick={onNewMonth} className={`${btn} text-[#111] border-[#111] hover:bg-[#111] hover:text-[#F5F4F0]`}>+ New month</button>
         )}
         <button
           onClick={onToggleExcluded}
@@ -1648,7 +1655,7 @@ function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onN
           {excluded ? "Excluded" : "Exclude from charts"}
         </button>
         <button onClick={onExport} className={`${btn} text-gray-500 border-[#C9C7BF] hover:bg-[#E6E4DE]`}>Export CSV</button>
-        <button onClick={onExportForClaude} className={`${btn} text-purple-700 border-purple-300 hover:bg-purple-100`}>Export for Claude</button>
+        <button onClick={onExportForClaude} className={`${btn} text-gray-600 border-[#C9C7BF] hover:bg-[#E6E4DE]`}>Export for Claude</button>
         <button onClick={onResetMonth} className={`${btn} text-red-600 border-red-300 hover:bg-red-100`}>Reset month</button>
       </div>
     </div>
@@ -1663,7 +1670,7 @@ function SummaryCard({ label, actual, budget, higherIsBetter, tooltip }: {
   const [show, setShow] = React.useState(false);
   const both0 = actual === 0 && budget === 0;
   const isGood = higherIsBetter ? actual >= budget : actual <= budget;
-  const color = both0 ? "#6b7280" : isGood ? "#22c55e" : "#ef4444";
+  const color = both0 ? "#898781" : isGood ? "#006300" : "#d03b3b";
   return (
     <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5 relative">
       <div className="flex items-center gap-1.5 mb-1">
@@ -1672,15 +1679,18 @@ function SummaryCard({ label, actual, budget, higherIsBetter, tooltip }: {
           <div className="relative" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
             <div className="w-3.5 h-3.5 rounded-full border border-gray-600 text-gray-500 flex items-center justify-center cursor-default text-[9px] font-bold leading-none select-none hover:border-gray-400 hover:text-[#111] transition-colors">i</div>
             {show && (
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-56 bg-[#E6E4DE] border border-[#C9C7BF] rounded-xl p-3 text-xs text-gray-400 shadow-xl pointer-events-none whitespace-pre-line">
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-56 bg-white border border-[#C9C7BF] rounded-xl p-3 text-xs text-gray-700 shadow-xl pointer-events-none whitespace-pre-line">
                 {tooltip}
               </div>
             )}
           </div>
         )}
       </div>
-      <p className="text-2xl font-bold tabular-nums" style={{ color }}>{fmt(actual)}</p>
-      <p className="text-xs text-gray-500 mt-0.5">budget {fmt(budget)}</p>
+      <p className="text-3xl font-medium tracking-[-0.04em] tabular-nums text-[#111]">{fmt(actual)}</p>
+      <p className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+        <span>budget {fmt(budget)}</span>
+        {!both0 && <span className="font-medium" style={{ color }}>{isGood ? "✓ on track" : "! off track"}</span>}
+      </p>
     </div>
   );
 }
@@ -1701,7 +1711,7 @@ function IncomeTable({ rows, onAddRow, onUpdateLabel, onUpdateBudget, onUpdateAc
     <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-800">Income</h2>
-        <button onClick={onAddRow} className="text-xs text-blue-600 hover:text-blue-700 font-medium">+ Add row</button>
+        <button onClick={onAddRow} className="text-xs text-[#111] hover:underline underline-offset-2 font-medium">+ Add row</button>
       </div>
       <table className="w-full text-sm">
         <thead>
@@ -1726,7 +1736,7 @@ function IncomeTable({ rows, onAddRow, onUpdateLabel, onUpdateBudget, onUpdateAc
           ))}
         </tbody>
         <tfoot>
-          <tr className="text-xs font-semibold text-gray-400 border-t border-[#D9D7CF]">
+          <tr className="text-xs font-semibold text-gray-600 border-t border-[#D9D7CF]">
             <td className="pt-2">Total</td>
             <td className="text-right pt-2 pr-1 tabular-nums">{fmt(totalBudget)}</td>
             <td className="text-right pt-2 pr-1 tabular-nums">{fmt(totalActual)}</td>
@@ -1752,7 +1762,7 @@ function IncomeRow({ row, onUpdateLabel, onUpdateBudget, onUpdateActual, onDelet
       <td className="py-1.5 text-right pr-1"><EditableAmount value={row.budget} onChange={onUpdateBudget} /></td>
       <td className="py-1.5 text-right pr-1"><EditableAmount value={row.actual} onChange={onUpdateActual} /></td>
       <td className="py-1.5 text-right">
-        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all text-base leading-none">×</button>
+        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-600 transition-all text-base leading-none">×</button>
       </td>
     </tr>
   );
@@ -1776,7 +1786,7 @@ function ExpenseTable({ title, rows, getActual, onAddRow, onUpdateLabel, onUpdat
     <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-800">{title}</h2>
-        <button onClick={onAddRow} className="text-xs text-blue-600 hover:text-blue-700 font-medium">+ Add row</button>
+        <button onClick={onAddRow} className="text-xs text-[#111] hover:underline underline-offset-2 font-medium">+ Add row</button>
       </div>
       <table className="w-full text-sm">
         <thead>
@@ -1802,7 +1812,7 @@ function ExpenseTable({ title, rows, getActual, onAddRow, onUpdateLabel, onUpdat
           ))}
         </tbody>
         <tfoot>
-          <tr className="text-xs font-semibold text-gray-400 border-t border-[#D9D7CF]">
+          <tr className="text-xs font-semibold text-gray-600 border-t border-[#D9D7CF]">
             <td className="pt-2">Total</td>
             <td className="text-right pt-2 pr-1 tabular-nums">{fmt(totalBudget)}</td>
             <td className="text-right pt-2 pr-1 tabular-nums">{fmt(totalActual)}</td>
@@ -1827,7 +1837,7 @@ function ExpenseRow({ row, displayActual, onUpdateLabel, onUpdateBudget, onUpdat
   const actualColor = row.budget === 0 && displayActual === 0
     ? "text-gray-500"
     : displayActual < row.budget
-    ? "text-green-600"
+    ? "text-[#006300]"
     : displayActual === row.budget
     ? "text-gray-800"
     : "text-red-600";
@@ -1839,12 +1849,12 @@ function ExpenseRow({ row, displayActual, onUpdateLabel, onUpdateBudget, onUpdat
         <div className="flex items-center justify-end gap-1">
           <EditableAmount value={displayActual} onChange={onUpdateActual} dim={isDerived} colorClass={actualColor} />
           {!isDerived && (
-            <button onClick={onClearActual} title="Reset to auto-derived" className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 text-xs transition-all">↺</button>
+            <button onClick={onClearActual} title="Reset to auto-derived" className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-blue-600 text-xs transition-all">↺</button>
           )}
         </div>
       </td>
       <td className="py-1.5 text-right">
-        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all text-base leading-none">×</button>
+        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-600 transition-all text-base leading-none">×</button>
       </td>
     </tr>
   );
@@ -1868,7 +1878,7 @@ function LogRow({ log, onUpdate, onDelete }: {
           className="w-32 border border-transparent rounded px-1 py-0.5 text-xs bg-transparent text-gray-800 hover:border-[#111] focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </td>
-      <td className="py-1.5 pr-4 text-xs text-gray-400 max-w-40 truncate">
+      <td className="py-1.5 pr-4 text-xs text-gray-600 max-w-40 truncate">
         <EditableText value={log.vendor} onChange={vendor => onUpdate({ vendor })} />
       </td>
       <td className="py-1.5 pr-4 text-xs text-gray-500">
@@ -1902,19 +1912,19 @@ function LogRow({ log, onUpdate, onDelete }: {
       </td>
       <td className="py-1.5 pr-4 text-right text-xs tabular-nums whitespace-nowrap">
         {NO_POINTS_CATS.has(log.category) ? (
-          <span className="text-gray-400 text-xs">—</span>
+          <span className="text-gray-600 text-xs">—</span>
         ) : (
           <select
             value={log.points ?? defaultPoints(log.category, log.card)}
             onChange={e => onUpdate({ points: Number(e.target.value) })}
-            className="w-14 border border-[#C9C7BF] rounded px-1 py-0.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-400"
+            className="w-14 border border-[#C9C7BF] rounded px-1 py-0.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-600"
           >
             {pointsOptions(log.card).map(n => <option key={n} value={n}>{n}×</option>)}
           </select>
         )}
       </td>
       <td className="py-1.5 text-right">
-        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all text-base leading-none">×</button>
+        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-600 transition-all text-base leading-none">×</button>
       </td>
     </tr>
   );
@@ -1955,7 +1965,7 @@ function EditableText({ value, onChange }: { value: string; onChange: (v: string
   return (
     <span
       onClick={() => { setDraft(value); setEditing(true); }}
-      className="cursor-pointer text-xs text-gray-400 hover:text-blue-600 transition-colors"
+      className="cursor-pointer text-xs text-gray-600 hover:text-[#111] transition-colors"
     >
       {value}
     </span>
