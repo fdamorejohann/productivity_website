@@ -391,17 +391,19 @@ function LogTab({ exercises, sessions, onSaved }: {
                 />
               </div>
             )}
-            <div>
-              <p className="text-xs text-gray-500 mb-1">{workoutType === "kettlebell" ? "Total time (min)" : "Duration (min)"}</p>
-              <input
-                type="number"
-                className="w-full bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none"
-                placeholder={workoutType === "kettlebell" ? "35" : "45"}
-                step="any"
-                value={cardioData.duration_min ?? ""}
-                onChange={e => setCardioData(p => ({ ...p, duration_min: e.target.value ? parseFloat(e.target.value) : undefined }))}
-              />
-            </div>
+            {workoutType !== "lsit" && (
+              <div>
+                <p className="text-xs text-gray-500 mb-1">{workoutType === "kettlebell" ? "Total time (min)" : "Duration (min)"}</p>
+                <input
+                  type="number"
+                  className="w-full bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none"
+                  placeholder={workoutType === "kettlebell" ? "35" : "45"}
+                  step="any"
+                  value={cardioData.duration_min ?? ""}
+                  onChange={e => setCardioData(p => ({ ...p, duration_min: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                />
+              </div>
+            )}
             {(workoutType === "running" || workoutType === "biking") && (
               <div>
                 <p className="text-xs text-gray-500 mb-1">Distance (miles)</p>
