@@ -204,7 +204,19 @@ export interface CycleGoal {
   unit: string | null;
   lower_is_better: boolean;       // e.g. minutes for the KB routine, screen-time hours
   auto: "savings" | "jobs" | null; // computed from Finances / Jobs instead of `progress`
+  mode: "count" | "list" | "measure" | "auto"; // +/- counter, checklist of items, number logged weekly, or computed
+  use_latest: boolean;            // measure: progress is the latest week, not the best
   sort: number;
+}
+
+/** A list item (title + done) or a weekly measurement (week_start + value) for a goal. */
+export interface CycleGoalEntry {
+  id: string;
+  goal_id: string;
+  title: string | null;
+  done: boolean;
+  week_start: string | null;
+  value: number | null;
 }
 
 export interface CycleTactic {

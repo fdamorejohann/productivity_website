@@ -38,6 +38,7 @@ export default async function handler(req, res) {
     case "cycle-goals":      return handleCycleTable(req, res, "cycle_goals", "sort");
     case "cycle-tactics":    return handleCycleTable(req, res, "cycle_tactics", "sort");
     case "cycle-week":       return handleCycleTable(req, res, "cycle_week_items", "week_start");
+    case "cycle-entries":    return handleCycleTable(req, res, "cycle_goal_entries", "created_at");
     default:                 return res.status(404).json({ error: "Not found" });
   }
 }
@@ -925,12 +926,13 @@ async function handleWidget(req, res) {
 }
 
 // ─── 12 Week Year cycle (goals, tactics, weekly tactic slots) ────────────────
-// GET lists rows (cycle-week takes ?week=YYYY-MM-DD for one week). POST inserts one row or an
+// GET lists rows (cycle-week takes ?week=YYYY-MM-DD for one week; cycle-entries takes ?goal=<id>). POST inserts one row or an
 // array (cycle-week skips rows already present for that week+tactic). PATCH { id, ...updates }. DELETE { id }.
 async function handleCycleTable(req, res, table, orderCol) {
   if (req.method === "GET") {
     let q = supabase.from(table).select("*").order(orderCol);
     if (table === "cycle_week_items" && req.query.week) q = q.eq("week_start", req.query.week);
+    if (table === "cycle_goal_entries" && req.query.goal) q = q.eq("goal_id", req.query.goal);
     const { data, error } = await q;
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data);

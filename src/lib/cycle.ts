@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { db } from "./db";
-import type { CycleArea, CycleGoal, CycleTactic, CycleWeekItem } from "./types";
+import type { CycleArea, CycleGoal, CycleGoalEntry, CycleTactic, CycleWeekItem } from "./types";
 
 // ─── Cycle calendar ──────────────────────────────────────────────────────────
 
@@ -45,13 +45,16 @@ export const cycleEnd = addDays(CYCLE.start, CYCLE.weeks * 7 - 1);
 
 // ─── Goals ───────────────────────────────────────────────────────────────────
 
-export function useCycleGoals() {
+/** reloadKey: change it to refetch (Home passes the open page so returning Home picks up edits). */
+export function useCycleGoals(reloadKey?: unknown) {
   const [goals, setGoals] = useState<CycleGoal[]>([]);
+  const [entries, setEntries] = useState<CycleGoalEntry[]>([]);  // list items + weekly measurements, all goals
   const [saved, setSaved] = useState<number | null>(null);    // savings + investing since the cycle began
   const [pipeline, setPipeline] = useState<{ active: number; offers: number } | null>(null);
 
   useEffect(() => {
     db.cycle.goals.list().then(g => { if (Array.isArray(g)) setGoals(g); }).catch(() => {});
+    db.cycle.entries.list().then(e => { if (Array.isArray(e)) setEntries(e); }).catch(() => {});
     const firstMonth = CYCLE.start.slice(0, 7);
     const lastMonth = cycleEnd.slice(0, 7);
     db.summary.list().then((rows: { month: string; category: string; value: number }[]) => {
@@ -67,7 +70,7 @@ export function useCycleGoals() {
         offers: jobs.filter(j => j.status === "offer").length,
       });
     }).catch(() => {});
-  }, []);
+  }, [reloadKey]);
 
   const update = async (id: string, updates: Partial<CycleGoal>) => {
     const prev = goals;
@@ -80,17 +83,47 @@ export function useCycleGoals() {
   };
   const remove = async (id: string) => {
     setGoals(gs => gs.filter(g => g.id !== id));
+    setEntries(es => es.filter(e => e.goal_id !== id));
     await db.cycle.goals.remove(id).catch(() => {});
   };
 
-  return { goals, saved, pipeline, update, add, remove };
+  // ── Entries: list items and weekly measurements ──
+  const addItem = async (goalId: string, title: string) => {
+    const created = await db.cycle.entries.add({ goal_id: goalId, title, done: false, week_start: null, value: null });
+    if (created?.id) setEntries(es => [...es, created]);
+  };
+  const updateEntry = async (id: string, updates: Partial<CycleGoalEntry>) => {
+    const prev = entries;
+    setEntries(es => es.map(e => e.id === id ? { ...e, ...updates } : e));
+    try { await db.cycle.entries.update(id, updates); } catch { setEntries(prev); }
+  };
+  const removeEntry = async (id: string) => {
+    setEntries(es => es.filter(e => e.id !== id));
+    await db.cycle.entries.remove(id).catch(() => {});
+  };
+  /** One measurement per goal per week: overwrite this week's value, add it, or clear it (null). */
+  const logMeasure = async (goalId: string, weekStart: string, value: number | null) => {
+    const existing = entries.find(e => e.goal_id === goalId && e.week_start === weekStart);
+    if (existing) return value === null ? removeEntry(existing.id) : updateEntry(existing.id, { value });
+    if (value === null) return;
+    const created = await db.cycle.entries.add({ goal_id: goalId, title: null, done: false, week_start: weekStart, value });
+    if (created?.id) setEntries(es => [...es, created]);
+  };
+
+  return { goals, entries, saved, pipeline, update, add, remove, addItem, updateEntry, removeEntry, logMeasure };
 }
 
 export type GoalsState = ReturnType<typeof useCycleGoals>;
 
+export const listItems = (g: CycleGoal, s: GoalsState) => s.entries.filter(e => e.goal_id === g.id && e.title !== null);
+export const measurements = (g: CycleGoal, s: GoalsState) =>
+  s.entries.filter(e => e.goal_id === g.id && e.week_start !== null && e.value !== null)
+    .sort((a, b) => a.week_start!.localeCompare(b.week_start!));
+
 /** Current value, display text, and 0–1 completion for a goal. */
 export function goalStatus(g: CycleGoal, s: GoalsState): { text: string; pct: number | null } {
   const num = (v: number) => (Number.isInteger(v) ? v.toLocaleString() : v.toFixed(1));
+  const unit = g.unit ? ` ${g.unit}` : "";
   if (g.auto === "savings") {
     if (s.saved === null) return { text: "…", pct: null };
     return { text: `$${Math.round(s.saved).toLocaleString()} of $${(g.target ?? 0).toLocaleString()}`, pct: g.target ? s.saved / g.target : null };
@@ -101,21 +134,27 @@ export function goalStatus(g: CycleGoal, s: GoalsState): { text: string; pct: nu
       ? { text: `${s.pipeline.offers} offer${s.pipeline.offers > 1 ? "s" : ""}`, pct: 1 }
       : { text: `${s.pipeline.active} in pipeline`, pct: 0 };
   }
-  const unit = g.unit ? ` ${g.unit}` : "";
-  if (g.progress === null || g.progress === undefined) return { text: `goal ${num(g.target ?? 0)}${unit}`, pct: 0 };
-  if (g.lower_is_better) {
-    const pct = g.target ? Math.min(1, g.target / g.progress) : null;
-    return { text: `${num(g.progress)}${unit} → ${num(g.target ?? 0)}`, pct };
+  if (g.mode === "list") {
+    const items = listItems(g, s);
+    const done = items.filter(i => i.done).length;
+    if (g.target === null) return { text: `${done}/${items.length}${unit}`, pct: items.length ? done / items.length : 0 };
+    return { text: `${done} / ${num(g.target)}${unit}`, pct: Math.min(1, done / g.target) };
   }
-  return { text: `${num(g.progress)} / ${num(g.target ?? 0)}${unit}`, pct: g.target ? Math.min(1, g.progress / g.target) : null };
+  let value = g.progress;
+  if (g.mode === "measure") {
+    const vals = measurements(g, s).map(m => m.value!);
+    value = vals.length === 0 ? null : g.use_latest ? vals[vals.length - 1] : g.lower_is_better ? Math.min(...vals) : Math.max(...vals);
+  }
+  if (value === null || value === undefined) return { text: `goal ${num(g.target ?? 0)}${unit}`, pct: 0 };
+  if (g.lower_is_better) {
+    return { text: `${num(value)}${unit} → ${num(g.target ?? 0)}`, pct: g.target ? Math.min(1, g.target / value) : null };
+  }
+  return { text: `${num(value)} / ${num(g.target ?? 0)}${unit}`, pct: g.target ? Math.min(1, value / g.target) : null };
 }
-
-export const usesStepper = (g: CycleGoal) =>
-  !g.auto && !g.lower_is_better && g.target !== null && g.target <= 10 && Number.isInteger(g.target);
 
 // ─── Weekly tactics ──────────────────────────────────────────────────────────
 
-export function useCycleWeek() {
+export function useCycleWeek(reloadKey?: unknown) {
   const monday = mondayOf();
   const week = cycleWeek(monday);
   const inCycle = week >= 1 && week <= CYCLE.weeks;
@@ -144,7 +183,7 @@ export function useCycleWeek() {
       }
     })();
     return () => { cancelled = true; };
-  }, [monday, inCycle]);
+  }, [monday, inCycle, reloadKey]);
 
   const patch = async (id: string, updates: Partial<CycleWeekItem>) => {
     const prev = items;

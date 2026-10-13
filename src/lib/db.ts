@@ -2,7 +2,7 @@
 // Thin fetch wrapper around our /api/data/* endpoints.
 // Falls back to localStorage on network error so the app still works offline.
 
-import type { CycleGoal, CycleTactic, CycleWeekItem, JobPosting, JobUpdate, NewJob } from "./types";
+import type { CycleGoal, CycleGoalEntry, CycleTactic, CycleWeekItem, JobPosting, JobUpdate, NewJob } from "./types";
 
 const json = (res: Response) => res.json();
 
@@ -135,6 +135,12 @@ export const db = {
       list: (week?: string): Promise<CycleWeekItem[]> => api.get(week ? `/api/data/cycle-week?week=${week}` : "/api/data/cycle-week"),
       add: (items: Omit<CycleWeekItem, "id">[]): Promise<CycleWeekItem[]> => api.post("/api/data/cycle-week", items),
       update: (id: string, updates: Partial<CycleWeekItem>): Promise<CycleWeekItem> => api.patch("/api/data/cycle-week", { id, ...updates }),
+    },
+    entries: {
+      list: (goalId?: string): Promise<CycleGoalEntry[]> => api.get(goalId ? `/api/data/cycle-entries?goal=${goalId}` : "/api/data/cycle-entries"),
+      add: (entry: Omit<CycleGoalEntry, "id">): Promise<CycleGoalEntry> => api.post("/api/data/cycle-entries", entry),
+      update: (id: string, updates: Partial<CycleGoalEntry>): Promise<CycleGoalEntry> => api.patch("/api/data/cycle-entries", { id, ...updates }),
+      remove: (id: string) => api.delete("/api/data/cycle-entries", { id }),
     },
   },
   dnd: {

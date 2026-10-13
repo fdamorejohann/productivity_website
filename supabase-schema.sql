@@ -214,3 +214,18 @@ create table if not exists public.cycle_week_items (
 alter table public.cycle_goals enable row level security;
 alter table public.cycle_tactics enable row level security;
 alter table public.cycle_week_items enable row level security;
+
+-- How each goal is tracked, and its list items / weekly measurements.
+alter table public.cycle_goals
+  add column if not exists mode text not null default 'count' check (mode in ('count', 'list', 'measure', 'auto')),
+  add column if not exists use_latest boolean not null default false;
+create table if not exists public.cycle_goal_entries (
+  id uuid primary key default gen_random_uuid(),
+  goal_id uuid not null references public.cycle_goals(id) on delete cascade,
+  title text,
+  done boolean not null default false,
+  week_start date,
+  value numeric,
+  created_at timestamptz not null default now()
+);
+alter table public.cycle_goal_entries enable row level security;

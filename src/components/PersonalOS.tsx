@@ -15,7 +15,7 @@ import { db } from "../lib/db";
 import { useCountUp } from "../lib/useCountUp";
 import { CYCLE, goalStatus, useCycleGoals, useCycleWeek } from "../lib/cycle";
 import { CalmPage, CyclePage, CycleScore, GoalStrip, GoalsBand, WeekBoard } from "./Cycle";
-import type { JobCategory, JobPosting, JobStatus, JobUpdate, NewJob } from "../lib/types";
+import type { CycleArea, JobCategory, JobPosting, JobStatus, JobUpdate, NewJob } from "../lib/types";
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 // ─── Finance Box ─────────────────────────────────────────────────────────────
@@ -792,6 +792,8 @@ function WeatherLine() {
 
 type Page = "jobs" | "money" | "gym" | "calm" | "notes" | "q4";
 const PAGES: Page[] = ["jobs", "money", "gym", "calm", "notes", "q4"];
+// Goals on the home band open the page where that area's progress is logged.
+const AREA_PAGE: Record<CycleArea, Page> = { fitness: "gym", money: "money", work: "jobs", calm: "calm" };
 const PAGE_TITLES: Record<Page, string> = {
   jobs: "Jobs", money: "Finances", gym: "Gym", calm: "Calm", notes: "Notes", q4: CYCLE.name,
 };
@@ -824,7 +826,7 @@ function shorten(text: string, max = 70): string {
 // Open to-dos in the notes scratchpad: "[ ] thing", "- [ ] thing", or "todo: thing".
 const NOTE_TODO = /^\s*(?:[-*]\s*)?(?:\[\s\]|todo:?)\s+(.+)$/i;
 
-function useHomeData(): HomeData {
+function useHomeData(reloadKey?: unknown): HomeData {
   const [data, setData] = useState<HomeData>({
     jobsNew: 0, jobsPipeline: 0, jobsFollowUps: 0, spentToday: null, sessionsThisWeek: null, notesFirstLine: "",
     reminders: { jobs: [], notes: [] },
@@ -868,7 +870,7 @@ function useHomeData(): HomeData {
         .filter((t): t is string => !!t)
         .map(t => ({ text: `To do: ${t}`, page: "notes" })));
     }).catch(() => {});
-  }, []);
+  }, [reloadKey]);
 
   return data;
 }
@@ -918,9 +920,10 @@ const display = "font-medium uppercase leading-[0.86] tracking-[-0.055em]";
 
 export default function PersonalOS() {
   const [page, setPage] = useState<Page | null>(pageFromHash);
-  const home = useHomeData();
-  const goals = useCycleGoals();
-  const week = useCycleWeek();
+  // Refetch when the open page changes so Home reflects progress logged elsewhere.
+  const home = useHomeData(page);
+  const goals = useCycleGoals(page);
+  const week = useCycleWeek(page);
 
   // The hash is the source of truth so refresh and the browser back button work.
   useEffect(() => {
@@ -987,8 +990,7 @@ export default function PersonalOS() {
           </div>
         </div>
 
-        <section className="mt-14"><GoalsBand s={goals} /></section>
-        <section className="mt-12"><WeekBoard w={week} /></section>
+        <section className="mt-14"><GoalsBand s={goals} onOpenArea={a => open(AREA_PAGE[a])} /></section>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-12">
           <Bubble page="jobs" onOpen={() => open("jobs")}
@@ -1008,6 +1010,8 @@ export default function PersonalOS() {
             line={week.inCycle ? `Week ${week.week} of ${CYCLE.weeks}` : "Review"}
             sub={weekPct === null ? "Goals and tactics" : `${weekPct}% this week`} />
         </div>
+
+        <section className="mt-14"><WeekBoard w={week} /></section>
       </div>
     </div>
   );

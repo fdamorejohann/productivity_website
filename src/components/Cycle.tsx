@@ -13,28 +13,97 @@ import { useState } from "react";
 import { db } from "../lib/db";
 import type { CycleArea, CycleGoal, CycleTactic, CycleWeekItem } from "../lib/types";
 import {
-  AREAS, CYCLE, DAY_NAMES, addDays, areaColor, cycleEnd, goalStatus, parseYmd, shortDate,
-  useCycleGoals, useCycleWeek, usesStepper, ymd,
+  AREAS, CYCLE, DAY_NAMES, addDays, areaColor, cycleEnd, cycleWeek, goalStatus, listItems, measurements, mondayOf,
+  parseYmd, shortDate, useCycleGoals, useCycleWeek, ymd,
 } from "../lib/cycle";
 import type { GoalsState, WeekState } from "../lib/cycle";
 
 // ─── Goals ───────────────────────────────────────────────────────────────────
 
-function GoalLine({ g, s, editable }: { g: CycleGoal; s: GoalsState; editable: boolean }) {
-  const { text, pct } = goalStatus(g, s);
-  const [editing, setEditing] = useState(false);
+const ITEM_PLACEHOLDER: Record<string, string> = {
+  books: "Add a book…", visits: "Add a show or museum…", movies: "Add a movie…", steps: "Add a step…",
+};
+
+/** List goal: named items to check off (books, shows, movies, game steps). */
+function ListPanel({ g, s }: { g: CycleGoal; s: GoalsState }) {
   const [draft, setDraft] = useState("");
-  const done = pct !== null && pct >= 1;
-  const commit = () => {
-    setEditing(false);
-    const v = draft.trim() === "" ? null : Number(draft);
-    if (v === null || Number.isFinite(v)) s.update(g.id, { progress: v });
+  const items = [...listItems(g, s)].sort((a, b) => Number(a.done) - Number(b.done));
+  const submit = () => {
+    const t = draft.trim();
+    if (!t) return;
+    s.addItem(g.id, t);
+    setDraft("");
   };
+  return (
+    <div className="pt-2 pb-1 space-y-1">
+      {items.map(i => (
+        <div key={i.id} className="group flex items-center gap-2 text-[13px]">
+          <button onClick={() => s.updateEntry(i.id, { done: !i.done })} aria-label={i.done ? `Uncheck ${i.title}` : `Check off ${i.title}`}
+            className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center text-[9px] ${i.done ? "bg-[#111] border-[#111] text-[#ECEBE7]" : "border-[#111] hover:bg-[#111]/10"}`}>
+            {i.done ? "✓" : ""}
+          </button>
+          <span className={`flex-1 min-w-0 truncate ${i.done ? "line-through text-[#5f5e5a]" : ""}`}>{i.title}</span>
+          <button onClick={() => s.removeEntry(i.id)} className="opacity-0 group-hover:opacity-100 text-[#5f5e5a] hover:text-red-600 px-1" aria-label={`Remove ${i.title}`}>×</button>
+        </div>
+      ))}
+      <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === "Enter") submit(); }} onBlur={submit}
+        placeholder={ITEM_PLACEHOLDER[g.unit ?? ""] ?? "Add an item…"}
+        className="w-full mt-1 bg-transparent border-b border-dashed border-[#C9C7BF] focus:border-[#111] text-[13px] py-1 focus:outline-none placeholder-[#898781]" />
+    </div>
+  );
+}
+
+/** Measure goal: this week's number (time, reps, seconds, miles, hours) plus earlier weeks. */
+function MeasurePanel({ g, s }: { g: CycleGoal; s: GoalsState }) {
+  const monday = mondayOf();
+  const logs = measurements(g, s);
+  const current = logs.find(m => m.week_start === monday);
+  const [draft, setDraft] = useState(current?.value?.toString() ?? "");
+  const commit = () => {
+    const v = draft.trim() === "" ? null : Number(draft);
+    if (v !== null && !Number.isFinite(v)) return;
+    if (v !== (current?.value ?? null)) s.logMeasure(g.id, monday, v);
+  };
+  const unit = g.unit ? ` ${g.unit}` : "";
+  return (
+    <div className="pt-2 pb-1">
+      <label className="flex items-center gap-2 text-[13px]">
+        <span className="text-[#5f5e5a]">This week{g.use_latest ? " (average)" : g.lower_is_better ? " (fastest)" : " (best)"}</span>
+        <input type="number" step="any" value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit}
+          onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          className="w-20 bg-white border border-[#111] rounded-full px-3 py-0.5 text-right focus:outline-none" placeholder="—" />
+        <span className="text-[#5f5e5a]">{g.unit}</span>
+      </label>
+      {logs.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {logs.map(m => (
+            <span key={m.id} className={`text-[11px] rounded-full px-2 py-0.5 border ${m.week_start === monday ? "border-[#111] text-[#111]" : "border-[#C9C7BF] text-[#5f5e5a]"}`}>
+              W{cycleWeek(m.week_start!)} · {m.value}{unit}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GoalLine({ g, s, editable, onOpen }: { g: CycleGoal; s: GoalsState; editable: boolean; onOpen?: () => void }) {
+  const { text, pct } = goalStatus(g, s);
+  const [open, setOpen] = useState(false);
+  const done = pct !== null && pct >= 1;
+  const expandable = editable && (g.mode === "list" || g.mode === "measure");
+  const title = <span className={`text-[14px] leading-snug text-left ${done ? "line-through decoration-1 text-[#5f5e5a]" : ""}`}>{g.title}</span>;
   return (
     <div className="py-2 border-b border-[#D9D7CF]">
       <div className="flex items-baseline justify-between gap-3">
-        <span className={`text-[14px] leading-snug ${done ? "line-through decoration-1 text-[#5f5e5a]" : ""}`}>{g.title}</span>
-        {editable && usesStepper(g) ? (
+        {expandable ? (
+          <button onClick={() => setOpen(o => !o)} className="flex items-baseline gap-1.5 hover:underline underline-offset-4 decoration-[#C9C7BF]" aria-expanded={open}>
+            <span className="text-[10px] text-[#5f5e5a] w-2">{open ? "▾" : "▸"}</span>{title}
+          </button>
+        ) : onOpen ? (
+          <button onClick={onOpen} className="hover:underline underline-offset-4 decoration-[#C9C7BF]">{title}</button>
+        ) : title}
+        {editable && g.mode === "count" ? (
           <span className="flex items-center gap-1.5 flex-shrink-0 text-[13px]">
             <button className="w-6 h-6 rounded-full border border-[#C9C7BF] hover:border-[#111] leading-none" aria-label={`Less ${g.title}`}
               onClick={() => s.update(g.id, { progress: Math.max(0, (g.progress ?? 0) - 1) })}>−</button>
@@ -42,17 +111,9 @@ function GoalLine({ g, s, editable }: { g: CycleGoal; s: GoalsState; editable: b
             <button className="w-6 h-6 rounded-full border border-[#111] hover:bg-[#111] hover:text-[#ECEBE7] leading-none" aria-label={`More ${g.title}`}
               onClick={() => s.update(g.id, { progress: (g.progress ?? 0) + 1 })}>+</button>
           </span>
-        ) : editable && !g.auto && editing ? (
-          <input autoFocus type="number" step="any" value={draft} onChange={e => setDraft(e.target.value)}
-            onBlur={commit} onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditing(false); }}
-            className="w-24 text-right text-[13px] bg-white border border-[#111] rounded-full px-2 py-0.5 focus:outline-none"
-            placeholder={g.unit ?? ""} />
         ) : (
-          <button disabled={!editable || !!g.auto} onClick={() => { setDraft(g.progress?.toString() ?? ""); setEditing(true); }}
-            className={`text-[13px] text-[#5f5e5a] tabular-nums flex-shrink-0 ${editable && !g.auto ? "hover:text-[#111] underline decoration-dotted underline-offset-4" : ""}`}
-            title={editable && !g.auto ? "Update progress" : undefined}>
-            {text}
-          </button>
+          <button onClick={expandable ? () => setOpen(o => !o) : onOpen} disabled={!expandable && !onOpen}
+            className="text-[13px] text-[#5f5e5a] tabular-nums flex-shrink-0 hover:text-[#111] disabled:hover:text-[#5f5e5a]">{text}</button>
         )}
       </div>
       {pct !== null && (
@@ -60,6 +121,8 @@ function GoalLine({ g, s, editable }: { g: CycleGoal; s: GoalsState; editable: b
           <div className="h-full bg-[#111] rounded-full transition-all duration-700" style={{ width: `${Math.round(pct * 100)}%` }} />
         </div>
       )}
+      {open && g.mode === "list" && <ListPanel g={g} s={s} />}
+      {open && g.mode === "measure" && <MeasurePanel g={g} s={s} />}
     </div>
   );
 }
@@ -73,14 +136,14 @@ function AreaLabel({ area }: { area: CycleArea }) {
   );
 }
 
-/** Home: the four areas side by side, progress read-only (edit on the area pages or Q4). */
-export function GoalsBand({ s }: { s: GoalsState }) {
+/** Home: the four areas side by side; tap a goal to open its area page to log progress. */
+export function GoalsBand({ s, onOpenArea }: { s: GoalsState; onOpenArea: (area: CycleArea) => void }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-6">
       {AREAS.map(a => (
         <div key={a.key}>
           <AreaLabel area={a.key} />
-          {s.goals.filter(g => g.area === a.key).map(g => <GoalLine key={g.id} g={g} s={s} editable={false} />)}
+          {s.goals.filter(g => g.area === a.key).map(g => <GoalLine key={g.id} g={g} s={s} editable={false} onOpen={() => onOpenArea(a.key)} />)}
         </div>
       ))}
     </div>
@@ -265,19 +328,27 @@ function GoalsEditor({ s }: { s: GoalsState }) {
               <div key={g.id} className="flex items-center gap-2 py-1.5 border-b border-[#D9D7CF]">
                 <input key={`t-${g.title}`} defaultValue={g.title} className={`${cell} flex-1 min-w-0`}
                   onBlur={e => { const v = e.target.value.trim(); if (v && v !== g.title) s.update(g.id, { title: v }); }} />
-                <input key={`p-${g.progress}`} type="number" step="any" defaultValue={g.progress ?? ""} disabled={!!g.auto}
-                  title={g.auto ? "Calculated automatically" : "Progress"} placeholder={g.auto ? "auto" : "now"} className={`${cell} w-20 disabled:opacity-50`}
+                <input key={`p-${g.progress}`} type="number" step="any" defaultValue={g.progress ?? ""} disabled={g.mode !== "count"}
+                  title={g.mode === "count" ? "Progress" : "Tracked from its checklist, weekly numbers, or data"} placeholder={g.mode === "count" ? "now" : "auto"} className={`${cell} w-20 disabled:opacity-50`}
                   onBlur={e => { const v = e.target.value === "" ? null : Number(e.target.value); if (v !== g.progress) s.update(g.id, { progress: v }); }} />
                 <input key={`g-${g.target}`} type="number" step="any" defaultValue={g.target ?? ""} title="Target" placeholder="goal" className={`${cell} w-20`}
                   onBlur={e => { const v = e.target.value === "" ? null : Number(e.target.value); if (v !== g.target) s.update(g.id, { target: v }); }} />
                 <input key={`u-${g.unit}`} defaultValue={g.unit ?? ""} title="Unit" placeholder="unit" className={`${cell} w-20`}
                   onBlur={e => { const v = e.target.value.trim() || null; if (v !== g.unit) s.update(g.id, { unit: v }); }} />
+                {!g.auto && (
+                  <select value={g.mode} title="How it's tracked" className={cell}
+                    onChange={e => s.update(g.id, { mode: e.target.value as CycleGoal["mode"] })}>
+                    <option value="count">Counter</option>
+                    <option value="list">Checklist</option>
+                    <option value="measure">Weekly number</option>
+                  </select>
+                )}
                 <button onClick={() => { if (confirm(`Delete goal "${g.title}"?`)) s.remove(g.id); }}
                   className="text-[#5f5e5a] hover:text-red-600 px-1" aria-label={`Delete ${g.title}`}>×</button>
               </div>
             ))}
             <button className="text-[12px] text-[#111] hover:underline underline-offset-2 mt-2"
-              onClick={() => s.add({ area: a.key, title: "New goal", target: null, progress: null, unit: null, lower_is_better: false, auto: null, sort: 99 })}>
+              onClick={() => s.add({ area: a.key, title: "New goal", target: null, progress: null, unit: null, lower_is_better: false, auto: null, mode: "count", use_latest: false, sort: 99 })}>
               + Add goal
             </button>
           </div>
@@ -351,7 +422,7 @@ export function CalmPage() {
   return (
     <div className="max-w-3xl">
       <GoalStrip area="calm" columns={1} />
-      <p className="text-[13px] text-[#5f5e5a]">Tap + when you finish a book, see a show or museum, or watch a movie. Update screen time with your weekly average.</p>
+      <p className="text-[13px] text-[#5f5e5a]">Open a goal to add books, shows, movies, or game steps and check them off. Log screen time as your weekly average.</p>
     </div>
   );
 }
