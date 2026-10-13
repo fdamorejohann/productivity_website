@@ -23,10 +23,12 @@ interface WorkoutSet {
   exercises?: { name: string };
 }
 
-type WorkoutType = "lifting" | "running" | "rollerblading" | "muaythai" | "biking";
+// rollerblading / muaythai are no longer offered but old sessions still display.
+type WorkoutType = "lifting" | "running" | "kettlebell" | "biking" | "rollerblading" | "muaythai";
 
 interface CardioData {
   duration_min?: number;
+  sets?: number;          // kettlebell: sets completed (with duration_min as total time)
   distance_miles?: number;
   elevation_ft?: number;
   rounds?: number;
@@ -45,17 +47,22 @@ interface Session {
 const WORKOUT_COLORS: Record<string, string> = {
   lifting: "#2a78d6",
   running: "#eb6834",
-  rollerblading: "#1baf7a",
-  muaythai: "#eda100",
-  biking: "#e87ba4",
+  kettlebell: "#1baf7a",
+  biking: "#eda100",
+  rollerblading: "#898781",
+  muaythai: "#898781",
 };
 
 const WORKOUT_TYPES: { key: WorkoutType; label: string; emoji: string; color: string }[] = [
-  { key: "lifting",       label: "Lifting",       emoji: "🏋️",  color: "#2a78d6" },
-  { key: "running",       label: "Running",       emoji: "🏃",  color: "#eb6834" },
-  { key: "rollerblading", label: "Rollerblading", emoji: "🛼",  color: "#1baf7a" },
-  { key: "muaythai",      label: "Muay Thai",     emoji: "🥊",  color: "#eda100" },
-  { key: "biking",        label: "Biking",        emoji: "🚴",  color: "#e87ba4" },
+  { key: "lifting",    label: "Lifting",    emoji: "🏋️", color: "#2a78d6" },
+  { key: "running",    label: "Running",    emoji: "🏃", color: "#eb6834" },
+  { key: "kettlebell", label: "Kettlebell", emoji: "💪", color: "#1baf7a" },
+  { key: "biking",     label: "Biking",     emoji: "🚴", color: "#eda100" },
+];
+// Retired types, kept so older sessions still show their label.
+const LEGACY_WORKOUT_TYPES: typeof WORKOUT_TYPES = [
+  { key: "rollerblading", label: "Rollerblading", emoji: "🛼", color: "#898781" },
+  { key: "muaythai",      label: "Muay Thai",     emoji: "🥊", color: "#898781" },
 ];
 
 // Draft set used while logging
@@ -101,7 +108,7 @@ function formatDate(dateStr: string) {
 }
 
 function typeInfo(type: WorkoutType) {
-  return WORKOUT_TYPES.find(t => t.key === type) ?? WORKOUT_TYPES[0];
+  return [...WORKOUT_TYPES, ...LEGACY_WORKOUT_TYPES].find(t => t.key === type) ?? WORKOUT_TYPES[0];
 }
 
 // ─── WorkoutPanel ─────────────────────────────────────────────────────────────
@@ -354,17 +361,30 @@ function LogTab({ exercises, sessions, onSaved }: {
         <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5" style={{ borderColor: t.color + "44" }}>
           <p className="text-xs uppercase tracking-wider mb-4 text-gray-500">{t.emoji} {t.label} Details</p>
           <div className="grid grid-cols-2 gap-4">
+            {workoutType === "kettlebell" && (
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Sets</p>
+                <input
+                  type="number"
+                  className="w-full bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none"
+                  placeholder="5"
+                  value={cardioData.sets ?? ""}
+                  onChange={e => setCardioData(p => ({ ...p, sets: e.target.value ? parseInt(e.target.value) : undefined }))}
+                />
+              </div>
+            )}
             <div>
-              <p className="text-xs text-gray-500 mb-1">Duration (min)</p>
+              <p className="text-xs text-gray-500 mb-1">{workoutType === "kettlebell" ? "Total time (min)" : "Duration (min)"}</p>
               <input
                 type="number"
                 className="w-full bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none"
-                placeholder="45"
+                placeholder={workoutType === "kettlebell" ? "35" : "45"}
+                step="any"
                 value={cardioData.duration_min ?? ""}
                 onChange={e => setCardioData(p => ({ ...p, duration_min: e.target.value ? parseFloat(e.target.value) : undefined }))}
               />
             </div>
-            {(workoutType === "running" || workoutType === "rollerblading" || workoutType === "biking") && (
+            {(workoutType === "running" || workoutType === "biking") && (
               <div>
                 <p className="text-xs text-gray-500 mb-1">Distance (miles)</p>
                 <input
@@ -386,18 +406,6 @@ function LogTab({ exercises, sessions, onSaved }: {
                   placeholder="9:30"
                   value={cardioData.avg_pace ?? ""}
                   onChange={e => setCardioData(p => ({ ...p, avg_pace: e.target.value || undefined }))}
-                />
-              </div>
-            )}
-            {workoutType === "muaythai" && (
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Rounds</p>
-                <input
-                  type="number"
-                  className="w-full bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none"
-                  placeholder="6"
-                  value={cardioData.rounds ?? ""}
-                  onChange={e => setCardioData(p => ({ ...p, rounds: e.target.value ? parseInt(e.target.value) : undefined }))}
                 />
               </div>
             )}
@@ -810,6 +818,7 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
 function formatCardioSummary(data: CardioData | undefined, type: WorkoutType): string {
   if (!data) return "No data";
   const parts: string[] = [];
+  if (data.sets) parts.push(`${data.sets} sets`);
   if (data.duration_min) parts.push(`${data.duration_min} min`);
   if (data.distance_miles) parts.push(`${data.distance_miles} mi`);
   if (data.rounds) parts.push(`${data.rounds} rounds`);
@@ -821,6 +830,7 @@ function formatCardioSummary(data: CardioData | undefined, type: WorkoutType): s
 
 function cardioFields(_type: WorkoutType, data: CardioData): { label: string; value: string }[] {
   const fields: { label: string; value: string }[] = [];
+  if (data.sets) fields.push({ label: "Sets", value: String(data.sets) });
   if (data.duration_min) fields.push({ label: "Duration", value: `${data.duration_min} min` });
   if (data.distance_miles) fields.push({ label: "Distance", value: `${data.distance_miles} miles` });
   if (data.avg_pace) fields.push({ label: "Avg Pace", value: `${data.avg_pace} /mi` });
@@ -923,7 +933,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
     const hasLifts = liftingEntries.length > 0;
     const hasAmrap = amrapEntries.length > 0;
 
-    if (!hasLifts && !hasAmrap && cardioSessions("running").length + cardioSessions("biking").length + cardioSessions("rollerblading").length + cardioSessions("muaythai").length < 1) {
+    if (!hasLifts && !hasAmrap && WORKOUT_TYPES.every(wt => wt.key === "lifting" || cardioSessions(wt.key).length < 1)) {
       return <p className="text-gray-500 text-sm">No workout data yet.</p>;
     }
 
@@ -956,10 +966,10 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
             })}
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3">
-            {Object.entries(WORKOUT_COLORS).map(([type, color]) => (
-              <span key={type} className="flex items-center gap-1 text-[10px] text-gray-500 capitalize">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
-                {type === "muaythai" ? "Muay Thai" : type}
+            {WORKOUT_TYPES.map(wt => (
+              <span key={wt.key} className="flex items-center gap-1 text-[10px] text-gray-500">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: wt.color }} />
+                {wt.label}
               </span>
             ))}
           </div>
@@ -1209,6 +1219,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
     const hasDist = cs.some(s => s.cardio_data?.distance_miles);
     const hasDur = cs.some(s => s.cardio_data?.duration_min);
     const hasRounds = cs.some(s => s.cardio_data?.rounds);
+    const hasSets = cs.some(s => s.cardio_data?.sets);
 
     const renderMiniChart = (label: string, getValue: (s: Session) => number | undefined, unit: string, color: string) => {
       const pts = cs.map(s => ({ date: s.date, val: getValue(s) ?? 0 })).filter(p => p.val > 0);
@@ -1275,7 +1286,8 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
           ))}
         </div>
 
-        {hasDur && renderMiniChart("Duration per session (min)", s => s.cardio_data?.duration_min, "min", t.color)}
+        {hasSets && renderMiniChart("Sets per session", s => s.cardio_data?.sets, "sets", t.color)}
+        {hasDur && renderMiniChart(cardioType === "kettlebell" ? "Total time per session (min)" : "Duration per session (min)", s => s.cardio_data?.duration_min, "min", t.color)}
         {hasDist && renderMiniChart("Distance per session (mi)", s => s.cardio_data?.distance_miles, "mi", t.color)}
         {hasRounds && renderMiniChart("Rounds per session", s => s.cardio_data?.rounds, "rounds", t.color)}
       </div>

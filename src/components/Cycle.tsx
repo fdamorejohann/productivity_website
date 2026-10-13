@@ -14,7 +14,7 @@ import { db } from "../lib/db";
 import type { CycleArea, CycleGoal, CycleTactic, CycleWeekItem } from "../lib/types";
 import {
   AREAS, CYCLE, DAY_NAMES, addDays, areaColor, cycleEnd, cycleWeek, goalStatus, listItems, measurements, mondayOf,
-  parseYmd, shortDate, useCycleGoals, useCycleWeek, ymd,
+  parseYmd, shortDate, useCycleGoals, useCycleWeek, workoutWeeks, ymd,
 } from "../lib/cycle";
 import type { GoalsState, WeekState } from "../lib/cycle";
 
@@ -87,11 +87,34 @@ function MeasurePanel({ g, s }: { g: CycleGoal; s: GoalsState }) {
   );
 }
 
+/** Kettlebell / pull-up goals: weekly bests read from logged workouts. */
+function WorkoutHistoryPanel({ g, s }: { g: CycleGoal; s: GoalsState }) {
+  const weeks = workoutWeeks(g, s);
+  const unit = g.unit ? ` ${g.unit}` : "";
+  return (
+    <div className="pt-2 pb-1 text-[12px] text-[#5f5e5a]">
+      <p>{g.auto === "kettlebell"
+        ? "From kettlebell workouts with 5+ sets: log sets and total time under Workouts → Log."
+        : "From pull-up and chin-up sets in your lifting workouts: your most reps in one set."}</p>
+      {weeks.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {weeks.map(w => (
+            <span key={w.week_start} className="text-[11px] rounded-full px-2 py-0.5 border border-[#C9C7BF]">
+              {cycleWeek(w.week_start) >= 1 ? `W${cycleWeek(w.week_start)}` : shortDate(w.week_start)} · {w.value}{unit}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GoalLine({ g, s, editable, onOpen }: { g: CycleGoal; s: GoalsState; editable: boolean; onOpen?: () => void }) {
   const { text, pct } = goalStatus(g, s);
   const [open, setOpen] = useState(false);
   const done = pct !== null && pct >= 1;
-  const expandable = editable && (g.mode === "list" || g.mode === "measure");
+  const fromWorkouts = g.auto === "kettlebell" || g.auto === "pullups";
+  const expandable = editable && (g.mode === "list" || g.mode === "measure" || fromWorkouts);
   const title = <span className={`text-[14px] leading-snug text-left ${done ? "line-through decoration-1 text-[#5f5e5a]" : ""}`}>{g.title}</span>;
   return (
     <div className="py-2 border-b border-[#D9D7CF]">
@@ -123,6 +146,7 @@ function GoalLine({ g, s, editable, onOpen }: { g: CycleGoal; s: GoalsState; edi
       )}
       {open && g.mode === "list" && <ListPanel g={g} s={s} />}
       {open && g.mode === "measure" && <MeasurePanel g={g} s={s} />}
+      {open && fromWorkouts && <WorkoutHistoryPanel g={g} s={s} />}
     </div>
   );
 }

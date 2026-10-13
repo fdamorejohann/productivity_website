@@ -51,8 +51,16 @@ export function useCycleGoals(reloadKey?: unknown) {
   const [entries, setEntries] = useState<CycleGoalEntry[]>([]);  // list items + weekly measurements, all goals
   const [saved, setSaved] = useState<number | null>(null);    // savings + investing since the cycle began
   const [pipeline, setPipeline] = useState<{ active: number; offers: number } | null>(null);
+  const [workouts, setWorkouts] = useState<LoggedWorkout[] | null>(null);
+  const [yogaWeeks, setYogaWeeks] = useState<string[] | null>(null);   // Mondays with a Yoga tactic checked off
 
   useEffect(() => {
+    db.sessions.list().then((rows: LoggedWorkout[]) => { if (Array.isArray(rows)) setWorkouts(rows); }).catch(() => {});
+    Promise.all([db.cycle.tactics.list(), db.cycle.week.list()]).then(([ts, items]) => {
+      if (!Array.isArray(ts) || !Array.isArray(items)) return;
+      const yoga = new Set(ts.filter(t => /^yoga/i.test(t.title)).map(t => t.id));
+      setYogaWeeks([...new Set(items.filter(i => i.done && yoga.has(i.tactic_id)).map(i => i.week_start))]);
+    }).catch(() => {});
     db.cycle.goals.list().then(g => { if (Array.isArray(g)) setGoals(g); }).catch(() => {});
     db.cycle.entries.list().then(e => { if (Array.isArray(e)) setEntries(e); }).catch(() => {});
     const firstMonth = CYCLE.start.slice(0, 7);
@@ -110,10 +118,42 @@ export function useCycleGoals(reloadKey?: unknown) {
     if (created?.id) setEntries(es => [...es, created]);
   };
 
-  return { goals, entries, saved, pipeline, update, add, remove, addItem, updateEntry, removeEntry, logMeasure };
+  return { goals, entries, saved, pipeline, workouts, yogaWeeks, update, add, remove, addItem, updateEntry, removeEntry, logMeasure };
 }
 
 export type GoalsState = ReturnType<typeof useCycleGoals>;
+
+/** A workout as returned by /api/data/sessions (only the fields the goals read). */
+export interface LoggedWorkout {
+  date: string;
+  type: string | null;
+  cardio_data?: { sets?: number; duration_min?: number } | null;
+  workout_sets?: { reps: number | null; exercises?: { name: string } | null }[];
+}
+
+// Bodyweight pull-ups / chin-ups; not pull-downs, pullovers, or weighted sets.
+const isPullUp = (name: string) => /(pull[\s-]?ups?|chin[\s-]?ups?)/i.test(name) && !/down|over|weighted/i.test(name);
+const KB_SETS = 5;
+
+/** Per-week best from logged workouts: kettlebell = fastest time for 5+ sets; pull-ups = most reps in one set. */
+export function workoutWeeks(g: CycleGoal, s: GoalsState): { week_start: string; value: number }[] {
+  const byWeek = new Map<string, number>();
+  for (const w of s.workouts ?? []) {
+    let v: number | null = null;
+    if (g.auto === "kettlebell" && w.type === "kettlebell" && (w.cardio_data?.sets ?? 0) >= KB_SETS && w.cardio_data?.duration_min) {
+      v = w.cardio_data.duration_min;
+    }
+    if (g.auto === "pullups") {
+      const reps = (w.workout_sets ?? []).filter(st => st.exercises?.name && isPullUp(st.exercises.name)).map(st => st.reps ?? 0);
+      if (reps.length) v = Math.max(...reps);
+    }
+    if (v === null || v <= 0) continue;
+    const wk = mondayOf(parseYmd(w.date));
+    const prev = byWeek.get(wk);
+    byWeek.set(wk, prev === undefined ? v : g.lower_is_better ? Math.min(prev, v) : Math.max(prev, v));
+  }
+  return [...byWeek.entries()].map(([week_start, value]) => ({ week_start, value })).sort((a, b) => a.week_start.localeCompare(b.week_start));
+}
 
 export const listItems = (g: CycleGoal, s: GoalsState) => s.entries.filter(e => e.goal_id === g.id && e.title !== null);
 export const measurements = (g: CycleGoal, s: GoalsState) =>
@@ -133,6 +173,19 @@ export function goalStatus(g: CycleGoal, s: GoalsState): { text: string; pct: nu
     return s.pipeline.offers > 0
       ? { text: `${s.pipeline.offers} offer${s.pipeline.offers > 1 ? "s" : ""}`, pct: 1 }
       : { text: `${s.pipeline.active} in pipeline`, pct: 0 };
+  }
+  if (g.auto === "yoga") {
+    if (!s.yogaWeeks) return { text: "…", pct: null };
+    return { text: `${s.yogaWeeks.length} / ${num(g.target ?? 0)}${unit}`, pct: g.target ? Math.min(1, s.yogaWeeks.length / g.target) : null };
+  }
+  if (g.auto === "kettlebell" || g.auto === "pullups") {
+    if (!s.workouts) return { text: "…", pct: null };
+    const vals = workoutWeeks(g, s).map(w => w.value);
+    if (vals.length === 0) return { text: `goal ${num(g.target ?? 0)}${unit}`, pct: 0 };
+    const best = g.lower_is_better ? Math.min(...vals) : Math.max(...vals);
+    return g.lower_is_better
+      ? { text: `${num(best)}${unit} → ${num(g.target ?? 0)}`, pct: g.target ? Math.min(1, g.target / best) : null }
+      : { text: `${num(best)} / ${num(g.target ?? 0)}${unit}`, pct: g.target ? Math.min(1, best / g.target) : null };
   }
   if (g.mode === "list") {
     const items = listItems(g, s);
@@ -173,7 +226,14 @@ export function useCycleWeek(reloadKey?: unknown) {
         const missing = inCycle ? ts.filter(t => t.active && !all.some(i => i.week_start === monday && i.tactic_id === t.id)) : [];
         if (missing.length > 0) {
           await db.cycle.week.add(missing.map(t => ({ week_start: monday, tactic_id: t.id, day: t.default_day, done: false })));
-          const fresh = await db.cycle.week.list();
+          let fresh = await db.cycle.week.list();
+          // Make sure the items just created for fixed-day tactics landed on their day.
+          const unplaced = Array.isArray(fresh) ? fresh.filter(i => i.week_start === monday && i.day === null && !i.done
+            && missing.some(t => t.id === i.tactic_id && t.default_day !== null)) : [];
+          if (unplaced.length > 0) {
+            await Promise.all(unplaced.map(i => db.cycle.week.update(i.id, { day: missing.find(t => t.id === i.tactic_id)!.default_day })));
+            fresh = await db.cycle.week.list();
+          }
           if (!cancelled && Array.isArray(fresh)) setItems(fresh);
         } else {
           setItems(all);
