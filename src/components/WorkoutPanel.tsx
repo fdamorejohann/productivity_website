@@ -268,7 +268,9 @@ function LogTab({ exercises, sessions, onSaved }: {
   const canSave = isLifting ? draftExercises.length > 0 : (
     (cardioData.duration_min ?? 0) > 0 ||
     (cardioData.distance_miles ?? 0) > 0 ||
-    (cardioData.rounds ?? 0) > 0
+    (cardioData.rounds ?? 0) > 0 ||
+    (cardioData.sets ?? 0) > 0 ||
+    (cardioData.hold_sec ?? 0) > 0
   );
 
   const saveWorkout = async () => {
