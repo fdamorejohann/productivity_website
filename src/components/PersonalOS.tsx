@@ -97,7 +97,7 @@ function RunwayInline({ rows, loading, hoveredIdx, setHoveredIdx }: {
         {currentTotal >= RUNWAY_TARGET && <span className="text-xs font-semibold text-emerald-400">🎉 Goal reached!</span>}
       </div>
       {loading ? <div className="h-16 flex items-center justify-center text-xs text-gray-600">Loading…</div> : (
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-24" preserveAspectRatio="none">
           <line x1={0} y1={targetY} x2={W} y2={targetY} stroke="#374151" strokeWidth={1} strokeDasharray="4 3" />
           <text x={W - 2} y={targetY - 3} textAnchor="end" fontSize={7} fill="#6b7280">$20k</text>
           {solidPoints.length > 1 && <path d={`${solidPath} L ${currentX} ${H} L 0 ${H} Z`} fill="#22c55e" fillOpacity="0.08" />}
@@ -129,7 +129,7 @@ function RunwayInline({ rows, loading, hoveredIdx, setHoveredIdx }: {
   );
 }
 
-function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
+function FinanceBox() {
   const [rows, setRows] = useState<SummaryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<FinanceTab>("total");
@@ -175,14 +175,13 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
   const prevMonthY = prevMonthValue !== null ? yOf(prevMonthValue) : null;
 
   return (
-    <div className="w-full bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+    <div className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-[28px] p-6">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
           {FINANCE_TABS.find(t => t.key === tab)!.label}
         </span>
         <div className="flex items-center gap-3">
           <button onClick={() => setHidden(h => !h)} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">{hidden ? "Show" : "Hide"}</button>
-          <button onClick={onOpenBudget} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">View Budget →</button>
         </div>
       </div>
       <div className={`transition-all duration-200 ${hidden ? "blur-md select-none pointer-events-none" : ""}`}>
@@ -194,7 +193,7 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
       </div>
       <div className="relative">
       {(
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16" preserveAspectRatio="none">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-24" preserveAspectRatio="none">
           <defs>
             <linearGradient id="finGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={activeColor} stopOpacity="0.2" />
@@ -237,13 +236,13 @@ function FinanceBox({ onOpenBudget }: { onOpenBudget: () => void }) {
       </div>
       </>)}
       </div>
-      <div className="flex gap-3 mt-2">
+      <div className="flex flex-wrap gap-1.5 mt-4">
         {FINANCE_TABS.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`text-xs font-medium transition-colors ${tab === t.key ? "opacity-100" : "opacity-40 hover:opacity-70"}`}
-            style={{ color: t.color }}
+            className={`text-xs font-medium px-3 py-1 rounded-full transition-colors ${tab === t.key ? "" : "opacity-50 hover:opacity-80"}`}
+            style={{ color: t.color, backgroundColor: tab === t.key ? `${t.color}1f` : "transparent" }}
           >
             {t.label}
           </button>
@@ -351,11 +350,11 @@ const needsFollowUp = (j: JobPosting) =>
 
 function FitBadge({ score }: { score: number | null }) {
   if (score == null) {
-    return <span className="w-6 h-6 rounded-md flex items-center justify-center text-xs text-gray-600 border border-[#333]" title="Not scored">—</span>;
+    return <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs text-gray-600 border border-[#333]" title="Not scored">—</span>;
   }
   const c = fitColor(score);
   return (
-    <span className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold"
+    <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
       style={{ color: c, backgroundColor: `${c}22`, border: `1px solid ${c}55` }} title={`Fit ${score}/5`}>
       {score}
     </span>
@@ -376,7 +375,7 @@ function CategoryChip({ category }: { category: JobCategory | null }) {
   if (!category) return null;
   const { label, color } = JOB_CATEGORY_META[category];
   return (
-    <span className="flex-shrink-0 text-[9px] uppercase tracking-wider rounded px-1"
+    <span className="flex-shrink-0 text-[9px] uppercase tracking-wider rounded-full px-1.5 py-px"
       style={{ color, backgroundColor: `${color}1a` }} title="Category">{label}</span>
   );
 }
@@ -384,12 +383,12 @@ function CategoryChip({ category }: { category: JobCategory | null }) {
 function StatusChip({ status }: { status: JobStatus }) {
   const { label, color } = JOB_STATUS_META[status];
   return (
-    <span className="flex-shrink-0 text-[9px] uppercase tracking-wider rounded px-1 border"
+    <span className="flex-shrink-0 text-[9px] uppercase tracking-wider rounded-full px-1.5 border"
       style={{ color, borderColor: `${color}66` }}>{label}</span>
   );
 }
 
-const jobInputCls = "w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#555]";
+const jobInputCls = "w-full bg-[#222] border border-[#333] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#555]";
 
 /** Text / textarea / date input that saves on blur when the value changed ("" → null).
  *  Callers key it by value so it resets when the server changes the field (e.g. applied_at via trigger). */
@@ -429,13 +428,13 @@ function JobDetails({ job, onUpdate }: {
   const save = (field: keyof JobUpdate) => (v: string | null) => onUpdate({ [field]: v });
 
   return (
-    <div className="pb-4 pt-1 pl-9 pr-1 space-y-3">
+    <div className="border-t border-[#2a2a2a] mt-1 pt-4 pb-5 pl-10 pr-1 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         {JOB_QUICK_ACTIONS[job.status].map(a => {
           const c = JOB_STATUS_META[a.to].color;
           return (
             <button key={a.to} onClick={() => onUpdate({ status: a.to })}
-              className="text-xs font-medium px-2.5 py-1 rounded-md border transition-colors hover:bg-white/5"
+              className="text-xs font-medium px-3 py-1 rounded-full border transition-colors hover:bg-white/5"
               style={{ color: c, borderColor: `${c}66` }}>
               {a.label}
             </button>
@@ -445,7 +444,7 @@ function JobDetails({ job, onUpdate }: {
           value={job.status}
           onChange={e => onUpdate({ status: e.target.value as JobStatus })}
           title="Set any status"
-          className="bg-[#252525] border border-[#333] rounded-md px-2 py-1 text-xs focus:outline-none focus:border-[#555] [color-scheme:dark]"
+          className="bg-[#222] border border-[#333] rounded-full px-3 py-1 text-xs focus:outline-none focus:border-[#555] [color-scheme:dark]"
           style={{ color: JOB_STATUS_META[job.status].color }}>
           {JOB_TABS.map(t => (
             <optgroup key={t.key} label={t.label}>
@@ -458,7 +457,7 @@ function JobDetails({ job, onUpdate }: {
           value={job.category ?? ""}
           onChange={e => onUpdate({ category: e.target.value as JobCategory })}
           title="Category (auto-set from title — change if it's wrong)"
-          className="bg-[#252525] border border-[#333] rounded-md px-2 py-1 text-xs focus:outline-none focus:border-[#555] [color-scheme:dark]"
+          className="bg-[#222] border border-[#333] rounded-full px-3 py-1 text-xs focus:outline-none focus:border-[#555] [color-scheme:dark]"
           style={{ color: job.category ? JOB_CATEGORY_META[job.category].color : "#6b7280" }}>
           {!job.category && <option value="" disabled>Category —</option>}
           {JOB_CATEGORIES.map(c => <option key={c} value={c}>{JOB_CATEGORY_META[c].label}</option>)}
@@ -533,7 +532,7 @@ function AddJobForm({ onAdded, onCancel }: { onAdded: (job: JobPosting) => void;
   };
 
   return (
-    <form onSubmit={submit} className="mb-4 p-3 rounded-xl border border-[#2e2e2e] bg-[#191919] space-y-2">
+    <form onSubmit={submit} className="mb-4 p-5 rounded-[28px] border border-[#2a2a2a] bg-[#1a1a1a] space-y-2">
       <div className="grid grid-cols-2 gap-2">
         <input className={jobInputCls} placeholder="Company *" value={form.company} onChange={set("company")} autoFocus />
         <input className={jobInputCls} placeholder="Title *" value={form.title} onChange={set("title")} />
@@ -545,7 +544,7 @@ function AddJobForm({ onAdded, onCancel }: { onAdded: (job: JobPosting) => void;
         {error && <span className="text-xs text-red-400">{error}</span>}
         <button type="button" onClick={onCancel} className="ml-auto text-xs text-gray-500 hover:text-gray-300 px-2 py-1">Cancel</button>
         <button type="submit" disabled={saving}
-          className="text-xs font-medium bg-white text-black rounded-md px-3 py-1 hover:bg-gray-200 disabled:opacity-50">
+          className="text-xs font-semibold bg-white text-black rounded-full px-4 py-1.5 hover:bg-gray-200 disabled:opacity-50">
           {saving ? "Adding…" : "Add job"}
         </button>
       </div>
@@ -592,7 +591,6 @@ function JobsPanel() {
   const inView = (j: JobPosting) => searching ? matches(j) : inTab(j, tab);
   // The open row stays visible even if a status/category change moves it out of view, until collapsed.
   const visible = jobs.filter(j => (inView(j) && inCategory(j)) || (!searching && j.id === expanded));
-  const activeColor = JOB_TABS.find(t => t.key === tab)!.color;
 
   // Optimistic: apply locally (mirroring the DB trigger), persist, then take the server's row.
   const update = async (id: number, updates: JobUpdate) => {
@@ -621,92 +619,92 @@ function JobsPanel() {
   };
 
   return (
-    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Jobs</span>
-          <button onClick={() => setAdding(a => !a)}
-            className="text-[10px] text-gray-500 hover:text-gray-200 border border-[#333] rounded px-1.5 py-0.5 transition-colors">
-            {adding ? "× Close" : "+ Add"}
-          </button>
-        </div>
-        <div className="flex items-center gap-3">
-          {JOB_TABS.map(t => (
+    <div>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
+        {JOB_TABS.map(t => {
+          const active = !searching && tab === t.key;
+          const n = jobs.filter(j => inTab(j, t.key) && inCategory(j) && (!searching || matches(j))).length;
+          return (
             <button key={t.key} onClick={() => { setTab(t.key); setExpanded(null); setQuery(""); }}
-              className="text-xs font-medium transition-colors"
-              style={{ color: t.color, opacity: !searching && tab === t.key ? 1 : 0.4 }}>
-              {t.label} <span className="tabular-nums opacity-70">{jobs.filter(j => inTab(j, t.key) && inCategory(j) && (!searching || matches(j))).length}</span>
+              className="text-left rounded-[22px] border p-4 transition-colors hover:border-[#3a3a3a]"
+              style={{ borderColor: active ? `${t.color}80` : "#2a2a2a", backgroundColor: active ? `${t.color}14` : "#1a1a1a" }}>
+              <div className="text-xs font-medium" style={{ color: t.color }}>{t.label}</div>
+              <div className="text-2xl font-bold text-white tabular-nums mt-1">{n}</div>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      <div className="flex items-center gap-3 mb-3">
-        <div className="relative flex-1">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="relative flex-1 min-w-[16rem]">
           <input
             type="search"
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === "Escape") setQuery(""); }}
             placeholder="Search all jobs — company, title, #id, contact, notes…"
-            className="w-full bg-[#252525] border border-[#333] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#555] [color-scheme:dark]"
+            className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-full pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#555] [color-scheme:dark]"
           />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs pointer-events-none">⌕</span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 text-sm pointer-events-none">⌕</span>
         </div>
-        <div className="flex items-center rounded-lg border border-[#333] overflow-hidden flex-shrink-0">
+        <div className="flex items-center gap-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-full p-1 flex-shrink-0">
           {(["all", ...JOB_CATEGORIES] as JobCategoryFilter[]).map(c => {
             const active = category === c;
             const color = c === "all" ? "#e5e7eb" : JOB_CATEGORY_META[c].color;
             const n = jobs.filter(j => inView(j) && (c === "all" || j.category === c)).length;
             return (
               <button key={c} onClick={() => { setCategory(c); setExpanded(null); }}
-                className="text-[11px] font-medium px-2.5 py-1.5 transition-colors border-l border-[#333] first:border-l-0"
-                style={{ color, opacity: active ? 1 : 0.45, backgroundColor: active ? `${color}1f` : "transparent" }}>
+                className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
+                style={{ color, opacity: active ? 1 : 0.5, backgroundColor: active ? `${color}1f` : "transparent" }}>
                 {c === "all" ? "All" : JOB_CATEGORY_META[c].label} <span className="tabular-nums opacity-70">{n}</span>
               </button>
             );
           })}
         </div>
+        <button onClick={() => setAdding(a => !a)}
+          className="text-xs font-semibold bg-white text-black rounded-full px-4 py-2.5 hover:bg-gray-200 transition-colors flex-shrink-0">
+          {adding ? "× Close" : "+ Add job"}
+        </button>
       </div>
 
       {adding && <AddJobForm onAdded={onAdded} onCancel={() => setAdding(false)} />}
 
       {loading ? (
         <div className="space-y-3">
-          {[1,2,3].map(i => <div key={i} className="h-8 bg-[#252525] rounded-lg animate-pulse" />)}
+          {[1,2,3].map(i => <div key={i} className="h-16 bg-[#1a1a1a] rounded-2xl animate-pulse" />)}
         </div>
       ) : visible.length === 0 ? (
-        <p className="text-xs text-gray-600 text-center py-4">{searching ? `No jobs match “${query.trim()}”` : "No jobs here"}{category !== "all" ? ` (${JOB_CATEGORY_META[category].label} only)` : ""}</p>
+        <p className="text-sm text-gray-600 text-center py-10 bg-[#1a1a1a] border border-[#2a2a2a] rounded-[28px]">{searching ? `No jobs match “${query.trim()}”` : "No jobs here"}{category !== "all" ? ` (${JOB_CATEGORY_META[category].label} only)` : ""}</p>
       ) : (
-        <div className="divide-y divide-[#2a2a2a]">
+        <div className="space-y-2">
           {visible.map(job => {
             const isOpen = expanded === job.id;
             const inPipeline = PIPELINE.includes(job.status);
             const showStatus = searching || tab === "pipeline" || tab === "archive" || !inTab(job, tab);
             return (
-              <div key={job.id} className={`-mx-2 px-2 rounded-lg transition-colors hover:bg-[#252525] ${ARCHIVE.includes(job.status) && tab !== "archive" ? "opacity-60" : ""}`}>
-                <div className="py-2.5 cursor-pointer grid grid-cols-[24px_minmax(0,1fr)_minmax(0,9rem)_6.5rem_auto] items-center gap-3"
+              <div key={job.id} className={`px-4 rounded-2xl border transition-colors ${isOpen ? "bg-[#1c1c1c] border-[#3a3a3a]" : "bg-[#1a1a1a] border-[#2a2a2a] hover:border-[#3a3a3a]"} ${ARCHIVE.includes(job.status) && tab !== "archive" ? "opacity-60" : ""}`}>
+                <div className="py-3.5 cursor-pointer grid grid-cols-[28px_minmax(0,1fr)_minmax(0,10rem)_6.5rem_auto] items-center gap-3"
                   onClick={() => setExpanded(isOpen ? null : job.id)}>
                   <FitBadge score={job.fit_score} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs text-gray-200 truncate" title={job.title}>{job.title}</span>
+                      <span className="text-sm font-medium text-gray-100 truncate" title={job.title}>{job.title}</span>
                       <CategoryChip category={job.category} />
                       {showStatus && <StatusChip status={job.status} />}
                       {needsFollowUp(job) && (
-                        <span className="flex-shrink-0 text-[9px] uppercase tracking-wider rounded px-1 bg-orange-500/15 text-orange-400 border border-orange-400/40"
+                        <span className="flex-shrink-0 text-[9px] uppercase tracking-wider rounded-full px-1.5 bg-orange-500/15 text-orange-400 border border-orange-400/40"
                           title={`Follow up on ${fmtShortDate(job.follow_up_on!)}`}>Follow up</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5 min-w-0 text-[10px]">
-                      <span className="flex-shrink-0 font-mono text-white tabular-nums" title="Supabase job_postings.id">#{job.id}</span>
-                      <span className="font-medium truncate flex-shrink-0 max-w-[50%]" style={{ color: activeColor }} title={job.company}>{job.company}</span>
+                    <div className="flex items-center gap-1.5 min-w-0 text-[11px] mt-0.5">
+                      <span className="flex-shrink-0 font-mono text-gray-500 tabular-nums" title="Supabase job_postings.id">#{job.id}</span>
+                      <span className="font-medium truncate flex-shrink-0 max-w-[50%] text-gray-300" title={job.company}>{job.company}</span>
                       {job.next_step && <span className="text-gray-500 truncate" title={job.next_step}>· {job.next_step}</span>}
                     </div>
                   </div>
                   <span className="text-[11px] text-gray-500 flex items-center gap-1.5 min-w-0">
                     <span className="truncate" title={job.location ?? ""}>{job.location ?? "—"}</span>
-                    {job.remote && <span className="flex-shrink-0 text-[9px] uppercase tracking-wider text-cyan-400 border border-cyan-400/40 rounded px-1">Remote</span>}
+                    {job.remote && <span className="flex-shrink-0 text-[9px] uppercase tracking-wider text-cyan-400 border border-cyan-400/40 rounded-full px-1.5">Remote</span>}
                   </span>
                   <span className="text-[11px] text-gray-400 truncate tabular-nums text-right" title={job.salary ?? ""}>{job.salary ?? "—"}</span>
                   <span className="text-[10px] text-gray-600 text-right tabular-nums whitespace-nowrap">
@@ -936,12 +934,7 @@ export default function PersonalOS() {
             <h1 className="text-2xl font-bold">{m.title}</h1>
           </div>
           {page === "jobs" && <JobsPanel />}
-          {page === "money" && (
-            <div className="flex flex-col gap-6">
-              <FinanceBox onOpenBudget={() => document.getElementById("budget")?.scrollIntoView({ behavior: "smooth" })} />
-              <div id="budget"><BudgetPanel /></div>
-            </div>
-          )}
+          {page === "money" && <BudgetPanel overviewTop={<FinanceBox />} />}
           {page === "gym" && <GymPage />}
           {page === "movies" && <MoviesPage />}
           {page === "notes" && <div className="max-w-3xl mx-auto"><NotesBox /></div>}

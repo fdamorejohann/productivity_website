@@ -453,7 +453,7 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
 
   if (points.length < 2) {
     return (
-      <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+      <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
         <h2 className="text-sm font-semibold text-gray-200 mb-2">Leftover Balance</h2>
         <div className="flex items-center justify-center h-24 text-sm text-gray-500">No spending logged yet</div>
       </div>
@@ -491,7 +491,7 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
   const isPositive = lastPoint.value >= 0;
 
   return (
-    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-200">Leftover Balance</h2>
         <span className={`text-sm font-semibold tabular-nums ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
@@ -583,7 +583,7 @@ function DailyBudgetCard({ leftoverActual, month }: { leftoverActual: number; mo
   });
 
   return (
-    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
       <div className="text-xs text-gray-500 mb-1">Daily spending budget</div>
       <div className="flex items-baseline gap-3 mb-1">
         <div className={`text-3xl font-bold tabular-nums ${positive ? "text-emerald-400" : "text-red-400"}`}>
@@ -640,7 +640,7 @@ function BudgetMapPanel({ incomeBudget, fixedBudget, variableBudget, savingsBudg
   const leftPct    = Math.max(0, 100 - fixedPct - varPct - savingsPct);
   const leftoverPositive = leftoverBudget >= 0;
   return (
-    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
       <h2 className="text-sm font-semibold text-gray-200 mb-4">Budget Map</h2>
       {/* Stacked bar */}
       <div className="flex rounded-lg overflow-hidden h-8 mb-4 text-xs font-medium">
@@ -707,7 +707,7 @@ function SpendPieChart({ entries, logs }: SpendPieChartProps) {
 
   if (entries.length === 0) {
     return (
-      <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+      <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
         <h2 className="text-sm font-semibold text-gray-200 mb-4">Top Spend Categories</h2>
         <div className="flex items-center justify-center h-32 text-sm text-gray-400">No spending logged yet</div>
       </div>
@@ -738,7 +738,7 @@ function SpendPieChart({ entries, logs }: SpendPieChartProps) {
     : [];
 
   return (
-    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
       <h2 className="text-sm font-semibold text-gray-200 mb-4">Top Spend Categories</h2>
       <div className="flex gap-4 items-start">
         {/* Pie */}
@@ -791,7 +791,26 @@ function SpendPieChart({ entries, logs }: SpendPieChartProps) {
 
 // ─── BudgetPanel ──────────────────────────────────────────────────────────────
 
-export default function BudgetPanel() {
+type BudgetSection = "overview" | "budget" | "expenses";
+const BUDGET_SECTIONS: { key: BudgetSection; label: string }[] = [
+  { key: "overview", label: "Overview" },
+  { key: "budget",   label: "Budget" },
+  { key: "expenses", label: "Expenses" },
+];
+const BUDGET_SECTION_KEY = "pos_budget_section";
+
+/** overviewTop renders above the Overview section (the Finances page passes the savings chart). */
+export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode } = {}) {
+  const [section, setSectionState] = useState<BudgetSection>(() => {
+    try {
+      const v = localStorage.getItem(BUDGET_SECTION_KEY);
+      return BUDGET_SECTIONS.some(x => x.key === v) ? (v as BudgetSection) : "overview";
+    } catch { return "overview"; }
+  });
+  const setSection = (v: BudgetSection) => {
+    setSectionState(v);
+    try { localStorage.setItem(BUDGET_SECTION_KEY, v); } catch { /* ignore */ }
+  };
   const [month, setMonth] = useState<string>(todayMonthKey);
   const [data, setData] = useState<MonthBudget | null>(null);
   const [nextMonthExists, setNextMonthExists] = useState(false);
@@ -1126,7 +1145,7 @@ export default function BudgetPanel() {
   // ── Empty state ─────────────────────────────────────────────────────────────
   if (!data) {
     return (
-      <div className="p-8 max-w-6xl mx-auto bg-[#111] min-h-screen">
+      <div>
         <BudgetHeader
           month={month} isCurrentMonth={isCurrentMonth}
           showNewMonth={false}
@@ -1184,7 +1203,7 @@ export default function BudgetPanel() {
 
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6 bg-[#111] min-h-screen">
+    <div className="space-y-6">
 
       {/* Header */}
       <BudgetHeader
@@ -1200,25 +1219,32 @@ export default function BudgetPanel() {
         onToggleExcluded={toggleExcluded}
       />
 
+      <div className="flex gap-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-full p-1 w-fit">
+        {BUDGET_SECTIONS.map(t => (
+          <button key={t.key} onClick={() => setSection(t.key)}
+            className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-colors ${section === t.key ? "bg-white text-black" : "text-gray-400 hover:text-white"}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {section === "overview" && <>
+      {overviewTop}
+
       {/* Summary cards */}
-      <div className="space-y-4">
-        <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <SummaryCard label="Income" actual={incomeActual} budget={incomeBudget} higherIsBetter
             tooltip={`Sum of all income row actuals.\n\nActual: ${fmt(incomeActual)}\nBudget: ${fmt(incomeBudget)}`} />
           <SummaryCard label="Fixed Expenses" actual={fixedActualTotal} budget={fixedBudgetTotal} higherIsBetter={false}
             tooltip={`Sum of all fixed expense rows, matched to logged transactions by category.\n\nActual: ${fmt(fixedActualTotal)}\nBudget: ${fmt(fixedBudgetTotal)}`} />
           <SummaryCard label="Variable Expenses" actual={variableActualTotal} budget={variableBudgetTotal} higherIsBetter={false}
             tooltip={`Sum of variable expense rows matched to logs, minus rebates.\n\n= variable rows − ${fmt(rebateActual)} rebates\n\nActual: ${fmt(variableActualTotal)}\nBudget: ${fmt(variableBudgetTotal)}`} />
-        </div>
-
-        <div className="grid grid-cols-3 gap-4 pl-8">
           <SummaryCard label="Leftover" actual={leftoverActual} budget={leftoverBudget} higherIsBetter
             tooltip={`Income − Fixed − Variable − Savings\n\n${fmt(incomeActual)} − ${fmt(fixedActualTotal)} − ${fmt(variableActualTotal)} − ${fmt(savingsActual)} = ${fmt(leftoverActual)}`} />
           <SummaryCard label="Savings & Investing" actual={savingsActual} budget={savingsBudget} higherIsBetter
             tooltip={`Sum of all savings/investing rows matched to logs.\n\nActual: ${fmt(savingsActual)}\nBudget: ${fmt(savingsBudget)}`} />
           <SummaryCard label="Total" actual={totalActual} budget={totalBudget} higherIsBetter
             tooltip={`Savings + Leftover — what your income actually went toward.\n\n${fmt(savingsActual)} + ${fmt(leftoverActual)} = ${fmt(totalActual)}`} />
-        </div>
       </div>
 
       {/* Leftover balance chart */}
@@ -1229,6 +1255,13 @@ export default function BudgetPanel() {
         budgetTarget={leftoverBudget}
       />
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <DailyBudgetCard leftoverActual={leftoverActual} month={month} />
+        <SpendPieChart entries={spendEntries} logs={data.logs} />
+      </div>
+      </>}
+
+      {section === "budget" && <>
       {/* Budget Map */}
       <BudgetMapPanel
         incomeBudget={incomeBudget}
@@ -1238,8 +1271,8 @@ export default function BudgetPanel() {
         leftoverBudget={leftoverBudget}
       />
 
-      {/* Income + Top Spend chart */}
-      <div className="grid grid-cols-2 gap-6 items-start">
+      {/* Income + expense tables */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <IncomeTable
           rows={data.income}
           onAddRow={() => upd(d => ({ ...d, income: [...d.income, { id: uid(), label: "Income", budget: 0, actual: 0 }] }))}
@@ -1248,18 +1281,6 @@ export default function BudgetPanel() {
           onUpdateActual={(id, actual) => upd(d => ({ ...d, income: d.income.map(r => r.id === id ? { ...r, actual } : r) }))}
           onDeleteRow={(id) => upd(d => ({ ...d, income: d.income.filter(r => r.id !== id) }))}
         />
-
-        <div className="flex flex-col gap-6">
-          <DailyBudgetCard
-            leftoverActual={leftoverActual}
-            month={month}
-          />
-          <SpendPieChart entries={spendEntries} logs={data.logs} />
-        </div>
-      </div>
-
-      {/* Expense tables — 3 columns */}
-      <div className="grid grid-cols-3 gap-6 items-start">
         <ExpenseTable
           title="Fixed Expenses"
           rows={fixedRows}
@@ -1291,23 +1312,11 @@ export default function BudgetPanel() {
           onDeleteRow={expHandlers.deleteRow}
         />
       </div>
+      </>}
 
-
-      {/* Import CSV */}
-      <ImportCsvPanel
-        fileName={importFileName}
-        rows={importRows}
-        includeCredits={includeCredits}
-        importError={importError}
-        onToggleIncludeCredits={setIncludeCredits}
-        onFileSelected={handleImportCsv}
-        onUpdateRow={updateImportRow}
-        onClear={clearImport}
-        onImport={commitImportRows}
-      />
-
+      {section === "expenses" && <>
       {/* Add Expense form */}
-      <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+      <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
         <h2 className="text-sm font-semibold text-gray-200 mb-4">Add Expense</h2>
         <form onSubmit={handleAddLog} className="flex flex-wrap gap-3 items-end">
           <FormField label="Vendor">
@@ -1323,7 +1332,7 @@ export default function BudgetPanel() {
             <select
               value={category}
               onChange={e => { setCategory(e.target.value); setFormPoints(defaultPoints(e.target.value, card)); }}
-              className="w-44 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-44 border border-[#333] rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {dynamicCategories.map(c => <option key={c}>{c}</option>)}
             </select>
@@ -1354,7 +1363,7 @@ export default function BudgetPanel() {
             <select
               value={card}
               onChange={e => { setCard(e.target.value); setFormPoints(defaultPoints(category, e.target.value)); }}
-              className="w-40 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-40 border border-[#333] rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {CARDS.map(c => <option key={c}>{c}</option>)}
             </select>
@@ -1379,7 +1388,7 @@ export default function BudgetPanel() {
 
       {/* Expense log */}
       {data.logs.length > 0 && (
-        <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+        <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
           <div className="flex items-center justify-between mb-4 gap-4">
             <div>
               <h2 className="text-sm font-semibold text-gray-200">Expense Log</h2>
@@ -1395,12 +1404,12 @@ export default function BudgetPanel() {
                 value={vendorSearch}
                 onChange={e => setVendorSearch(e.target.value)}
                 placeholder="Search vendor…"
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 w-36"
+                className="border border-[#333] rounded-full px-3 py-1.5 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400 w-36"
               />
               <select
                 value={logFilter}
                 onChange={e => setLogFilter(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border border-[#333] rounded-lg px-3 py-1.5 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="All">All</option>
                 {Array.from(new Set(data.logs.map(l => l.category)))
@@ -1441,6 +1450,20 @@ export default function BudgetPanel() {
           </div>
         </div>
       )}
+
+      {/* Import CSV */}
+      <ImportCsvPanel
+        fileName={importFileName}
+        rows={importRows}
+        includeCredits={includeCredits}
+        importError={importError}
+        onToggleIncludeCredits={setIncludeCredits}
+        onFileSelected={handleImportCsv}
+        onUpdateRow={updateImportRow}
+        onClear={clearImport}
+        onImport={commitImportRows}
+      />
+      </>}
     </div>
   );
 }
@@ -1464,7 +1487,7 @@ function ImportCsvPanel({ fileName, rows, includeCredits, importError, onToggleI
   const total = importable.reduce((s, r) => s + r.amount, 0);
 
   return (
-    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-sm font-semibold text-gray-200">Import CSV</h2>
@@ -1597,50 +1620,36 @@ function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onN
   excluded: boolean;
   onToggleExcluded: () => void;
 }) {
+  const btn = "px-3 py-1.5 text-xs font-medium border rounded-full transition-colors";
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <h1 className="text-3xl font-bold text-white">Budget</h1>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <button onClick={onPrev} className="w-9 h-9 rounded-full bg-[#1a1a1a] border border-[#2a2a2a] text-gray-400 hover:text-white hover:border-[#3a3a3a] transition-colors" aria-label="Previous month">&#8592;</button>
+        <div className="text-center min-w-36">
+          <div className="text-base font-semibold text-white">{formatMonthLabel(month)}</div>
+          {isCurrentMonth && <div className="text-[11px] text-blue-400">Current month</div>}
+        </div>
+        <button onClick={onNext} className="w-9 h-9 rounded-full bg-[#1a1a1a] border border-[#2a2a2a] text-gray-400 hover:text-white hover:border-[#3a3a3a] transition-colors" aria-label="Next month">&#8594;</button>
         {excluded && (
-          <span className="px-2 py-0.5 text-xs font-medium text-amber-300 bg-amber-900/30 border border-amber-800 rounded-full">
+          <span className="ml-2 px-2.5 py-0.5 text-[11px] font-medium text-amber-300 bg-amber-900/30 border border-amber-800 rounded-full">
             Excluded from charts
           </span>
         )}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {showNewMonth && (
+          <button onClick={onNewMonth} className={`${btn} text-blue-400 border-blue-800 hover:bg-blue-900/30`}>+ New month</button>
+        )}
         <button
           onClick={onToggleExcluded}
           title={excluded ? "Include this month in the trend charts" : "Exclude this month from the trend charts"}
-          className={`px-3 py-1.5 text-sm font-medium border rounded-lg transition-colors ${
-            excluded
-              ? "text-amber-300 border-amber-700 bg-amber-900/30 hover:bg-amber-900/50"
-              : "text-gray-300 border-[#333] hover:bg-[#2a2a2a]"
-          }`}
+          className={`${btn} ${excluded ? "text-amber-300 border-amber-700 bg-amber-900/30 hover:bg-amber-900/50" : "text-gray-400 border-[#333] hover:bg-[#2a2a2a]"}`}
         >
           {excluded ? "Excluded" : "Exclude from charts"}
         </button>
-        {showNewMonth && (
-          <button onClick={onNewMonth} className="px-3 py-1.5 text-sm font-medium text-blue-400 border border-blue-800 rounded-lg hover:bg-blue-900/30 transition-colors">
-            + New Month
-          </button>
-        )}
-        <button onClick={onExport} className="px-3 py-1.5 text-sm font-medium text-gray-300 border border-[#333] rounded-lg hover:bg-[#2a2a2a] transition-colors">
-          Export CSV
-        </button>
-        <button onClick={onExportForClaude} className="px-3 py-1.5 text-sm font-medium text-purple-300 border border-purple-800 rounded-lg hover:bg-purple-900/30 transition-colors">
-          Export for Claude
-        </button>
-        <button onClick={onResetMonth} className="px-3 py-1.5 text-sm font-medium text-red-400 border border-red-900 rounded-lg hover:bg-red-900/30 transition-colors">
-          Reset Month
-        </button>
-        <div className="flex items-center gap-1">
-          <button onClick={onPrev} className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-[#2a2a2a] transition-colors text-lg leading-none">&#8592;</button>
-          <div className="text-center min-w-36">
-            <div className="text-sm font-semibold text-gray-200">{formatMonthLabel(month)}</div>
-            {isCurrentMonth && <div className="text-xs text-blue-400">Current Month</div>}
-          </div>
-          <button onClick={onNext} className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-[#2a2a2a] transition-colors text-lg leading-none">&#8594;</button>
-        </div>
+        <button onClick={onExport} className={`${btn} text-gray-400 border-[#333] hover:bg-[#2a2a2a]`}>Export CSV</button>
+        <button onClick={onExportForClaude} className={`${btn} text-purple-300 border-purple-800 hover:bg-purple-900/30`}>Export for Claude</button>
+        <button onClick={onResetMonth} className={`${btn} text-red-400 border-red-900 hover:bg-red-900/30`}>Reset month</button>
       </div>
     </div>
   );
@@ -1656,7 +1665,7 @@ function SummaryCard({ label, actual, budget, higherIsBetter, tooltip }: {
   const isGood = higherIsBetter ? actual >= budget : actual <= budget;
   const color = both0 ? "#6b7280" : isGood ? "#22c55e" : "#ef4444";
   return (
-    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5 relative">
+    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5 relative">
       <div className="flex items-center gap-1.5 mb-1">
         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
         {tooltip && (
@@ -1689,7 +1698,7 @@ function IncomeTable({ rows, onAddRow, onUpdateLabel, onUpdateBudget, onUpdateAc
   const totalBudget = rows.reduce((s, r) => s + r.budget, 0);
   const totalActual = rows.reduce((s, r) => s + r.actual, 0);
   return (
-    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-200">Income</h2>
         <button onClick={onAddRow} className="text-xs text-blue-400 hover:text-blue-300 font-medium">+ Add row</button>
@@ -1764,7 +1773,7 @@ function ExpenseTable({ title, rows, getActual, onAddRow, onUpdateLabel, onUpdat
   const totalBudget = rows.reduce((s, r) => s + r.budget, 0);
   const totalActual = rows.reduce((s, r) => s + getActual(r), 0);
   return (
-    <div className="bg-[#1e1e1e] rounded-2xl border border-[#2e2e2e] p-5">
+    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-200">{title}</h2>
         <button onClick={onAddRow} className="text-xs text-blue-400 hover:text-blue-300 font-medium">+ Add row</button>
@@ -1898,7 +1907,7 @@ function LogRow({ log, onUpdate, onDelete }: {
           <select
             value={log.points ?? defaultPoints(log.category, log.card)}
             onChange={e => onUpdate({ points: Number(e.target.value) })}
-            className="w-14 border border-gray-200 rounded px-1 py-0.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-700"
+            className="w-14 border border-[#333] rounded px-1 py-0.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-700"
           >
             {pointsOptions(log.card).map(n => <option key={n} value={n}>{n}×</option>)}
           </select>
