@@ -92,11 +92,15 @@ function effectiveCost(log: BudgetExpenseLog): number {
 
 function uid() { return crypto.randomUUID(); }
 
+// Each paycheck's take-home. New months start with both paychecks budgeted and filled in at this amount.
+const PAYCHECK_AMOUNT = 3476;
+const isPaycheck = (label: string) => /paycheck/i.test(label);
+
 function defaultMonth(): MonthBudget {
   return {
     income: [
-      { id: uid(), label: "Person A - Paycheck 1", budget: 88888.46, actual: 0 },
-      { id: uid(), label: "Person A - Paycheck 2", budget: 3696.46, actual: 0 },
+      { id: uid(), label: "Person A - Paycheck 1", budget: PAYCHECK_AMOUNT, actual: PAYCHECK_AMOUNT },
+      { id: uid(), label: "Person A - Paycheck 2", budget: PAYCHECK_AMOUNT, actual: PAYCHECK_AMOUNT },
       { id: uid(), label: "Person B - Paycheck 1", budget: 0, actual: 0 },
       { id: uid(), label: "Person B - Paycheck 2", budget: 0, actual: 0 },
       { id: uid(), label: "Interest - HYSA 1", budget: 0, actual: 0 },
@@ -173,7 +177,8 @@ function migrateMonthBudget(data: MonthBudget): MonthBudget {
 function fromTemplate(tmpl: MonthBudget): MonthBudget {
   const normalized = migrateMonthBudget(tmpl);
   return {
-    income: normalized.income.map(r => ({ ...r, id: uid(), actual: 0 })),
+    // Paychecks with a budget carry over already filled in; other income (interest, etc.) starts at 0.
+    income: normalized.income.map(r => ({ ...r, id: uid(), actual: isPaycheck(r.label) && r.budget > 0 ? r.budget : 0 })),
     expenses: normalized.expenses.map(r => ({ ...r, id: uid(), actual: (r.type === "fixed" || r.type === "savings") ? r.budget : null })),
     logs: [],
   };
