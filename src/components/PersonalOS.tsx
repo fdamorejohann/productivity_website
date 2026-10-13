@@ -1,7 +1,8 @@
 /**
  * PersonalOS.tsx — Dark mode personal dashboard
- * Light editorial home: giant greeting, live reminders (job follow-ups, gym, note to-dos), then one
- * outlined bubble per page (Jobs, Finances, Gym, Movies, Notes).
+ * Light editorial home: giant greeting; right column with the Q4 cycle score and reminders (job
+ * follow-ups, note to-dos); the 12-week goals band and this week's tactic board (Cycle.tsx); then one
+ * outlined bubble per page (Jobs, Finances, Gym, Calm, Notes, Q4).
  * Each bubble opens a full page; the URL hash (#jobs etc.) tracks the open page.
  */
 
@@ -12,6 +13,8 @@ import WorkoutPanel from "./WorkoutPanel";
 import RunningPanel from "./RunningPanel";
 import { db } from "../lib/db";
 import { useCountUp } from "../lib/useCountUp";
+import { CYCLE, goalStatus, useCycleGoals, useCycleWeek } from "../lib/cycle";
+import { CalmPage, CyclePage, CycleScore, GoalStrip, GoalsBand, WeekBoard } from "./Cycle";
 import type { JobCategory, JobPosting, JobStatus, JobUpdate, NewJob } from "../lib/types";
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -787,10 +790,10 @@ function WeatherLine() {
 
 // ─── Home: bubble previews + reminders ───────────────────────────────────────
 
-type Page = "jobs" | "money" | "gym" | "movies" | "notes";
-const PAGES: Page[] = ["jobs", "money", "gym", "movies", "notes"];
+type Page = "jobs" | "money" | "gym" | "calm" | "notes" | "q4";
+const PAGES: Page[] = ["jobs", "money", "gym", "calm", "notes", "q4"];
 const PAGE_TITLES: Record<Page, string> = {
-  jobs: "Jobs", money: "Finances", gym: "Gym", movies: "Movies", notes: "Notes",
+  jobs: "Jobs", money: "Finances", gym: "Gym", calm: "Calm", notes: "Notes", q4: CYCLE.name,
 };
 
 interface Reminder { text: string; page: Page; }
@@ -802,7 +805,7 @@ interface HomeData {
   spentToday: number | null;
   sessionsThisWeek: number | null;
   notesFirstLine: string;
-  reminders: { jobs: Reminder[]; gym: Reminder[]; notes: Reminder[] };
+  reminders: { jobs: Reminder[]; notes: Reminder[] };
 }
 
 function startOfWeekYmd(): string {
@@ -824,7 +827,7 @@ const NOTE_TODO = /^\s*(?:[-*]\s*)?(?:\[\s\]|todo:?)\s+(.+)$/i;
 function useHomeData(): HomeData {
   const [data, setData] = useState<HomeData>({
     jobsNew: 0, jobsPipeline: 0, jobsFollowUps: 0, spentToday: null, sessionsThisWeek: null, notesFirstLine: "",
-    reminders: { jobs: [], gym: [], notes: [] },
+    reminders: { jobs: [], notes: [] },
   });
   const setReminders = (key: keyof HomeData["reminders"], list: Reminder[]) =>
     setData(d => ({ ...d, reminders: { ...d.reminders, [key]: list } }));
@@ -855,14 +858,7 @@ function useHomeData(): HomeData {
     db.sessions.list().then((rows: { date: string }[]) => {
       if (!Array.isArray(rows)) return;
       const monday = startOfWeekYmd();
-      const thisWeek = rows.filter(r => r.date >= monday).length;
-      const last = rows.map(r => r.date).sort().at(-1);
-      const daysAgo = last ? daysSince(`${last}T12:00:00`) : null;
-      setData(d => ({ ...d, sessionsThisWeek: thisWeek }));
-      setReminders("gym",
-        thisWeek === 0 ? [{ text: "No gym sessions yet this week. Set your gym schedule.", page: "gym" }]
-        : daysAgo !== null && daysAgo >= 3 ? [{ text: `Last workout was ${daysAgo} days ago.`, page: "gym" }]
-        : []);
+      setData(d => ({ ...d, sessionsThisWeek: rows.filter(r => r.date >= monday).length }));
     }).catch(() => {});
     db.notes.get().then((n: { content?: string }) => {
       const lines = (n?.content ?? "").split("\n").map(l => l.trim()).filter(Boolean);
@@ -916,15 +912,6 @@ function GymPage() {
   );
 }
 
-function MoviesPage() {
-  return (
-    <div className="max-w-3xl border border-[#111] rounded-[28px] p-10">
-      <p className="text-2xl font-medium tracking-[-0.03em] mb-1">Movie recommendations are coming</p>
-      <p className="text-sm text-[#5f5e5a]">A watchlist and nightly picks will live here.</p>
-    </div>
-  );
-}
-
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 const display = "font-medium uppercase leading-[0.86] tracking-[-0.055em]";
@@ -932,6 +919,8 @@ const display = "font-medium uppercase leading-[0.86] tracking-[-0.055em]";
 export default function PersonalOS() {
   const [page, setPage] = useState<Page | null>(pageFromHash);
   const home = useHomeData();
+  const goals = useCycleGoals();
+  const week = useCycleWeek();
 
   // The hash is the source of truth so refresh and the browser back button work.
   useEffect(() => {
@@ -949,11 +938,12 @@ export default function PersonalOS() {
         <div className="max-w-6xl mx-auto">
           <button onClick={goHome} className="text-sm text-[#5f5e5a] hover:text-[#111] transition-colors">← Home</button>
           <h1 className={`${display} text-6xl sm:text-7xl mt-6 mb-10`}>{PAGE_TITLES[page]}</h1>
-          {page === "jobs" && <JobsPanel />}
-          {page === "money" && <BudgetPanel overviewTop={<FinanceBox />} />}
-          {page === "gym" && <GymPage />}
-          {page === "movies" && <MoviesPage />}
+          {page === "jobs" && <><GoalStrip area="work" columns={1} /><JobsPanel /></>}
+          {page === "money" && <><GoalStrip area="money" columns={1} /><BudgetPanel overviewTop={<FinanceBox />} /></>}
+          {page === "gym" && <><GoalStrip area="fitness" /><GymPage /></>}
+          {page === "calm" && <CalmPage />}
           {page === "notes" && <div className="max-w-3xl"><NotesBox /></div>}
+          {page === "q4" && <CyclePage />}
         </div>
       </div>
     );
@@ -963,8 +953,11 @@ export default function PersonalOS() {
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning," : hour < 17 ? "Good afternoon," : "Good evening,";
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-  const { jobs, gym, notes } = home.reminders;
-  const reminders = [...jobs.slice(0, 4), ...gym, ...notes.slice(0, 3)];
+  const { jobs, notes } = home.reminders;
+  const reminders = [...jobs.slice(0, 4), ...notes.slice(0, 3)];
+  const calmGoals = goals.goals.filter(g => g.area === "calm");
+  const calmDone = calmGoals.filter(g => (goalStatus(g, goals).pct ?? 0) >= 1).length;
+  const weekPct = week.score === null ? null : Math.round(week.score * 100);
 
   return (
     <div className="min-h-screen bg-[#ECEBE7] text-[#111] p-6 sm:p-10">
@@ -974,11 +967,12 @@ export default function PersonalOS() {
             {greeting.split(" ").map((w, i) => <span key={i} className="block">{w}</span>)}
             <span className="block">Finn</span>
           </h1>
-          <div className="lg:max-w-[17rem] lg:pt-3 text-[13px] leading-snug text-[#5f5e5a] space-y-3">
+          <div className="lg:max-w-[17rem] lg:pt-3 text-[13px] leading-snug text-[#5f5e5a] space-y-4">
             <div>
               <p>{now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
               <WeatherLine />
             </div>
+            <button onClick={() => open("q4")} className="block text-left" title={`Open ${CYCLE.name}`}><CycleScore w={week} /></button>
             {reminders.length > 0 ? (
               <ul className="space-y-1.5">
                 {reminders.map((r, i) => (
@@ -993,7 +987,10 @@ export default function PersonalOS() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mt-12">
+        <section className="mt-14"><GoalsBand s={goals} /></section>
+        <section className="mt-12"><WeekBoard w={week} /></section>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-12">
           <Bubble page="jobs" onOpen={() => open("jobs")}
             line={home.jobsFollowUps > 0 ? `${plural(home.jobsFollowUps, "follow-up")} due` : `${home.jobsNew} new`}
             sub={`${home.jobsPipeline} in pipeline`} />
@@ -1003,8 +1000,13 @@ export default function PersonalOS() {
           <Bubble page="gym" onOpen={() => open("gym")}
             line={home.sessionsThisWeek === null ? "…" : `${plural(home.sessionsThisWeek, "session")} this week`}
             sub="Workouts, 10K plan" />
-          <Bubble page="movies" onOpen={() => open("movies")} line="Coming soon" sub="Watchlist" />
+          <Bubble page="calm" onOpen={() => open("calm")}
+            line={calmGoals.length ? `${calmDone} of ${calmGoals.length} goals done` : "…"}
+            sub="Books, shows, movies" />
           <Bubble page="notes" onOpen={() => open("notes")} line={home.notesFirstLine || "Empty"} sub="Scratchpad" />
+          <Bubble page="q4" onOpen={() => open("q4")}
+            line={week.inCycle ? `Week ${week.week} of ${CYCLE.weeks}` : "Review"}
+            sub={weekPct === null ? "Goals and tactics" : `${weekPct}% this week`} />
         </div>
       </div>
     </div>

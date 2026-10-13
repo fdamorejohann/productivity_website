@@ -180,3 +180,37 @@ create trigger job_postings_set_category before insert on public.job_postings
   for each row execute function public.job_postings_set_category();
 
 alter table public.job_postings enable row level security;
+
+-- 12 Week Year cycle (home page): goals, weekly tactics, and each week's placed/checked tactics.
+create table if not exists public.cycle_goals (
+  id uuid primary key default gen_random_uuid(),
+  area text not null check (area in ('fitness', 'money', 'work', 'calm')),
+  title text not null,
+  target numeric,
+  progress numeric,
+  unit text,
+  lower_is_better boolean not null default false,
+  auto text check (auto in ('savings', 'jobs')),
+  sort int not null default 0,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.cycle_tactics (
+  id uuid primary key default gen_random_uuid(),
+  area text not null check (area in ('fitness', 'money', 'work', 'calm')),
+  title text not null,
+  default_day int check (default_day between 0 and 6), -- 0 = Monday; null = tray
+  active boolean not null default true,
+  sort int not null default 0,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.cycle_week_items (
+  id uuid primary key default gen_random_uuid(),
+  week_start date not null,
+  tactic_id uuid not null references public.cycle_tactics(id) on delete cascade,
+  day int check (day between 0 and 6),
+  done boolean not null default false,
+  unique (week_start, tactic_id)
+);
+alter table public.cycle_goals enable row level security;
+alter table public.cycle_tactics enable row level security;
+alter table public.cycle_week_items enable row level security;

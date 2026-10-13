@@ -190,3 +190,36 @@ export function goalUnitLabel(goal: Goal): string {
   if (goal.amountUnit === "custom") return goal.customUnitLabel || "units";
   return goal.amountUnit;
 }
+
+// ─── 12 Week Year cycle (public.cycle_goals / cycle_tactics / cycle_week_items) ─
+
+export type CycleArea = "fitness" | "money" | "work" | "calm";
+
+export interface CycleGoal {
+  id: string;
+  area: CycleArea;
+  title: string;
+  target: number | null;
+  progress: number | null;        // manual progress; ignored when `auto` is set
+  unit: string | null;
+  lower_is_better: boolean;       // e.g. minutes for the KB routine, screen-time hours
+  auto: "savings" | "jobs" | null; // computed from Finances / Jobs instead of `progress`
+  sort: number;
+}
+
+export interface CycleTactic {
+  id: string;
+  area: CycleArea;
+  title: string;
+  default_day: number | null;     // 0 = Monday; null = lands in the tray each week
+  active: boolean;
+  sort: number;
+}
+
+export interface CycleWeekItem {
+  id: string;
+  week_start: string;             // Monday, YYYY-MM-DD
+  tactic_id: string;
+  day: number | null;             // null = in the tray
+  done: boolean;
+}

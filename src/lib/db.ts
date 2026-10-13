@@ -2,7 +2,7 @@
 // Thin fetch wrapper around our /api/data/* endpoints.
 // Falls back to localStorage on network error so the app still works offline.
 
-import type { JobPosting, JobUpdate, NewJob } from "./types";
+import type { CycleGoal, CycleTactic, CycleWeekItem, JobPosting, JobUpdate, NewJob } from "./types";
 
 const json = (res: Response) => res.json();
 
@@ -116,6 +116,25 @@ export const db = {
       } catch {
         return { ok: false, error: "Network error — try again." };
       }
+    },
+  },
+  cycle: {
+    goals: {
+      list: (): Promise<CycleGoal[]> => api.get("/api/data/cycle-goals"),
+      add: (goal: Omit<CycleGoal, "id">): Promise<CycleGoal> => api.post("/api/data/cycle-goals", goal),
+      update: (id: string, updates: Partial<CycleGoal>): Promise<CycleGoal> => api.patch("/api/data/cycle-goals", { id, ...updates }),
+      remove: (id: string) => api.delete("/api/data/cycle-goals", { id }),
+    },
+    tactics: {
+      list: (): Promise<CycleTactic[]> => api.get("/api/data/cycle-tactics"),
+      add: (tactic: Omit<CycleTactic, "id">): Promise<CycleTactic> => api.post("/api/data/cycle-tactics", tactic),
+      update: (id: string, updates: Partial<CycleTactic>): Promise<CycleTactic> => api.patch("/api/data/cycle-tactics", { id, ...updates }),
+      remove: (id: string) => api.delete("/api/data/cycle-tactics", { id }),
+    },
+    week: {
+      list: (week?: string): Promise<CycleWeekItem[]> => api.get(week ? `/api/data/cycle-week?week=${week}` : "/api/data/cycle-week"),
+      add: (items: Omit<CycleWeekItem, "id">[]): Promise<CycleWeekItem[]> => api.post("/api/data/cycle-week", items),
+      update: (id: string, updates: Partial<CycleWeekItem>): Promise<CycleWeekItem> => api.patch("/api/data/cycle-week", { id, ...updates }),
     },
   },
   dnd: {
