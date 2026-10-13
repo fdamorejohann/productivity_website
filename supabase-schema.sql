@@ -229,3 +229,24 @@ create table if not exists public.cycle_goal_entries (
   created_at timestamptz not null default now()
 );
 alter table public.cycle_goal_entries enable row level security;
+
+-- NYC shows / performances / museum events, curated every 3 days by a scheduled Claude task, marked on the Calm page.
+create table if not exists public.nyc_events (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  kind text not null check (kind in ('theater', 'music', 'comedy', 'dance', 'museum', 'gallery', 'film', 'talk', 'other')),
+  venue text,
+  neighborhood text,
+  starts_on date,
+  ends_on date,
+  price text,
+  url text not null unique,
+  description text,
+  why text,
+  tags text[] not null default '{}',
+  status text not null default 'new' check (status in ('new', 'interested', 'not_interested', 'went')),
+  status_changed_at timestamptz,
+  found_at timestamptz not null default now()
+);
+create index if not exists nyc_events_status_idx on public.nyc_events (status);
+alter table public.nyc_events enable row level security;

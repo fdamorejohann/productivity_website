@@ -39,6 +39,7 @@ export default async function handler(req, res) {
     case "cycle-tactics":    return handleCycleTable(req, res, "cycle_tactics", "sort");
     case "cycle-week":       return handleCycleTable(req, res, "cycle_week_items", "week_start");
     case "cycle-entries":    return handleCycleTable(req, res, "cycle_goal_entries", "created_at");
+    case "nyc-events":       return handleNycEvents(req, res);
     default:                 return res.status(404).json({ error: "Not found" });
   }
 }
@@ -956,6 +957,25 @@ async function handleCycleTable(req, res, table, orderCol) {
     const { error } = await supabase.from(table).delete().eq("id", id);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ ok: true });
+  }
+  res.status(405).end();
+}
+
+// ─── NYC events (Calm page recommendations) ──────────────────────────────────
+// Rows are added every 3 days by a scheduled Claude task; the site only reads them and sets status.
+async function handleNycEvents(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase.from("nyc_events").select("*").order("starts_on", { ascending: true, nullsFirst: false });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+  if (req.method === "PATCH") {
+    const { id, status } = req.body;
+    if (!["new", "interested", "not_interested", "went"].includes(status)) return res.status(400).json({ error: "Bad status" });
+    const { data, error } = await supabase.from("nyc_events")
+      .update({ status, status_changed_at: new Date().toISOString() }).eq("id", id).select();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
   }
   res.status(405).end();
 }

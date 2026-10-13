@@ -236,3 +236,25 @@ export interface CycleWeekItem {
   day: number | null;             // null = in the tray
   done: boolean;
 }
+
+// ─── NYC events (public.nyc_events) ──────────────────────────────────────────
+
+export type NycEventStatus = "new" | "interested" | "not_interested" | "went";
+
+export interface NycEvent {
+  id: string;
+  title: string;
+  kind: "theater" | "music" | "comedy" | "dance" | "museum" | "gallery" | "film" | "talk" | "other";
+  venue: string | null;
+  neighborhood: string | null;
+  starts_on: string | null;
+  ends_on: string | null;
+  price: string | null;
+  url: string;
+  description: string | null;
+  why: string | null;
+  tags: string[];
+  status: NycEventStatus;
+  status_changed_at: string | null;
+  found_at: string;
+}

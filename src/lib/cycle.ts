@@ -101,8 +101,8 @@ export function useCycleGoals(reloadKey?: unknown) {
   };
 
   // ── Entries: list items and weekly measurements ──
-  const addItem = async (goalId: string, title: string) => {
-    const created = await db.cycle.entries.add({ goal_id: goalId, title, done: false, week_start: null, value: null });
+  const addItem = async (goalId: string, title: string, done = false) => {
+    const created = await db.cycle.entries.add({ goal_id: goalId, title, done, week_start: null, value: null });
     if (created?.id) setEntries(es => [...es, created]);
   };
   const updateEntry = async (id: string, updates: Partial<CycleGoalEntry>) => {
