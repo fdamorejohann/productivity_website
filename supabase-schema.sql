@@ -268,3 +268,11 @@ create table if not exists public.movies (
   synced_at timestamptz
 );
 alter table public.movies enable row level security;
+
+-- Where a watchlist / interested film is playing in NYC (now or within ~a month), filled by the movie-sync-picks task.
+alter table public.movies
+  add column if not exists showing_where text,
+  add column if not exists showing_url text,
+  add column if not exists showing_from date,
+  add column if not exists showing_until date,
+  add column if not exists showing_checked_at timestamptz;

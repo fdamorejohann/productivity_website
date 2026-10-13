@@ -2,7 +2,8 @@
  * Movies.tsx — Calm page: Finn's Letterboxd (cocomon415) watchlist, a "tonight" pick from it, and
  * Claude's recommendations (marked Interested / Not interested; add them to the watchlist on Letterboxd).
  * A scheduled Claude task re-syncs Letterboxd into public.movies and adds new picks; the site only marks.
- * "Watched" also checks the film off on the "Watch 4 movies" goal.
+ * "Watched" also checks the film off on the "Watch 4 movies" goal. The same task checks NYC theaters for
+ * watchlist / interested films playing now or within a month (showing_* columns).
  */
 
 import { useEffect, useState } from "react";
@@ -13,6 +14,19 @@ import type { Movie } from "../lib/types";
 const LETTERBOXD_USER = "cocomon415";
 const filmUrl = (m: Movie) => `https://letterboxd.com/film/${m.slug}/`;
 const label = (m: Movie) => `${m.title}${m.year ? ` (${m.year})` : ""}`;
+
+function fmtDay(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** "Through Oct 24", "Oct 30 – Nov 5", or "Oct 30". */
+function showingDates(m: Movie, today: string): string {
+  const { showing_from: from, showing_until: until } = m;
+  if (from && until && until !== from) return from <= today ? `Through ${fmtDay(until)}` : `${fmtDay(from)} – ${fmtDay(until)}`;
+  if (until) return from && from > today ? fmtDay(from) : `Through ${fmtDay(until)}`;
+  return from ? fmtDay(from) : "Dates TBA";
+}
 
 function todayYmd(): string {
   const d = new Date();
@@ -50,6 +64,13 @@ export default function Movies({ onWatched }: { onWatched?: (m: Movie) => void }
   const watchedCount = movies.filter(m => m.watched).length;
   const lastSync = movies.map(m => m.synced_at).filter(Boolean).sort().at(-1);
   const pick = watchlist.length ? watchlist[tonight % watchlist.length] : null;
+  // Watchlist + interested films playing in NYC that haven't finished their run.
+  const today = todayYmd();
+  const inTheaters = movies
+    .filter(m => !m.watched && m.showing_where && (m.on_watchlist || m.pick_status === "interested")
+      && (m.showing_until ?? m.showing_from ?? "0000") >= today)
+    .sort((a, b) => (a.showing_from ?? today).localeCompare(b.showing_from ?? today));
+  const playing = new Set(inTheaters.map(m => m.id));
 
   const btn = "text-xs font-medium px-3 py-1 rounded-full border transition-colors";
   const solid = `${btn} bg-[#111] text-[#F5F4F0] border-[#111] hover:bg-[#333]`;
@@ -68,6 +89,28 @@ export default function Movies({ onWatched }: { onWatched?: (m: Movie) => void }
         </a>
       </div>
       <p className="text-[13px] text-[#5f5e5a] mb-5">Your watchlist and picks matched to what you've watched. Add picks you like to your watchlist on Letterboxd; it syncs back here.</p>
+
+      {inTheaters.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-[11px] uppercase tracking-[0.1em] text-[#111] mb-2">In NYC theaters · from your lists</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {inTheaters.map(m => (
+              <div key={m.id} className="border border-[#111] rounded-[22px] p-4 flex flex-col gap-1.5">
+                <div className="flex items-baseline justify-between gap-3 text-[11px] uppercase tracking-[0.08em] text-[#5f5e5a]">
+                  <span>{(m.showing_from ?? today) <= today ? "Playing now" : "Coming up"}</span>
+                  <span className="normal-case tracking-normal">{showingDates(m, today)}</span>
+                </div>
+                {link(m, label(m), "text-[17px] font-medium tracking-[-0.02em] leading-snug")}
+                <p className="text-[13px] text-[#5f5e5a]">{m.showing_where}</p>
+                {m.showing_url && (
+                  <a href={m.showing_url} target="_blank" rel="noopener noreferrer"
+                    className="self-start mt-1 text-xs font-medium px-3 py-1 rounded-full bg-[#111] text-[#F5F4F0] hover:bg-[#333]">Showtimes ↗</a>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {pick && (
         <div className="bg-[#111] text-[#ECEBE7] rounded-[28px] p-6 mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -126,7 +169,10 @@ export default function Movies({ onWatched }: { onWatched?: (m: Movie) => void }
         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 border-t border-[#D9D7CF]">
           {watchlist.map(m => (
             <li key={m.id} className="group flex items-center justify-between gap-3 py-2 border-b border-[#D9D7CF] text-[14px]">
-              {link(m, <>{m.title}{m.year && <span className="text-[#5f5e5a]"> · {m.year}</span>}</>, "min-w-0 truncate")}
+              <span className="min-w-0 truncate">
+                {link(m, <>{m.title}{m.year && <span className="text-[#5f5e5a]"> · {m.year}</span>}</>)}
+                {playing.has(m.id) && <span className="ml-2 text-[10px] uppercase tracking-[0.08em] rounded-full border border-[#111] px-1.5 py-px">In theaters</span>}
+              </span>
               <button onClick={() => markWatched(m)} className="text-[12px] text-[#5f5e5a] hover:text-[#111] opacity-60 group-hover:opacity-100 flex-shrink-0">✓ Watched</button>
             </li>
           ))}

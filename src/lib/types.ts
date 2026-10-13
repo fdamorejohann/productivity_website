@@ -274,4 +274,10 @@ export interface Movie {
   tags: string[];
   source: "letterboxd" | "claude" | "site";
   synced_at: string | null;
+  // Playing in NYC now or within ~a month (filled by the movie-sync-picks task)
+  showing_where: string | null;
+  showing_url: string | null;
+  showing_from: string | null;
+  showing_until: string | null;
+  showing_checked_at: string | null;
 }
