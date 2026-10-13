@@ -59,16 +59,18 @@ export default function Movies({ onWatched }: { onWatched?: (m: Movie) => void }
   if (movies === null) return <p className="text-[13px] text-[#5f5e5a] mt-12">Loading movies…</p>;
 
   const watchlist = movies.filter(m => m.on_watchlist && !m.watched);
-  const picks = movies.filter(m => m.source === "claude" && m.pick_status === "new" && !m.watched);
+  const today = todayYmd();
+  const isShowing = (m: Movie) => !!m.showing_where && (m.showing_until ?? m.showing_from ?? "0000") >= today;
+  // Picks are limited to films playing in NYC now or within ~a month; others stay in the table for later.
+  const picks = movies.filter(m => m.source === "claude" && m.pick_status === "new" && !m.watched && isShowing(m))
+    .sort((a, b) => (a.showing_from ?? today).localeCompare(b.showing_from ?? today));
   const interested = movies.filter(m => m.source === "claude" && m.pick_status === "interested" && !m.watched && !m.on_watchlist);
   const watchedCount = movies.filter(m => m.watched).length;
   const lastSync = movies.map(m => m.synced_at).filter(Boolean).sort().at(-1);
   const pick = watchlist.length ? watchlist[tonight % watchlist.length] : null;
   // Watchlist + interested films playing in NYC that haven't finished their run.
-  const today = todayYmd();
   const inTheaters = movies
-    .filter(m => !m.watched && m.showing_where && (m.on_watchlist || m.pick_status === "interested")
-      && (m.showing_until ?? m.showing_from ?? "0000") >= today)
+    .filter(m => !m.watched && (m.on_watchlist || m.pick_status === "interested") && isShowing(m))
     .sort((a, b) => (a.showing_from ?? today).localeCompare(b.showing_from ?? today));
   const playing = new Set(inTheaters.map(m => m.id));
 
@@ -78,6 +80,11 @@ export default function Movies({ onWatched }: { onWatched?: (m: Movie) => void }
   const link = (m: Movie, children: ReactNode, cls = "") => (
     <a href={filmUrl(m)} target="_blank" rel="noopener noreferrer" className={`hover:underline underline-offset-4 ${cls}`}>{children}</a>
   );
+  // Films playing in NYC link to the theater's showtimes; everything else to Letterboxd.
+  const showtimesLink = (m: Movie, children: ReactNode, cls = "") =>
+    m.showing_url && playing.has(m.id)
+      ? <a href={m.showing_url} target="_blank" rel="noopener noreferrer" title={`Showtimes at ${m.showing_where}`} className={`hover:underline underline-offset-4 ${cls}`}>{children}</a>
+      : link(m, children, cls);
 
   return (
     <div className="mt-14">
@@ -88,7 +95,7 @@ export default function Movies({ onWatched }: { onWatched?: (m: Movie) => void }
           Letterboxd · {LETTERBOXD_USER} · {watchedCount} watched{lastSync ? ` · synced ${new Date(lastSync).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""} ↗
         </a>
       </div>
-      <p className="text-[13px] text-[#5f5e5a] mb-5">Your watchlist and picks matched to what you've watched. Add picks you like to your watchlist on Letterboxd; it syncs back here.</p>
+      <p className="text-[13px] text-[#5f5e5a] mb-5">Your watchlist, what's playing in NYC from it, and picks you can catch in a theater. Add picks you like to your watchlist on Letterboxd; it syncs back here.</p>
 
       {inTheaters.length > 0 && (
         <div className="mb-8">
@@ -129,13 +136,18 @@ export default function Movies({ onWatched }: { onWatched?: (m: Movie) => void }
 
       {picks.length > 0 && (
         <>
-          <h3 className="text-[11px] uppercase tracking-[0.1em] text-[#111] mb-2">Picked for you</h3>
+          <h3 className="text-[11px] uppercase tracking-[0.1em] text-[#111] mb-2">Picked for you · playing in NYC</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
             {picks.map(m => (
               <div key={m.id} className="border border-[#111] rounded-[22px] p-4 flex flex-col gap-2">
+                <div className="flex items-baseline justify-between gap-3 text-[11px] uppercase tracking-[0.08em] text-[#5f5e5a]">
+                  <span className="truncate">{m.showing_where}</span>
+                  <span className="normal-case tracking-normal flex-shrink-0">{showingDates(m, today)}</span>
+                </div>
                 {link(m, label(m), "text-[17px] font-medium tracking-[-0.02em] leading-snug")}
                 {m.why && <p className="text-[13px] leading-snug">{m.why}</p>}
                 <div className="flex flex-wrap gap-2 mt-1">
+                  {m.showing_url && <a href={m.showing_url} target="_blank" rel="noopener noreferrer" className={quiet}>Showtimes ↗</a>}
                   <button onClick={() => setPick(m, "interested")} className={solid}>Interested</button>
                   <button onClick={() => setPick(m, "not_interested")} className={quiet}>Not interested</button>
                 </div>
@@ -170,8 +182,8 @@ export default function Movies({ onWatched }: { onWatched?: (m: Movie) => void }
           {watchlist.map(m => (
             <li key={m.id} className="group flex items-center justify-between gap-3 py-2 border-b border-[#D9D7CF] text-[14px]">
               <span className="min-w-0 truncate">
-                {link(m, <>{m.title}{m.year && <span className="text-[#5f5e5a]"> · {m.year}</span>}</>)}
-                {playing.has(m.id) && <span className="ml-2 text-[10px] uppercase tracking-[0.08em] rounded-full border border-[#111] px-1.5 py-px">In theaters</span>}
+                {showtimesLink(m, <>{m.title}{m.year && <span className="text-[#5f5e5a]"> · {m.year}</span>}</>)}
+                {playing.has(m.id) && showtimesLink(m, "In theaters", "ml-2 text-[10px] uppercase tracking-[0.08em] rounded-full border border-[#111] px-1.5 py-px hover:bg-[#111] hover:text-[#ECEBE7] hover:no-underline")}
               </span>
               <button onClick={() => markWatched(m)} className="text-[12px] text-[#5f5e5a] hover:text-[#111] opacity-60 group-hover:opacity-100 flex-shrink-0">✓ Watched</button>
             </li>
