@@ -88,10 +88,10 @@ function MeasurePanel({ g, s }: { g: CycleGoal; s: GoalsState }) {
 }
 
 const WORKOUT_GOAL_SOURCE: Record<string, string> = {
-  kettlebell: "From kettlebell workouts with 5+ sets: log sets and total time under Workouts → Log.",
+  kettlebell: "From kettlebell workouts (sets + total time). More sets and a faster time both move it forward; 5 sets in 35 min fills it.",
   pullups: "From pull-up and chin-up sets in your lifting workouts: your most reps in one set.",
   run: "From running workouts: your longest run each week.",
-  lsit: "From the “L-sit (seconds as reps)” exercise in lifting workouts: enter the seconds held as reps.",
+  lsit: "From L-sit workouts (your best hold in seconds), or the “L-sit (seconds as reps)” exercise in a lifting workout.",
 };
 
 /** Kettlebell / pull-up / run goals: weekly bests read from logged workouts since the cycle began. */
@@ -105,7 +105,7 @@ function WorkoutHistoryPanel({ g, s }: { g: CycleGoal; s: GoalsState }) {
         <div className="flex flex-wrap gap-1.5 mt-2">
           {weeks.map(w => (
             <span key={w.week_start} className="text-[11px] rounded-full px-2 py-0.5 border border-[#C9C7BF]">
-              W{cycleWeek(w.week_start)} · {w.value}{unit}
+              W{cycleWeek(w.week_start)} · {w.label ?? `${w.value}${unit}`}
             </span>
           ))}
         </div>

@@ -24,11 +24,12 @@ interface WorkoutSet {
 }
 
 // rollerblading / muaythai are no longer offered but old sessions still display.
-type WorkoutType = "lifting" | "running" | "kettlebell" | "biking" | "yoga" | "rollerblading" | "muaythai";
+type WorkoutType = "lifting" | "running" | "kettlebell" | "biking" | "yoga" | "lsit" | "rollerblading" | "muaythai";
 
 interface CardioData {
   duration_min?: number;
-  sets?: number;          // kettlebell: sets completed (with duration_min as total time)
+  sets?: number;          // kettlebell: sets completed (with duration_min as total time); L-sit: sets done
+  hold_sec?: number;      // L-sit: best hold in seconds
   distance_miles?: number;
   elevation_ft?: number;
   rounds?: number;
@@ -50,6 +51,7 @@ const WORKOUT_COLORS: Record<string, string> = {
   kettlebell: "#1baf7a",
   biking: "#eda100",
   yoga: "#e87ba4",
+  lsit: "#008300",
   rollerblading: "#898781",
   muaythai: "#898781",
 };
@@ -60,6 +62,7 @@ const WORKOUT_TYPES: { key: WorkoutType; label: string; emoji: string; color: st
   { key: "kettlebell", label: "Kettlebell", emoji: "💪", color: "#1baf7a" },
   { key: "biking",     label: "Biking",     emoji: "🚴", color: "#eda100" },
   { key: "yoga",       label: "Yoga",       emoji: "🧘", color: "#e87ba4" },
+  { key: "lsit",       label: "L-sit",      emoji: "🤸", color: "#008300" },
 ];
 // Retired types, kept so older sessions still show their label.
 const LEGACY_WORKOUT_TYPES: typeof WORKOUT_TYPES = [
@@ -363,7 +366,20 @@ function LogTab({ exercises, sessions, onSaved }: {
         <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5" style={{ borderColor: t.color + "44" }}>
           <p className="text-xs uppercase tracking-wider mb-4 text-gray-500">{t.emoji} {t.label} Details</p>
           <div className="grid grid-cols-2 gap-4">
-            {workoutType === "kettlebell" && (
+            {workoutType === "lsit" && (
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Best hold (seconds)</p>
+                <input
+                  type="number"
+                  step="any"
+                  className="w-full bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none"
+                  placeholder="10"
+                  value={cardioData.hold_sec ?? ""}
+                  onChange={e => setCardioData(p => ({ ...p, hold_sec: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                />
+              </div>
+            )}
+            {(workoutType === "kettlebell" || workoutType === "lsit") && (
               <div>
                 <p className="text-xs text-gray-500 mb-1">Sets</p>
                 <input
@@ -820,6 +836,7 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
 function formatCardioSummary(data: CardioData | undefined, type: WorkoutType): string {
   if (!data) return "No data";
   const parts: string[] = [];
+  if (data.hold_sec) parts.push(`${data.hold_sec}s hold`);
   if (data.sets) parts.push(`${data.sets} sets`);
   if (data.duration_min) parts.push(`${data.duration_min} min`);
   if (data.distance_miles) parts.push(`${data.distance_miles} mi`);
@@ -832,6 +849,7 @@ function formatCardioSummary(data: CardioData | undefined, type: WorkoutType): s
 
 function cardioFields(_type: WorkoutType, data: CardioData): { label: string; value: string }[] {
   const fields: { label: string; value: string }[] = [];
+  if (data.hold_sec) fields.push({ label: "Best hold", value: `${data.hold_sec} s` });
   if (data.sets) fields.push({ label: "Sets", value: String(data.sets) });
   if (data.duration_min) fields.push({ label: "Duration", value: `${data.duration_min} min` });
   if (data.distance_miles) fields.push({ label: "Distance", value: `${data.distance_miles} miles` });
@@ -1222,6 +1240,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
     const hasDur = cs.some(s => s.cardio_data?.duration_min);
     const hasRounds = cs.some(s => s.cardio_data?.rounds);
     const hasSets = cs.some(s => s.cardio_data?.sets);
+    const hasHold = cs.some(s => s.cardio_data?.hold_sec);
 
     const renderMiniChart = (label: string, getValue: (s: Session) => number | undefined, unit: string, color: string) => {
       const pts = cs.map(s => ({ date: s.date, val: getValue(s) ?? 0 })).filter(p => p.val > 0);
@@ -1288,6 +1307,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
           ))}
         </div>
 
+        {hasHold && renderMiniChart("Best hold per session (s)", s => s.cardio_data?.hold_sec, "s", t.color)}
         {hasSets && renderMiniChart("Sets per session", s => s.cardio_data?.sets, "sets", t.color)}
         {hasDur && renderMiniChart(cardioType === "kettlebell" ? "Total time per session (min)" : "Duration per session (min)", s => s.cardio_data?.duration_min, "min", t.color)}
         {hasDist && renderMiniChart("Distance per session (mi)", s => s.cardio_data?.distance_miles, "mi", t.color)}

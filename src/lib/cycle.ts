@@ -128,7 +128,7 @@ export type GoalsState = ReturnType<typeof useCycleGoals>;
 export interface LoggedWorkout {
   date: string;
   type: string | null;
-  cardio_data?: { sets?: number; duration_min?: number; distance_miles?: number } | null;
+  cardio_data?: { sets?: number; duration_min?: number; distance_miles?: number; hold_sec?: number } | null;
   workout_sets?: { reps: number | null; exercises?: { name: string } | null }[];
 }
 
@@ -137,15 +137,28 @@ const isPullUp = (name: string) => /(pull[\s-]?ups?|chin[\s-]?ups?)/i.test(name)
 const isLSit = (name: string) => /l[\s-]?sit/i.test(name);
 const KB_SETS = 5;
 
-/** Per-week best from logged workouts (all time): kettlebell = fastest time for 5+ sets; pull-ups = most reps in one set;
- *  run = longest run in miles; L-sit = longest hold (seconds logged as reps). Goal progress only counts weeks from the
- *  cycle start (see cycleWorkoutWeeks). */
-export function workoutWeeks(g: CycleGoal, s: GoalsState): { week_start: string; value: number }[] {
-  const byWeek = new Map<string, number>();
+/** Kettlebell session score 0–1 toward "5 sets in <target> min": share of the 5 sets done × pace toward the target
+ *  (time scaled to 5 sets). More sets or a faster time always scores higher; 5 sets in 50 min = 0.7, in 35 = 1. */
+export function kettlebellScore(w: LoggedWorkout, targetMin: number): number | null {
+  const sets = w.cardio_data?.sets ?? 0;
+  const mins = w.cardio_data?.duration_min ?? 0;
+  if (w.type !== "kettlebell" || sets <= 0 || mins <= 0) return null;
+  const paceFor5 = (mins * KB_SETS) / sets;
+  return Math.min(1, sets / KB_SETS) * Math.min(1, targetMin / paceFor5);
+}
+const kbLabel = (w: LoggedWorkout) => `${w.cardio_data!.sets} sets · ${w.cardio_data!.duration_min} min`;
+
+/** Per-week best from logged workouts (all time): kettlebell = best-scoring session; pull-ups = most reps in one set;
+ *  run = longest run in miles; L-sit = longest hold (L-sit workouts, or seconds logged as reps on the L-sit exercise).
+ *  Goal progress only counts weeks from the cycle start (see cycleWorkoutWeeks). */
+export function workoutWeeks(g: CycleGoal, s: GoalsState): { week_start: string; value: number; label?: string }[] {
+  const byWeek = new Map<string, { value: number; label?: string }>();
   for (const w of s.workouts ?? []) {
     let v: number | null = null;
-    if (g.auto === "kettlebell" && w.type === "kettlebell" && (w.cardio_data?.sets ?? 0) >= KB_SETS && w.cardio_data?.duration_min) {
-      v = w.cardio_data.duration_min;
+    let label: string | undefined;
+    if (g.auto === "kettlebell") {
+      v = kettlebellScore(w, g.target ?? 35);
+      if (v !== null) label = kbLabel(w);
     }
     if (g.auto === "run" && w.type === "running" && w.cardio_data?.distance_miles) {
       v = w.cardio_data.distance_miles;
@@ -153,14 +166,17 @@ export function workoutWeeks(g: CycleGoal, s: GoalsState): { week_start: string;
     if (g.auto === "pullups" || g.auto === "lsit") {
       const match = g.auto === "pullups" ? isPullUp : isLSit;
       const reps = (w.workout_sets ?? []).filter(st => st.exercises?.name && match(st.exercises.name)).map(st => st.reps ?? 0);
+      if (g.auto === "lsit" && w.type === "lsit" && w.cardio_data?.hold_sec) reps.push(w.cardio_data.hold_sec);
       if (reps.length) v = Math.max(...reps);
     }
     if (v === null || v <= 0) continue;
     const wk = mondayOf(parseYmd(w.date));
     const prev = byWeek.get(wk);
-    byWeek.set(wk, prev === undefined ? v : g.lower_is_better ? Math.min(prev, v) : Math.max(prev, v));
+    // Kettlebell values are scores (higher = better) even though the goal's unit is minutes.
+    const better = g.auto !== "kettlebell" && g.lower_is_better ? v < (prev?.value ?? Infinity) : v > (prev?.value ?? -Infinity);
+    if (better) byWeek.set(wk, { value: v, label });
   }
-  return [...byWeek.entries()].map(([week_start, value]) => ({ week_start, value })).sort((a, b) => a.week_start.localeCompare(b.week_start));
+  return [...byWeek.entries()].map(([week_start, b]) => ({ week_start, ...b })).sort((a, b) => a.week_start.localeCompare(b.week_start));
 }
 
 export const isWorkoutGoal = (g: CycleGoal) => g.auto === "kettlebell" || g.auto === "pullups" || g.auto === "run" || g.auto === "lsit";
@@ -168,10 +184,12 @@ export const isWorkoutGoal = (g: CycleGoal) => g.auto === "kettlebell" || g.auto
 /** Workout weeks inside the cycle, and the best result from before it (a starting point). */
 export function cycleWorkoutWeeks(g: CycleGoal, s: GoalsState) {
   const all = workoutWeeks(g, s);
-  const before = all.filter(w => w.week_start < CYCLE.start).map(w => w.value);
+  const before = all.filter(w => w.week_start < CYCLE.start);
+  const lowerWins = g.lower_is_better && g.auto !== "kettlebell";
+  const prior = before.reduce<typeof before[number] | null>((b, w) => !b || (lowerWins ? w.value < b.value : w.value > b.value) ? w : b, null);
   return {
     weeks: all.filter(w => w.week_start >= CYCLE.start),
-    priorBest: before.length ? (g.lower_is_better ? Math.min(...before) : Math.max(...before)) : null,
+    priorBest: prior ? (prior.label ?? prior.value) : null,
   };
 }
 
@@ -200,17 +218,21 @@ export function goalStatus(g: CycleGoal, s: GoalsState): { text: string; pct: nu
   }
   if (isWorkoutGoal(g)) {
     if (!s.workouts) return { text: "…", pct: null };
-    const vals = cycleWorkoutWeeks(g, s).weeks.map(w => w.value);
-    if (vals.length === 0 && g.auto === "kettlebell") {
-      const partial = (s.workouts ?? [])
-        .filter(w => w.type === "kettlebell" && w.date >= CYCLE.start && (w.cardio_data?.sets ?? 0) > 0)
-        .sort((a, b) => (b.cardio_data!.sets! - a.cardio_data!.sets!) || ((a.cardio_data?.duration_min ?? 1e9) - (b.cardio_data?.duration_min ?? 1e9)))[0];
-      if (partial) {
-        const sets = partial.cardio_data!.sets!;
-        const mins = partial.cardio_data?.duration_min;
-        return { text: `${sets} sets${mins ? ` · ${num(mins)} min` : ""}`, pct: Math.min(0.9, sets / KB_SETS) };
-      }
+    const weeks = cycleWorkoutWeeks(g, s).weeks;
+    if (g.auto === "kettlebell") {
+      // Best session by score; 5+ sets reads as "50 min → 35", fewer as "4 sets · 30 min".
+      const best = (s.workouts ?? []).filter(w => w.date >= CYCLE.start)
+        .map(w => ({ w, score: kettlebellScore(w, g.target ?? 35) }))
+        .filter((x): x is { w: LoggedWorkout; score: number } => x.score !== null)
+        .sort((a, b) => b.score - a.score)[0];
+      if (!best) return { text: `goal ${num(g.target ?? 0)}${unit}`, pct: 0 };
+      const { sets, duration_min } = best.w.cardio_data!;
+      return {
+        text: (sets ?? 0) >= KB_SETS ? `${num(duration_min!)} min → ${num(g.target ?? 0)}` : kbLabel(best.w),
+        pct: best.score,
+      };
     }
+    const vals = weeks.map(w => w.value);
     if (vals.length === 0) return { text: `goal ${num(g.target ?? 0)}${unit}`, pct: 0 };
     const best = g.lower_is_better ? Math.min(...vals) : Math.max(...vals);
     return g.lower_is_better
