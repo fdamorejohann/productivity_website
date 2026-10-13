@@ -453,8 +453,8 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
 
   if (points.length < 2) {
     return (
-      <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
-        <h2 className="text-sm font-semibold text-gray-200 mb-2">Leftover Balance</h2>
+      <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
+        <h2 className="text-sm font-semibold text-gray-800 mb-2">Leftover Balance</h2>
         <div className="flex items-center justify-center h-24 text-sm text-gray-500">No spending logged yet</div>
       </div>
     );
@@ -491,10 +491,10 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
   const isPositive = lastPoint.value >= 0;
 
   return (
-    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
+    <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-200">Leftover Balance</h2>
-        <span className={`text-sm font-semibold tabular-nums ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
+        <h2 className="text-sm font-semibold text-gray-800">Leftover Balance</h2>
+        <span className={`text-sm font-semibold tabular-nums ${isPositive ? "text-emerald-600" : "text-red-600"}`}>
           {isPositive ? "+" : ""}{fmt(lastPoint.value)} today
         </span>
       </div>
@@ -509,7 +509,7 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
           {/* Grid lines */}
           {yTicks.map((v, i) => (
             <g key={i}>
-              <line x1={0} y1={yScale(v)} x2={innerW} y2={yScale(v)} stroke="#2a2a2a" strokeWidth={1} />
+              <line x1={0} y1={yScale(v)} x2={innerW} y2={yScale(v)} stroke="#D9D7CF" strokeWidth={1} />
               <text x={-6} y={yScale(v) + 4} textAnchor="end" fontSize={9} fill="#6b7280" className="tabular-nums">
                 {v >= 0 ? "" : "−"}{fmt(Math.abs(v)).replace("$", "$")}
               </text>
@@ -520,7 +520,7 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
           <text x={innerW + 3} y={Number(targetY) + 4} fontSize={8} fill="#6b7280">target</text>
           {/* Zero line if in view */}
           {minV < 0 && maxV > 0 && (
-            <line x1={0} y1={yScale(0)} x2={innerW} y2={yScale(0)} stroke="#374151" strokeWidth={1} />
+            <line x1={0} y1={yScale(0)} x2={innerW} y2={yScale(0)} stroke="#C9C7BF" strokeWidth={1} />
           )}
           {/* Area fill */}
           <path d={areaPath} fill="url(#leftoverGrad)" transform={`translate(0,0)`} />
@@ -542,13 +542,13 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
             </text>
           ))}
           {/* X axis line */}
-          <line x1={0} y1={innerH} x2={innerW} y2={innerH} stroke="#2a2a2a" strokeWidth={1} />
+          <line x1={0} y1={innerH} x2={innerW} y2={innerH} stroke="#D9D7CF" strokeWidth={1} />
           {/* Today vertical marker */}
           {isCurrentMonth && todayStr.startsWith(month) && (
             <line
               x1={xScale(lastPoint.day)} y1={0}
               x2={xScale(lastPoint.day)} y2={innerH}
-              stroke="#374151" strokeWidth={1} strokeDasharray="3 3"
+              stroke="#C9C7BF" strokeWidth={1} strokeDasharray="3 3"
             />
           )}
         </g>
@@ -583,35 +583,35 @@ function DailyBudgetCard({ leftoverActual, month }: { leftoverActual: number; mo
   });
 
   return (
-    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
+    <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
       <div className="text-xs text-gray-500 mb-1">Daily spending budget</div>
       <div className="flex items-baseline gap-3 mb-1">
-        <div className={`text-3xl font-bold tabular-nums ${positive ? "text-emerald-400" : "text-red-400"}`}>
+        <div className={`text-3xl font-bold tabular-nums ${positive ? "text-emerald-600" : "text-red-600"}`}>
           {positive ? "" : "−"}{fmt(Math.abs(perDay))}
           <span className="text-base font-normal text-gray-500 ml-1">/ day</span>
         </div>
         {tomorrowPerDay !== null && (
           <div className="text-sm text-gray-500">
-            → <span className="text-gray-300 font-medium">{fmt(tomorrowPerDay)}</span> tomorrow
+            → <span className="text-gray-400 font-medium">{fmt(tomorrowPerDay)}</span> tomorrow
           </div>
         )}
       </div>
       <div className="flex items-center justify-between">
-        <div className="text-xs text-gray-600">
+        <div className="text-xs text-gray-500">
           {fmt(leftoverActual)} leftover ÷ {daysLeft} day{daysLeft !== 1 ? "s" : ""}
           {isCurrentMonth ? " remaining" : isFutureMonth ? " in month" : " in month"}
         </div>
         <button
           onClick={() => setExpanded(e => !e)}
-          className="text-xs text-gray-500 hover:text-gray-300 transition-colors ml-3"
+          className="text-xs text-gray-500 hover:text-[#111] transition-colors ml-3"
         >
           {expanded ? "▲ hide" : "▼ show all"}
         </button>
       </div>
       {expanded && (
-        <div className="mt-3 border-t border-[#2e2e2e] pt-3 max-h-48 overflow-y-auto space-y-1">
+        <div className="mt-3 border-t border-[#D9D7CF] pt-3 max-h-48 overflow-y-auto space-y-1">
           {remainingDays.map(({ label, rate, isToday }) => (
-            <div key={label} className={`flex justify-between text-xs ${isToday ? "text-emerald-400 font-semibold" : "text-gray-500"}`}>
+            <div key={label} className={`flex justify-between text-xs ${isToday ? "text-emerald-600 font-semibold" : "text-gray-500"}`}>
               <span>{label}</span>
               <span>{fmt(rate)}/day</span>
             </div>
@@ -640,20 +640,20 @@ function BudgetMapPanel({ incomeBudget, fixedBudget, variableBudget, savingsBudg
   const leftPct    = Math.max(0, 100 - fixedPct - varPct - savingsPct);
   const leftoverPositive = leftoverBudget >= 0;
   return (
-    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
-      <h2 className="text-sm font-semibold text-gray-200 mb-4">Budget Map</h2>
+    <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
+      <h2 className="text-sm font-semibold text-gray-800 mb-4">Budget Map</h2>
       {/* Stacked bar */}
       <div className="flex rounded-lg overflow-hidden h-8 mb-4 text-xs font-medium">
-        <div className="flex items-center justify-center bg-blue-600 text-white truncate px-2" style={{ width: `${fixedPct}%` }}>
+        <div className="flex items-center justify-center bg-blue-600 text-[#111] truncate px-2" style={{ width: `${fixedPct}%` }}>
           Fixed {fixedPct}%
         </div>
-        <div className="flex items-center justify-center bg-violet-600 text-white truncate px-2" style={{ width: `${varPct}%` }}>
+        <div className="flex items-center justify-center bg-violet-600 text-[#111] truncate px-2" style={{ width: `${varPct}%` }}>
           Variable {varPct}%
         </div>
-        <div className="flex items-center justify-center bg-teal-600 text-white truncate px-2" style={{ width: `${savingsPct}%` }}>
+        <div className="flex items-center justify-center bg-teal-600 text-[#111] truncate px-2" style={{ width: `${savingsPct}%` }}>
           Savings {savingsPct}%
         </div>
-        <div className={`flex items-center justify-center truncate px-2 ${leftoverPositive ? "bg-emerald-600" : "bg-red-600"} text-white`} style={{ width: `${leftPct}%` }}>
+        <div className={`flex items-center justify-center truncate px-2 ${leftoverPositive ? "bg-emerald-600" : "bg-red-600"} text-[#111]`} style={{ width: `${leftPct}%` }}>
           Left {leftPct}%
         </div>
       </div>
@@ -661,27 +661,27 @@ function BudgetMapPanel({ incomeBudget, fixedBudget, variableBudget, savingsBudg
       <div className="flex items-center gap-2 text-sm flex-wrap">
         <div className="text-center">
           <div className="text-xs text-gray-500 mb-1">Income</div>
-          <div className="bg-[#2a2a2a] rounded-lg px-3 py-2 font-semibold text-white tabular-nums">{fmt(incomeBudget)}</div>
+          <div className="bg-[#E6E4DE] rounded-lg px-3 py-2 font-semibold text-[#111] tabular-nums">{fmt(incomeBudget)}</div>
         </div>
-        <div className="text-gray-600 text-lg">→</div>
+        <div className="text-gray-500 text-lg">→</div>
         <div className="text-center">
           <div className="text-xs text-gray-500 mb-1">Fixed</div>
-          <div className="bg-blue-900/40 rounded-lg px-3 py-2 font-semibold text-blue-300 tabular-nums">−{fmt(fixedBudget)}</div>
+          <div className="bg-blue-100 rounded-lg px-3 py-2 font-semibold text-blue-700 tabular-nums">−{fmt(fixedBudget)}</div>
         </div>
-        <div className="text-gray-600 text-lg">→</div>
+        <div className="text-gray-500 text-lg">→</div>
         <div className="text-center">
           <div className="text-xs text-gray-500 mb-1">Variable</div>
-          <div className="bg-violet-900/40 rounded-lg px-3 py-2 font-semibold text-violet-300 tabular-nums">−{fmt(variableBudget)}</div>
+          <div className="bg-violet-100 rounded-lg px-3 py-2 font-semibold text-violet-700 tabular-nums">−{fmt(variableBudget)}</div>
         </div>
-        <div className="text-gray-600 text-lg">→</div>
+        <div className="text-gray-500 text-lg">→</div>
         <div className="text-center">
           <div className="text-xs text-gray-500 mb-1">Savings & Investing</div>
-          <div className="bg-teal-900/40 rounded-lg px-3 py-2 font-semibold text-teal-300 tabular-nums">−{fmt(savingsBudget)}</div>
+          <div className="bg-teal-100 rounded-lg px-3 py-2 font-semibold text-teal-700 tabular-nums">−{fmt(savingsBudget)}</div>
         </div>
-        <div className="text-gray-600 text-lg">→</div>
+        <div className="text-gray-500 text-lg">→</div>
         <div className="text-center">
           <div className="text-xs text-gray-500 mb-1">Leftover</div>
-          <div className={`rounded-lg px-3 py-2 font-semibold tabular-nums ${leftoverPositive ? "bg-emerald-900/40 text-emerald-300" : "bg-red-900/40 text-red-400"}`}>
+          <div className={`rounded-lg px-3 py-2 font-semibold tabular-nums ${leftoverPositive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
             {leftoverPositive ? "+" : ""}{fmt(leftoverBudget)}
           </div>
         </div>
@@ -707,9 +707,9 @@ function SpendPieChart({ entries, logs }: SpendPieChartProps) {
 
   if (entries.length === 0) {
     return (
-      <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
-        <h2 className="text-sm font-semibold text-gray-200 mb-4">Top Spend Categories</h2>
-        <div className="flex items-center justify-center h-32 text-sm text-gray-400">No spending logged yet</div>
+      <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
+        <h2 className="text-sm font-semibold text-gray-800 mb-4">Top Spend Categories</h2>
+        <div className="flex items-center justify-center h-32 text-sm text-gray-500">No spending logged yet</div>
       </div>
     );
   }
@@ -738,8 +738,8 @@ function SpendPieChart({ entries, logs }: SpendPieChartProps) {
     : [];
 
   return (
-    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
-      <h2 className="text-sm font-semibold text-gray-200 mb-4">Top Spend Categories</h2>
+    <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
+      <h2 className="text-sm font-semibold text-gray-800 mb-4">Top Spend Categories</h2>
       <div className="flex gap-4 items-start">
         {/* Pie */}
         <svg width={size} height={size} className="flex-shrink-0">
@@ -759,11 +759,11 @@ function SpendPieChart({ entries, logs }: SpendPieChartProps) {
           {slices.map(s => (
             <div
               key={s.cat}
-              className={`flex items-center gap-2 text-xs cursor-pointer rounded px-1 py-0.5 transition-colors ${selected === s.cat ? "bg-[#2e2e2e]" : "hover:bg-[#252525]"}`}
+              className={`flex items-center gap-2 text-xs cursor-pointer rounded px-1 py-0.5 transition-colors ${selected === s.cat ? "bg-[#E6E4DE]" : "hover:bg-[#E6E4DE]"}`}
               onClick={() => setSelected(selected === s.cat ? null : s.cat)}
             >
               <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: s.color }} />
-              <span className="text-gray-300 truncate">{s.cat}</span>
+              <span className="text-gray-400 truncate">{s.cat}</span>
               <span className="ml-auto text-gray-500 tabular-nums flex-shrink-0">{fmt(s.val)}</span>
             </div>
           ))}
@@ -771,15 +771,15 @@ function SpendPieChart({ entries, logs }: SpendPieChartProps) {
       </div>
       {/* Selected category top 10 */}
       {selected && topLogs.length > 0 && (
-        <div className="mt-4 border-t border-[#2e2e2e] pt-3">
-          <div className="text-xs font-semibold text-gray-400 mb-2">Top purchases — {selected}</div>
+        <div className="mt-4 border-t border-[#D9D7CF] pt-3">
+          <div className="text-xs font-semibold text-gray-500 mb-2">Top purchases — {selected}</div>
           <div className="space-y-1">
             {topLogs.map((l, i) => (
               <div key={l.id} className="flex items-center gap-2 text-xs">
-                <span className="text-gray-600 w-4 tabular-nums">{i + 1}.</span>
-                <span className="text-gray-300 truncate flex-1">{l.vendor}</span>
+                <span className="text-gray-500 w-4 tabular-nums">{i + 1}.</span>
+                <span className="text-gray-400 truncate flex-1">{l.vendor}</span>
                 <span className="text-gray-500 tabular-nums">{l.date}</span>
-                <span className="text-gray-200 tabular-nums font-medium">{fmt(effectiveCost(l))}</span>
+                <span className="text-gray-800 tabular-nums font-medium">{fmt(effectiveCost(l))}</span>
               </div>
             ))}
           </div>
@@ -1160,9 +1160,9 @@ export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode }
         />
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="text-5xl mb-4">📅</div>
-          <p className="text-xl font-semibold text-gray-200 mb-2">{formatMonthLabel(month)}</p>
+          <p className="text-xl font-semibold text-gray-800 mb-2">{formatMonthLabel(month)}</p>
           <p className="text-sm text-gray-500 mb-6">No budget data for this month yet.</p>
-          <button onClick={createMonth} className="px-5 py-2.5 bg-blue-500 text-white text-sm font-medium rounded-xl hover:bg-blue-600 transition-colors">
+          <button onClick={createMonth} className="px-5 py-2.5 bg-blue-500 text-[#111] text-sm font-medium rounded-xl hover:bg-blue-600 transition-colors">
             Create Budget
           </button>
         </div>
@@ -1219,10 +1219,10 @@ export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode }
         onToggleExcluded={toggleExcluded}
       />
 
-      <div className="flex gap-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-full p-1 w-fit">
+      <div className="flex gap-1 bg-[#F5F4F0] border border-[#D9D7CF] rounded-full p-1 w-fit">
         {BUDGET_SECTIONS.map(t => (
           <button key={t.key} onClick={() => setSection(t.key)}
-            className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-colors ${section === t.key ? "bg-white text-black" : "text-gray-400 hover:text-white"}`}>
+            className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-colors ${section === t.key ? "bg-[#111] text-[#F5F4F0]" : "text-gray-500 hover:text-[#111]"}`}>
             {t.label}
           </button>
         ))}
@@ -1316,8 +1316,8 @@ export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode }
 
       {section === "expenses" && <>
       {/* Add Expense form */}
-      <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
-        <h2 className="text-sm font-semibold text-gray-200 mb-4">Add Expense</h2>
+      <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
+        <h2 className="text-sm font-semibold text-gray-800 mb-4">Add Expense</h2>
         <form onSubmit={handleAddLog} className="flex flex-wrap gap-3 items-end">
           <FormField label="Vendor">
             <input
@@ -1325,14 +1325,14 @@ export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode }
               value={vendor}
               onChange={e => setVendor(e.target.value)}
               placeholder="e.g. Whole Foods"
-              className="w-36 border border-[#333] rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-36 border border-[#C9C7BF] rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </FormField>
           <FormField label="Category">
             <select
               value={category}
               onChange={e => { setCategory(e.target.value); setFormPoints(defaultPoints(e.target.value, card)); }}
-              className="w-44 border border-[#333] rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-44 border border-[#C9C7BF] rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {dynamicCategories.map(c => <option key={c}>{c}</option>)}
             </select>
@@ -1345,7 +1345,7 @@ export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode }
               value={amount}
               onChange={e => setAmount(e.target.value)}
               placeholder="0.00"
-              className="w-28 border border-[#333] rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-28 border border-[#C9C7BF] rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </FormField>
           <FormField label="Owed ($)">
@@ -1356,14 +1356,14 @@ export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode }
               value={owed}
               onChange={e => setOwed(e.target.value)}
               placeholder="0.00"
-              className="w-24 border border-[#333] rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-24 border border-[#C9C7BF] rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </FormField>
           <FormField label="Card">
             <select
               value={card}
               onChange={e => { setCard(e.target.value); setFormPoints(defaultPoints(category, e.target.value)); }}
-              className="w-40 border border-[#333] rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-40 border border-[#C9C7BF] rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {CARDS.map(c => <option key={c}>{c}</option>)}
             </select>
@@ -1373,13 +1373,13 @@ export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode }
               type="date"
               value={logDate}
               onChange={e => setLogDate(e.target.value)}
-              className="border border-[#333] rounded-lg px-3 py-1.5 text-sm bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-[#C9C7BF] rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </FormField>
           <button
             type="submit"
             disabled={!vendor.trim() || !amount}
-            className="px-4 py-1.5 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-40 self-end mb-0.5"
+            className="px-4 py-1.5 bg-blue-500 text-[#111] text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-40 self-end mb-0.5"
           >
             Add
           </button>
@@ -1388,11 +1388,11 @@ export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode }
 
       {/* Expense log */}
       {data.logs.length > 0 && (
-        <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
+        <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
           <div className="flex items-center justify-between mb-4 gap-4">
             <div>
-              <h2 className="text-sm font-semibold text-gray-200">Expense Log</h2>
-              <span className="text-xs text-gray-400">
+              <h2 className="text-sm font-semibold text-gray-800">Expense Log</h2>
+              <span className="text-xs text-gray-500">
                 {filteredLogs.length} entries · {fmt(filteredLogs.reduce((s, l) => s + effectiveCost(l), 0))} total ·{" "}
                 {Math.round(filteredLogs.reduce((s, l) => s + effectiveCost(l) * (l.points ?? defaultPoints(l.category, l.card)), 0)).toLocaleString()} pts
               </span>
@@ -1404,12 +1404,12 @@ export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode }
                 value={vendorSearch}
                 onChange={e => setVendorSearch(e.target.value)}
                 placeholder="Search vendor…"
-                className="border border-[#333] rounded-full px-3 py-1.5 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400 w-36"
+                className="border border-[#C9C7BF] rounded-full px-3 py-1.5 text-xs bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400 w-36"
               />
               <select
                 value={logFilter}
                 onChange={e => setLogFilter(e.target.value)}
-                className="border border-[#333] rounded-lg px-3 py-1.5 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border border-[#C9C7BF] rounded-lg px-3 py-1.5 text-xs bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="All">All</option>
                 {Array.from(new Set(data.logs.map(l => l.category)))
@@ -1423,7 +1423,7 @@ export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode }
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-xs font-medium text-gray-500 border-b border-[#2a2a2a]">
+                <tr className="text-xs font-medium text-gray-500 border-b border-[#D9D7CF]">
                   <th className="text-left pb-2 pr-4">Date</th>
                   <th className="text-left pb-2 pr-4">Vendor</th>
                   <th className="text-left pb-2 pr-4">Category</th>
@@ -1487,14 +1487,14 @@ function ImportCsvPanel({ fileName, rows, includeCredits, importError, onToggleI
   const total = importable.reduce((s, r) => s + r.amount, 0);
 
   return (
-    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
+    <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-sm font-semibold text-gray-200">Import CSV</h2>
+          <h2 className="text-sm font-semibold text-gray-800">Import CSV</h2>
           <p className="text-xs text-gray-500 mt-1">Upload a Chase CSV for this month. Chase charges are treated as negative values and converted to positive expenses.</p>
         </div>
         {rows.length > 0 && (
-          <button onClick={onClear} className="text-xs text-gray-400 hover:text-red-500 font-medium">Clear</button>
+          <button onClick={onClear} className="text-xs text-gray-500 hover:text-red-500 font-medium">Clear</button>
         )}
       </div>
 
@@ -1518,7 +1518,7 @@ function ImportCsvPanel({ fileName, rows, includeCredits, importError, onToggleI
           Include payments/refunds/credits
         </label>
 
-        {fileName && <div className="text-xs text-gray-400 mb-2">Selected: {fileName}</div>}
+        {fileName && <div className="text-xs text-gray-500 mb-2">Selected: {fileName}</div>}
       </div>
 
       {importError && <p className="text-xs text-red-500 mt-3">{importError}</p>}
@@ -1532,16 +1532,16 @@ function ImportCsvPanel({ fileName, rows, includeCredits, importError, onToggleI
             <button
               onClick={onImport}
               disabled={importable.length === 0}
-              className="px-4 py-1.5 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-40"
+              className="px-4 py-1.5 bg-blue-500 text-[#111] text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-40"
             >
               Import {importable.length} rows
             </button>
           </div>
 
-          <div className="max-h-80 overflow-auto border border-[#2e2e2e] rounded-xl">
+          <div className="max-h-80 overflow-auto border border-[#D9D7CF] rounded-xl">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-[#1e1e1e]">
-                <tr className="text-xs font-medium text-gray-500 border-b border-[#2a2a2a]">
+              <thead className="sticky top-0 bg-[#F5F4F0]">
+                <tr className="text-xs font-medium text-gray-500 border-b border-[#D9D7CF]">
                   <th className="text-left py-2 px-3">Date</th>
                   <th className="text-left py-2 px-3">Vendor</th>
                   <th className="text-left py-2 px-3">Category</th>
@@ -1552,21 +1552,21 @@ function ImportCsvPanel({ fileName, rows, includeCredits, importError, onToggleI
               </thead>
               <tbody>
                 {rows.map(row => (
-                  <tr key={row.id} className="border-b border-[#2a2a2a] hover:bg-[#252525]">
+                  <tr key={row.id} className="border-b border-[#D9D7CF] hover:bg-[#E6E4DE]">
                     <td className="py-1.5 px-3 text-xs text-gray-500 whitespace-nowrap">{row.date || "—"}</td>
-                    <td className="py-1.5 px-3 text-xs text-gray-200 max-w-56 truncate">{row.vendor}</td>
+                    <td className="py-1.5 px-3 text-xs text-gray-800 max-w-56 truncate">{row.vendor}</td>
                     <td className="py-1.5 px-3 text-xs text-gray-500">
                       <select
                         value={row.category}
                         onChange={e => onUpdateRow(row.id, { category: e.target.value })}
                         disabled={row.status !== "import"}
-                        className="w-40 border border-[#333] rounded-lg px-2 py-1 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40"
+                        className="w-40 border border-[#C9C7BF] rounded-lg px-2 py-1 text-xs bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40"
                       >
                         {EXPENSE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                       </select>
                     </td>
                     <td className="py-1.5 px-3 text-right text-xs font-medium text-gray-800 tabular-nums">{fmt(row.amount)}</td>
-                    <td className="py-1.5 px-3 text-xs text-gray-400 whitespace-nowrap">{row.card}</td>
+                    <td className="py-1.5 px-3 text-xs text-gray-500 whitespace-nowrap">{row.card}</td>
                     <td className="py-1.5 px-3 text-xs whitespace-nowrap">
                       <ImportStatusBadge status={row.status} reason={row.reason} />
                     </td>
@@ -1624,32 +1624,32 @@ function BudgetHeader({ month, isCurrentMonth, showNewMonth, onPrev, onNext, onN
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2">
-        <button onClick={onPrev} className="w-9 h-9 rounded-full bg-[#1a1a1a] border border-[#2a2a2a] text-gray-400 hover:text-white hover:border-[#3a3a3a] transition-colors" aria-label="Previous month">&#8592;</button>
+        <button onClick={onPrev} className="w-9 h-9 rounded-full bg-[#F5F4F0] border border-[#D9D7CF] text-gray-500 hover:text-[#111] hover:border-[#111] transition-colors" aria-label="Previous month">&#8592;</button>
         <div className="text-center min-w-36">
-          <div className="text-base font-semibold text-white">{formatMonthLabel(month)}</div>
-          {isCurrentMonth && <div className="text-[11px] text-blue-400">Current month</div>}
+          <div className="text-base font-semibold text-[#111]">{formatMonthLabel(month)}</div>
+          {isCurrentMonth && <div className="text-[11px] text-blue-600">Current month</div>}
         </div>
-        <button onClick={onNext} className="w-9 h-9 rounded-full bg-[#1a1a1a] border border-[#2a2a2a] text-gray-400 hover:text-white hover:border-[#3a3a3a] transition-colors" aria-label="Next month">&#8594;</button>
+        <button onClick={onNext} className="w-9 h-9 rounded-full bg-[#F5F4F0] border border-[#D9D7CF] text-gray-500 hover:text-[#111] hover:border-[#111] transition-colors" aria-label="Next month">&#8594;</button>
         {excluded && (
-          <span className="ml-2 px-2.5 py-0.5 text-[11px] font-medium text-amber-300 bg-amber-900/30 border border-amber-800 rounded-full">
+          <span className="ml-2 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 bg-amber-100 border border-amber-300 rounded-full">
             Excluded from charts
           </span>
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {showNewMonth && (
-          <button onClick={onNewMonth} className={`${btn} text-blue-400 border-blue-800 hover:bg-blue-900/30`}>+ New month</button>
+          <button onClick={onNewMonth} className={`${btn} text-blue-600 border-blue-300 hover:bg-blue-100`}>+ New month</button>
         )}
         <button
           onClick={onToggleExcluded}
           title={excluded ? "Include this month in the trend charts" : "Exclude this month from the trend charts"}
-          className={`${btn} ${excluded ? "text-amber-300 border-amber-700 bg-amber-900/30 hover:bg-amber-900/50" : "text-gray-400 border-[#333] hover:bg-[#2a2a2a]"}`}
+          className={`${btn} ${excluded ? "text-amber-700 border-amber-400 bg-amber-100 hover:bg-amber-100" : "text-gray-500 border-[#C9C7BF] hover:bg-[#E6E4DE]"}`}
         >
           {excluded ? "Excluded" : "Exclude from charts"}
         </button>
-        <button onClick={onExport} className={`${btn} text-gray-400 border-[#333] hover:bg-[#2a2a2a]`}>Export CSV</button>
-        <button onClick={onExportForClaude} className={`${btn} text-purple-300 border-purple-800 hover:bg-purple-900/30`}>Export for Claude</button>
-        <button onClick={onResetMonth} className={`${btn} text-red-400 border-red-900 hover:bg-red-900/30`}>Reset month</button>
+        <button onClick={onExport} className={`${btn} text-gray-500 border-[#C9C7BF] hover:bg-[#E6E4DE]`}>Export CSV</button>
+        <button onClick={onExportForClaude} className={`${btn} text-purple-700 border-purple-300 hover:bg-purple-100`}>Export for Claude</button>
+        <button onClick={onResetMonth} className={`${btn} text-red-600 border-red-300 hover:bg-red-100`}>Reset month</button>
       </div>
     </div>
   );
@@ -1665,14 +1665,14 @@ function SummaryCard({ label, actual, budget, higherIsBetter, tooltip }: {
   const isGood = higherIsBetter ? actual >= budget : actual <= budget;
   const color = both0 ? "#6b7280" : isGood ? "#22c55e" : "#ef4444";
   return (
-    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5 relative">
+    <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5 relative">
       <div className="flex items-center gap-1.5 mb-1">
         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
         {tooltip && (
           <div className="relative" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
-            <div className="w-3.5 h-3.5 rounded-full border border-gray-600 text-gray-500 flex items-center justify-center cursor-default text-[9px] font-bold leading-none select-none hover:border-gray-400 hover:text-gray-400 transition-colors">i</div>
+            <div className="w-3.5 h-3.5 rounded-full border border-gray-600 text-gray-500 flex items-center justify-center cursor-default text-[9px] font-bold leading-none select-none hover:border-gray-400 hover:text-[#111] transition-colors">i</div>
             {show && (
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-56 bg-[#2a2a2a] border border-[#3a3a3a] rounded-xl p-3 text-xs text-gray-300 shadow-xl pointer-events-none whitespace-pre-line">
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-56 bg-[#E6E4DE] border border-[#C9C7BF] rounded-xl p-3 text-xs text-gray-400 shadow-xl pointer-events-none whitespace-pre-line">
                 {tooltip}
               </div>
             )}
@@ -1680,7 +1680,7 @@ function SummaryCard({ label, actual, budget, higherIsBetter, tooltip }: {
         )}
       </div>
       <p className="text-2xl font-bold tabular-nums" style={{ color }}>{fmt(actual)}</p>
-      <p className="text-xs text-gray-600 mt-0.5">budget {fmt(budget)}</p>
+      <p className="text-xs text-gray-500 mt-0.5">budget {fmt(budget)}</p>
     </div>
   );
 }
@@ -1698,14 +1698,14 @@ function IncomeTable({ rows, onAddRow, onUpdateLabel, onUpdateBudget, onUpdateAc
   const totalBudget = rows.reduce((s, r) => s + r.budget, 0);
   const totalActual = rows.reduce((s, r) => s + r.actual, 0);
   return (
-    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
+    <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-200">Income</h2>
-        <button onClick={onAddRow} className="text-xs text-blue-400 hover:text-blue-300 font-medium">+ Add row</button>
+        <h2 className="text-sm font-semibold text-gray-800">Income</h2>
+        <button onClick={onAddRow} className="text-xs text-blue-600 hover:text-blue-700 font-medium">+ Add row</button>
       </div>
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-xs font-medium text-gray-500 border-b border-[#2a2a2a]">
+          <tr className="text-xs font-medium text-gray-500 border-b border-[#D9D7CF]">
             <th className="text-left pb-2">Source</th>
             <th className="text-right pb-2 pr-1">Budget</th>
             <th className="text-right pb-2 pr-1">Actual</th>
@@ -1726,7 +1726,7 @@ function IncomeTable({ rows, onAddRow, onUpdateLabel, onUpdateBudget, onUpdateAc
           ))}
         </tbody>
         <tfoot>
-          <tr className="text-xs font-semibold text-gray-300 border-t border-[#2a2a2a]">
+          <tr className="text-xs font-semibold text-gray-400 border-t border-[#D9D7CF]">
             <td className="pt-2">Total</td>
             <td className="text-right pt-2 pr-1 tabular-nums">{fmt(totalBudget)}</td>
             <td className="text-right pt-2 pr-1 tabular-nums">{fmt(totalActual)}</td>
@@ -1747,12 +1747,12 @@ function IncomeRow({ row, onUpdateLabel, onUpdateBudget, onUpdateActual, onDelet
   onDelete: () => void;
 }) {
   return (
-    <tr className="group border-b border-[#2a2a2a] hover:bg-[#252525]">
+    <tr className="group border-b border-[#D9D7CF] hover:bg-[#E6E4DE]">
       <td className="py-1.5 pr-2"><EditableText value={row.label} onChange={onUpdateLabel} /></td>
       <td className="py-1.5 text-right pr-1"><EditableAmount value={row.budget} onChange={onUpdateBudget} /></td>
       <td className="py-1.5 text-right pr-1"><EditableAmount value={row.actual} onChange={onUpdateActual} /></td>
       <td className="py-1.5 text-right">
-        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-base leading-none">×</button>
+        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all text-base leading-none">×</button>
       </td>
     </tr>
   );
@@ -1773,14 +1773,14 @@ function ExpenseTable({ title, rows, getActual, onAddRow, onUpdateLabel, onUpdat
   const totalBudget = rows.reduce((s, r) => s + r.budget, 0);
   const totalActual = rows.reduce((s, r) => s + getActual(r), 0);
   return (
-    <div className="bg-[#1a1a1a] rounded-[28px] border border-[#2a2a2a] p-5">
+    <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-200">{title}</h2>
-        <button onClick={onAddRow} className="text-xs text-blue-400 hover:text-blue-300 font-medium">+ Add row</button>
+        <h2 className="text-sm font-semibold text-gray-800">{title}</h2>
+        <button onClick={onAddRow} className="text-xs text-blue-600 hover:text-blue-700 font-medium">+ Add row</button>
       </div>
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-xs font-medium text-gray-500 border-b border-[#2a2a2a]">
+          <tr className="text-xs font-medium text-gray-500 border-b border-[#D9D7CF]">
             <th className="text-left pb-2">Category</th>
             <th className="text-right pb-2 pr-1">Budget</th>
             <th className="text-right pb-2 pr-1">Actual</th>
@@ -1802,7 +1802,7 @@ function ExpenseTable({ title, rows, getActual, onAddRow, onUpdateLabel, onUpdat
           ))}
         </tbody>
         <tfoot>
-          <tr className="text-xs font-semibold text-gray-300 border-t border-[#2a2a2a]">
+          <tr className="text-xs font-semibold text-gray-400 border-t border-[#D9D7CF]">
             <td className="pt-2">Total</td>
             <td className="text-right pt-2 pr-1 tabular-nums">{fmt(totalBudget)}</td>
             <td className="text-right pt-2 pr-1 tabular-nums">{fmt(totalActual)}</td>
@@ -1825,26 +1825,26 @@ function ExpenseRow({ row, displayActual, onUpdateLabel, onUpdateBudget, onUpdat
 }) {
   const isDerived = row.actual === null;
   const actualColor = row.budget === 0 && displayActual === 0
-    ? "text-gray-400"
+    ? "text-gray-500"
     : displayActual < row.budget
-    ? "text-green-400"
+    ? "text-green-600"
     : displayActual === row.budget
-    ? "text-gray-200"
-    : "text-red-400";
+    ? "text-gray-800"
+    : "text-red-600";
   return (
-    <tr className="group border-b border-[#2a2a2a] hover:bg-[#252525]">
+    <tr className="group border-b border-[#D9D7CF] hover:bg-[#E6E4DE]">
       <td className="py-1.5 pr-2"><EditableText value={row.label} onChange={onUpdateLabel} /></td>
       <td className="py-1.5 text-right pr-1"><EditableAmount value={row.budget} onChange={onUpdateBudget} /></td>
       <td className="py-1.5 text-right pr-1">
         <div className="flex items-center justify-end gap-1">
           <EditableAmount value={displayActual} onChange={onUpdateActual} dim={isDerived} colorClass={actualColor} />
           {!isDerived && (
-            <button onClick={onClearActual} title="Reset to auto-derived" className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-blue-400 text-xs transition-all">↺</button>
+            <button onClick={onClearActual} title="Reset to auto-derived" className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 text-xs transition-all">↺</button>
           )}
         </div>
       </td>
       <td className="py-1.5 text-right">
-        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-base leading-none">×</button>
+        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all text-base leading-none">×</button>
       </td>
     </tr>
   );
@@ -1859,23 +1859,23 @@ function LogRow({ log, onUpdate, onDelete }: {
   onDelete: () => void;
 }) {
   return (
-    <tr className="group border-b border-[#2a2a2a] hover:bg-[#252525]">
+    <tr className="group border-b border-[#D9D7CF] hover:bg-[#E6E4DE]">
       <td className="py-1.5 pr-4 text-xs text-gray-500 whitespace-nowrap">
         <input
           type="date"
           value={log.date}
           onChange={e => onUpdate({ date: e.target.value })}
-          className="w-32 border border-transparent rounded px-1 py-0.5 text-xs bg-transparent text-gray-200 hover:border-[#333] focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-32 border border-transparent rounded px-1 py-0.5 text-xs bg-transparent text-gray-800 hover:border-[#111] focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </td>
-      <td className="py-1.5 pr-4 text-xs text-gray-700 max-w-40 truncate">
+      <td className="py-1.5 pr-4 text-xs text-gray-400 max-w-40 truncate">
         <EditableText value={log.vendor} onChange={vendor => onUpdate({ vendor })} />
       </td>
       <td className="py-1.5 pr-4 text-xs text-gray-500">
         <select
           value={log.category}
           onChange={e => onUpdate({ category: e.target.value })}
-          className="w-36 border border-[#333] rounded-lg px-2 py-1 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-36 border border-[#C9C7BF] rounded-lg px-2 py-1 text-xs bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {EXPENSE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
         </select>
@@ -1891,30 +1891,30 @@ function LogRow({ log, onUpdate, onDelete }: {
           placeholder="—"
         />
       </td>
-      <td className="py-1.5 pr-4 text-xs text-gray-400 whitespace-nowrap">
+      <td className="py-1.5 pr-4 text-xs text-gray-500 whitespace-nowrap">
         <select
           value={log.card}
           onChange={e => onUpdate({ card: e.target.value, points: defaultPoints(log.category, e.target.value) })}
-          className="w-36 border border-[#333] rounded-lg px-2 py-1 text-xs bg-[#252525] text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-36 border border-[#C9C7BF] rounded-lg px-2 py-1 text-xs bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {[...new Set([...CARDS, log.card])].map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </td>
       <td className="py-1.5 pr-4 text-right text-xs tabular-nums whitespace-nowrap">
         {NO_POINTS_CATS.has(log.category) ? (
-          <span className="text-gray-300 text-xs">—</span>
+          <span className="text-gray-400 text-xs">—</span>
         ) : (
           <select
             value={log.points ?? defaultPoints(log.category, log.card)}
             onChange={e => onUpdate({ points: Number(e.target.value) })}
-            className="w-14 border border-[#333] rounded px-1 py-0.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-700"
+            className="w-14 border border-[#C9C7BF] rounded px-1 py-0.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-400"
           >
             {pointsOptions(log.card).map(n => <option key={n} value={n}>{n}×</option>)}
           </select>
         )}
       </td>
       <td className="py-1.5 text-right">
-        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-base leading-none">×</button>
+        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all text-base leading-none">×</button>
       </td>
     </tr>
   );
@@ -1925,7 +1925,7 @@ function LogRow({ log, onUpdate, onDelete }: {
 function FormField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-400 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
       {children}
     </div>
   );
@@ -1948,14 +1948,14 @@ function EditableText({ value, onChange }: { value: string; onChange: (v: string
           if (e.key === "Escape") setEditing(false);
         }}
         autoFocus
-        className="w-full border-b border-blue-500 focus:outline-none text-xs bg-transparent py-0.5 text-white"
+        className="w-full border-b border-blue-500 focus:outline-none text-xs bg-transparent py-0.5 text-[#111]"
       />
     );
   }
   return (
     <span
       onClick={() => { setDraft(value); setEditing(true); }}
-      className="cursor-pointer text-xs text-gray-300 hover:text-blue-400 transition-colors"
+      className="cursor-pointer text-xs text-gray-400 hover:text-blue-600 transition-colors"
     >
       {value}
     </span>
@@ -1990,14 +1990,14 @@ function EditableAmount({ value, onChange, dim = false, placeholder, colorClass 
         onBlur={save}
         onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
         autoFocus
-        className="w-20 text-right border-b border-blue-500 focus:outline-none text-xs bg-transparent text-white py-0.5 tabular-nums"
+        className="w-20 text-right border-b border-blue-500 focus:outline-none text-xs bg-transparent text-[#111] py-0.5 tabular-nums"
       />
     );
   }
   return (
     <span
       onClick={() => { setDraft(value === 0 ? "" : String(value)); setEditing(true); }}
-      className={`cursor-pointer text-xs tabular-nums rounded px-1 py-0.5 hover:bg-[#2a2a2a] transition-colors ${dim ? "italic" : ""} ${colorClass ?? "text-gray-200"}`}
+      className={`cursor-pointer text-xs tabular-nums rounded px-1 py-0.5 hover:bg-[#E6E4DE] transition-colors ${dim ? "italic" : ""} ${colorClass ?? "text-gray-800"}`}
     >
       {value === 0 && placeholder ? placeholder : fmt(value)}
     </span>

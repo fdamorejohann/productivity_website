@@ -98,13 +98,13 @@ function RunGraph({ completions }: { completions: Completion[] }) {
   const yLabels = [0, 2, 4, 6, 8].filter(v => v <= maxMiles);
 
   return (
-    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 mb-6">
+    <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5 mb-6">
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">12-Week Progression</span>
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">12-Week Progression</span>
         <div className="flex items-center gap-4 text-[10px] text-gray-500">
           <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-orange-400 inline-block rounded" />Easy run</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-blue-400 inline-block rounded" />Long run</span>
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#2a2a2a] border border-[#3a3a3a] inline-block" />Cutback week</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#E6E4DE] border border-[#C9C7BF] inline-block" />Cutback week</span>
         </div>
       </div>
 
@@ -117,7 +117,7 @@ function RunGraph({ completions }: { completions: Completion[] }) {
             y={PAD.top}
             width={xStep}
             height={innerH}
-            fill="#2a2a2a"
+            fill="#D9D7CF"
             rx="2"
           />
         ))}
@@ -128,7 +128,7 @@ function RunGraph({ completions }: { completions: Completion[] }) {
           y={PAD.top}
           width={xStep}
           height={innerH}
-          fill="#1a2a1a"
+          fill="#E3EEDB"
           rx="2"
         />
 
@@ -137,7 +137,7 @@ function RunGraph({ completions }: { completions: Completion[] }) {
           const y = toY(v);
           return (
             <g key={v}>
-              <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#252525" strokeWidth="1" strokeDasharray="4 3" />
+              <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#F5F4F0" strokeWidth="1" strokeDasharray="4 3" />
               <text x={PAD.left - 6} y={y + 4} fontSize="9" fill="#555" textAnchor="end">{v}mi</text>
             </g>
           );
@@ -156,7 +156,7 @@ function RunGraph({ completions }: { completions: Completion[] }) {
             <circle
               key={`e${r.week}`}
               cx={toX(r.week)} cy={toY(r.miles)} r={done ? 6 : 4}
-              fill={done ? "#f97316" : "#1e1e1e"}
+              fill={done ? "#f97316" : "#F5F4F0"}
               stroke="#f97316" strokeWidth="2"
             />
           );
@@ -169,7 +169,7 @@ function RunGraph({ completions }: { completions: Completion[] }) {
             <circle
               key={`l${r.week}`}
               cx={toX(r.week)} cy={toY(r.miles)} r={done ? 6 : 4}
-              fill={done ? "#3b82f6" : "#1e1e1e"}
+              fill={done ? "#3b82f6" : "#F5F4F0"}
               stroke={r.isRace ? "#22c55e" : "#3b82f6"} strokeWidth="2"
             />
           );
@@ -185,7 +185,7 @@ function RunGraph({ completions }: { completions: Completion[] }) {
 
       {/* Progress bar */}
       <div className="mt-3 flex items-center gap-3">
-        <div className="flex-1 bg-[#252525] rounded-full h-1.5 overflow-hidden">
+        <div className="flex-1 bg-white rounded-full h-1.5 overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-orange-500 to-blue-500 rounded-full transition-all duration-500"
             style={{ width: `${(completions.length / 24) * 100}%` }}
@@ -271,7 +271,7 @@ export default function RunningPanel() {
   const phaseStart = [1, 5, 9];
 
   if (loading) {
-    return <p className="text-xs text-gray-600 animate-pulse py-10 text-center">Loading…</p>;
+    return <p className="text-xs text-gray-500 animate-pulse py-10 text-center">Loading…</p>;
   }
 
   const totalDone = completions.length;
@@ -280,10 +280,10 @@ export default function RunningPanel() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white">🏃 10K Plan</h2>
+        <h2 className="text-2xl font-bold text-[#111]">🏃 10K Plan</h2>
         <div className="text-right">
           <p className="text-xs text-gray-500">Week {Math.min(currentWeek, 12)} of 12</p>
-          <p className="text-xs text-gray-600">{totalDone} runs complete</p>
+          <p className="text-xs text-gray-500">{totalDone} runs complete</p>
         </div>
       </div>
 
@@ -301,13 +301,13 @@ export default function RunningPanel() {
           return (
             <div key={week}>
               {showPhaseHeader && (
-                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-2 mt-2">{phase}</p>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-2 mt-2">{phase}</p>
               )}
-              <div className={`bg-[#1e1e1e] border rounded-2xl overflow-hidden ${isCutback ? "border-yellow-900/40" : isRaceWeek ? "border-green-900/40" : "border-[#2e2e2e]"}`}>
+              <div className={`bg-[#F5F4F0] border rounded-2xl overflow-hidden ${isCutback ? "border-yellow-300" : isRaceWeek ? "border-green-300" : "border-[#D9D7CF]"}`}>
                 {/* Week header */}
-                <div className={`flex items-center justify-between px-5 py-3 border-b ${isCutback ? "border-yellow-900/30 bg-yellow-900/10" : isRaceWeek ? "border-green-900/30 bg-green-900/10" : "border-[#252525]"}`}>
-                  <span className="text-xs font-semibold text-white">Week {week}</span>
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${isCutback ? "bg-yellow-900/40 text-yellow-400" : isRaceWeek ? "bg-green-900/40 text-green-400" : "text-gray-600"}`}>
+                <div className={`flex items-center justify-between px-5 py-3 border-b ${isCutback ? "border-yellow-300 bg-yellow-100" : isRaceWeek ? "border-green-300 bg-green-100" : "border-[#D9D7CF]"}`}>
+                  <span className="text-xs font-semibold text-[#111]">Week {week}</span>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${isCutback ? "bg-yellow-100 text-yellow-600" : isRaceWeek ? "bg-green-100 text-green-600" : "text-gray-500"}`}>
                     {isCutback ? "Cutback" : isRaceWeek ? "Race Week 🏁" : ""}
                   </span>
                 </div>
@@ -321,7 +321,7 @@ export default function RunningPanel() {
                   return (
                     <div
                       key={k}
-                      className={`flex items-center gap-4 px-5 py-3.5 ${run.runNumber === 1 ? "border-b border-[#1a1a1a]" : ""}`}
+                      className={`flex items-center gap-4 px-5 py-3.5 ${run.runNumber === 1 ? "border-b border-[#D9D7CF]" : ""}`}
                     >
                       {/* Checkbox */}
                       <button
@@ -330,31 +330,31 @@ export default function RunningPanel() {
                         className={`w-5 h-5 rounded flex-shrink-0 border-2 flex items-center justify-center transition-all ${
                           done
                             ? run.isLong ? "bg-blue-500 border-blue-500" : "bg-orange-500 border-orange-500"
-                            : "border-[#444] hover:border-[#666]"
+                            : "border-[#C9C7BF] hover:border-[#111]"
                         } ${isLoading ? "opacity-50" : ""}`}
                       >
-                        {done && <span className="text-white text-[10px] font-bold">✓</span>}
+                        {done && <span className="text-[#111] text-[10px] font-bold">✓</span>}
                       </button>
 
                       {/* Run info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-semibold uppercase tracking-wider ${run.isLong ? "text-blue-400" : "text-orange-400"}`}>
+                          <span className={`text-[10px] font-semibold uppercase tracking-wider ${run.isLong ? "text-blue-600" : "text-orange-600"}`}>
                             {run.isRace ? "🏁 Race" : run.isLong ? "Long" : "Easy"}
                           </span>
-                          <span className={`text-sm ${done ? "text-gray-500 line-through" : "text-gray-200"}`}>
+                          <span className={`text-sm ${done ? "text-gray-500 line-through" : "text-gray-800"}`}>
                             {run.label}
                           </span>
                         </div>
                         {done && (
-                          <p className="text-[10px] text-gray-600 mt-0.5">
+                          <p className="text-[10px] text-gray-500 mt-0.5">
                             Logged {done.completed_date} · added to workouts
                           </p>
                         )}
                       </div>
 
                       {/* Miles badge */}
-                      <span className={`text-xs font-semibold tabular-nums ${done ? "text-gray-600" : run.isLong ? "text-blue-400" : "text-orange-400"}`}>
+                      <span className={`text-xs font-semibold tabular-nums ${done ? "text-gray-500" : run.isLong ? "text-blue-600" : "text-orange-600"}`}>
                         {run.miles}mi
                       </span>
 
@@ -365,7 +365,7 @@ export default function RunningPanel() {
                           value={dateInputs[k] || todayStr()}
                           onChange={e => setDateInputs(d => ({ ...d, [k]: e.target.value }))}
                           onClick={e => e.stopPropagation()}
-                          className="bg-[#252525] border border-[#333] rounded-lg px-2 py-1 text-xs text-gray-400 focus:outline-none focus:border-blue-500 w-32"
+                          className="bg-white border border-[#C9C7BF] rounded-lg px-2 py-1 text-xs text-gray-500 focus:outline-none focus:border-blue-500 w-32"
                         />
                       )}
                     </div>
@@ -378,13 +378,13 @@ export default function RunningPanel() {
       </div>
 
       {/* Tips */}
-      <div className="mt-6 bg-[#1a1a1a] border border-[#2e2e2e] rounded-2xl p-5">
+      <div className="mt-6 bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5">
         <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-3">Keys to success</p>
         <div className="space-y-2 text-xs text-gray-500 leading-relaxed">
-          <p><span className="text-gray-300">Easy means easy.</span> Run 1 should be conversational — you should be able to hold a sentence without gasping.</p>
-          <p><span className="text-gray-300">Don't skip cutback weeks.</span> They're where adaptation actually happens.</p>
-          <p><span className="text-gray-300">Time over pace on long runs.</span> Cover the distance, don't worry about speed.</p>
-          <p><span className="text-gray-300">Repeat weeks if needed.</span> Better to stay than push into injury.</p>
+          <p><span className="text-gray-400">Easy means easy.</span> Run 1 should be conversational — you should be able to hold a sentence without gasping.</p>
+          <p><span className="text-gray-400">Don't skip cutback weeks.</span> They're where adaptation actually happens.</p>
+          <p><span className="text-gray-400">Time over pace on long runs.</span> Cover the distance, don't worry about speed.</p>
+          <p><span className="text-gray-400">Repeat weeks if needed.</span> Better to stay than push into injury.</p>
         </div>
       </div>
     </div>

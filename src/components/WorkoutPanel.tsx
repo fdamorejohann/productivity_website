@@ -128,7 +128,7 @@ export default function WorkoutPanel() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">⚔️ Workouts</h1>
+          <h1 className="text-2xl font-bold text-[#111]">⚔️ Workouts</h1>
           <p className="text-xs text-gray-500 mt-1">{sessions.length} sessions logged</p>
         </div>
         <div className="flex gap-2">
@@ -137,7 +137,7 @@ export default function WorkoutPanel() {
               key={t}
               onClick={() => setTab(t)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize ${
-                tab === t ? "bg-white text-black" : "text-gray-400 hover:text-white border border-[#2e2e2e]"
+                tab === t ? "bg-[#111] text-[#F5F4F0]" : "text-gray-500 hover:text-[#111] border border-[#D9D7CF]"
               }`}
             >{t}</button>
           ))}
@@ -145,7 +145,7 @@ export default function WorkoutPanel() {
       </div>
 
       {loading ? (
-        <p className="text-gray-600 text-sm animate-pulse">Loading…</p>
+        <p className="text-gray-500 text-sm animate-pulse">Loading…</p>
       ) : (
         <>
           {tab === "log" && (
@@ -304,13 +304,13 @@ function LogTab({ exercises, sessions, onSaved }: {
   return (
     <div className="space-y-5">
       {/* Date + notes */}
-      <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+      <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5">
         <div className="flex items-center gap-4 mb-4">
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Date</p>
             <input
               type="date"
-              className="bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
+              className="bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none"
               value={date}
               onChange={e => setDate(e.target.value)}
             />
@@ -318,7 +318,7 @@ function LogTab({ exercises, sessions, onSaved }: {
           <div className="flex-1">
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Notes</p>
             <input
-              className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none"
+              className="w-full bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] placeholder-gray-400 focus:outline-none"
               placeholder="e.g. felt strong, slight shoulder tightness…"
               value={notes}
               onChange={e => setNotes(e.target.value)}
@@ -337,7 +337,7 @@ function LogTab({ exercises, sessions, onSaved }: {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors border ${
                   workoutType === wt.key
                     ? "text-black font-medium border-transparent"
-                    : "text-gray-400 border-[#333] hover:border-[#555] hover:text-white"
+                    : "text-gray-500 border-[#C9C7BF] hover:border-[#111] hover:text-[#111]"
                 }`}
                 style={workoutType === wt.key ? { backgroundColor: wt.color } : {}}
               >
@@ -351,14 +351,14 @@ function LogTab({ exercises, sessions, onSaved }: {
 
       {/* Cardio form */}
       {!isLifting && (
-        <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5" style={{ borderColor: t.color + "44" }}>
+        <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5" style={{ borderColor: t.color + "44" }}>
           <p className="text-xs uppercase tracking-wider mb-4" style={{ color: t.color }}>{t.emoji} {t.label} Details</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-gray-500 mb-1">Duration (min)</p>
               <input
                 type="number"
-                className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
+                className="w-full bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none"
                 placeholder="45"
                 value={cardioData.duration_min ?? ""}
                 onChange={e => setCardioData(p => ({ ...p, duration_min: e.target.value ? parseFloat(e.target.value) : undefined }))}
@@ -370,7 +370,7 @@ function LogTab({ exercises, sessions, onSaved }: {
                 <input
                   type="number"
                   step="0.1"
-                  className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
+                  className="w-full bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none"
                   placeholder="3.1"
                   value={cardioData.distance_miles ?? ""}
                   onChange={e => setCardioData(p => ({ ...p, distance_miles: e.target.value ? parseFloat(e.target.value) : undefined }))}
@@ -382,7 +382,7 @@ function LogTab({ exercises, sessions, onSaved }: {
                 <p className="text-xs text-gray-500 mb-1">Avg Pace (min/mi)</p>
                 <input
                   type="text"
-                  className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
+                  className="w-full bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none"
                   placeholder="9:30"
                   value={cardioData.avg_pace ?? ""}
                   onChange={e => setCardioData(p => ({ ...p, avg_pace: e.target.value || undefined }))}
@@ -394,7 +394,7 @@ function LogTab({ exercises, sessions, onSaved }: {
                 <p className="text-xs text-gray-500 mb-1">Rounds</p>
                 <input
                   type="number"
-                  className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
+                  className="w-full bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none"
                   placeholder="6"
                   value={cardioData.rounds ?? ""}
                   onChange={e => setCardioData(p => ({ ...p, rounds: e.target.value ? parseInt(e.target.value) : undefined }))}
@@ -409,18 +409,18 @@ function LogTab({ exercises, sessions, onSaved }: {
       {isLifting && draftExercises.map((de, exIdx) => {
         const prev = prevWeights(de.exercise_id);
         return (
-          <div key={de.exercise_id + exIdx} className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+          <div key={de.exercise_id + exIdx} className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-medium">{de.exercise_name}</h3>
-              <button onClick={() => removeExercise(exIdx)} className="text-xs text-gray-600 hover:text-red-400 transition-colors">Remove</button>
+              <h3 className="text-[#111] font-medium">{de.exercise_name}</h3>
+              <button onClick={() => removeExercise(exIdx)} className="text-xs text-gray-500 hover:text-red-600 transition-colors">Remove</button>
             </div>
 
             {/* Set headers */}
             <div className="grid grid-cols-[40px_1fr_1fr_80px_32px] gap-2 mb-2">
-              <span className="text-xs text-gray-600">Set</span>
-              <span className="text-xs text-gray-600">Weight (lbs)</span>
-              <span className="text-xs text-gray-600">Reps</span>
-              <span className="text-xs text-gray-600 text-center">AMRAP</span>
+              <span className="text-xs text-gray-500">Set</span>
+              <span className="text-xs text-gray-500">Weight (lbs)</span>
+              <span className="text-xs text-gray-500">Reps</span>
+              <span className="text-xs text-gray-500 text-center">AMRAP</span>
               <span />
             </div>
 
@@ -431,7 +431,7 @@ function LogTab({ exercises, sessions, onSaved }: {
                   <span className="text-xs text-gray-500">{setIdx + 1}</span>
                   <input
                     type="number"
-                    className={`bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none w-full transition-opacity ${s.is_amrap ? "opacity-30 pointer-events-none" : ""}`}
+                    className={`bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none w-full transition-opacity ${s.is_amrap ? "opacity-30 pointer-events-none" : ""}`}
                     placeholder={prevSet?.weight_lbs ? String(prevSet.weight_lbs) : "0"}
                     value={s.weight_lbs}
                     onChange={e => updateSet(exIdx, setIdx, "weight_lbs", e.target.value)}
@@ -439,7 +439,7 @@ function LogTab({ exercises, sessions, onSaved }: {
                   />
                   <input
                     type="number"
-                    className="bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none w-full"
+                    className="bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none w-full"
                     placeholder={prevSet?.reps ? String(prevSet.reps) : "0"}
                     value={s.reps}
                     onChange={e => updateSet(exIdx, setIdx, "reps", e.target.value)}
@@ -447,18 +447,18 @@ function LogTab({ exercises, sessions, onSaved }: {
                   <div className="flex justify-center">
                     <button
                       onClick={() => toggleAmrap(exIdx, setIdx)}
-                      className={`w-9 h-5 rounded-full transition-colors relative ${s.is_amrap ? "bg-purple-500" : "bg-[#333]"}`}
+                      className={`w-9 h-5 rounded-full transition-colors relative ${s.is_amrap ? "bg-purple-500" : "bg-[#E6E4DE]"}`}
                       title="AMRAP — track max reps, no weight"
                     >
                       <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${s.is_amrap ? "left-4" : "left-0.5"}`} />
                     </button>
                   </div>
-                  <button onClick={() => removeSet(exIdx, setIdx)} className="text-gray-600 hover:text-red-400 text-lg leading-none transition-colors">×</button>
+                  <button onClick={() => removeSet(exIdx, setIdx)} className="text-gray-500 hover:text-red-600 text-lg leading-none transition-colors">×</button>
                 </div>
               );
             })}
 
-            <button onClick={() => addSet(exIdx)} className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-3 py-1.5 mt-1 transition-colors">
+            <button onClick={() => addSet(exIdx)} className="text-xs text-gray-500 hover:text-[#111] border border-[#C9C7BF] rounded-lg px-3 py-1.5 mt-1 transition-colors">
               + Add Set
             </button>
           </div>
@@ -467,23 +467,23 @@ function LogTab({ exercises, sessions, onSaved }: {
 
       {/* Exercise search (lifting only) */}
       {isLifting && (
-        <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+        <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Add Exercise</p>
           <div className="relative">
             <input
               ref={searchRef}
-              className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none"
+              className="w-full bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] placeholder-gray-400 focus:outline-none"
               placeholder="Search exercises or type new…"
               value={search}
               onChange={e => { setSearch(e.target.value); setShowDropdown(true); }}
               onFocus={() => setShowDropdown(true)}
             />
             {showDropdown && search.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-[#252525] border border-[#333] rounded-xl overflow-hidden shadow-xl">
+              <div className="absolute z-10 w-full mt-1 bg-white border border-[#C9C7BF] rounded-xl overflow-hidden shadow-xl">
                 {filtered.map(ex => (
                   <button
                     key={ex.id}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-[#333] transition-colors"
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-[#E6E4DE] transition-colors"
                     onMouseDown={() => addExercise(ex)}
                   >
                     {ex.name}
@@ -492,7 +492,7 @@ function LogTab({ exercises, sessions, onSaved }: {
                 ))}
                 {!filtered.find(e => e.name.toLowerCase() === search.toLowerCase()) && (
                   <button
-                    className="w-full text-left px-4 py-2.5 text-sm text-blue-400 hover:bg-[#333] border-t border-[#333] transition-colors"
+                    className="w-full text-left px-4 py-2.5 text-sm text-blue-600 hover:bg-[#E6E4DE] border-t border-[#C9C7BF] transition-colors"
                     onMouseDown={() => addExercise(null, search)}
                   >
                     + Create "{search}"
@@ -508,7 +508,7 @@ function LogTab({ exercises, sessions, onSaved }: {
                 <button
                   key={ex.id}
                   onClick={() => addExercise(ex)}
-                  className="text-xs text-gray-400 hover:text-white border border-[#2e2e2e] hover:border-[#444] rounded-lg px-3 py-1.5 transition-colors"
+                  className="text-xs text-gray-500 hover:text-[#111] border border-[#D9D7CF] hover:border-[#111] rounded-lg px-3 py-1.5 transition-colors"
                 >
                   {ex.name}
                 </button>
@@ -633,7 +633,7 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
 
   if (sessions.length === 0) return (
     <div>
-      <p className="text-gray-600 text-sm mb-4">No workouts logged yet.</p>
+      <p className="text-gray-500 text-sm mb-4">No workouts logged yet.</p>
     </div>
   );
 
@@ -648,19 +648,19 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
         const isLifting = (s.type ?? "lifting") === "lifting";
 
         return (
-          <div key={s.id} className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl overflow-hidden">
+          <div key={s.id} className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl overflow-hidden">
             <button
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#242424] transition-colors"
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#E6E4DE] transition-colors"
               onClick={() => { setExpanded(isOpen ? null : s.id); if (isEditing) setEditing(null); }}
             >
               <div className="text-left">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-white font-medium text-sm">{formatDate(s.date)}</p>
+                  <p className="text-[#111] font-medium text-sm">{formatDate(s.date)}</p>
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: t.color + "33", color: t.color }}>
                     {t.emoji} {t.label}
                   </span>
                   {s.notes && (
-                    <span className="text-xs text-gray-400 italic">{s.notes}</span>
+                    <span className="text-xs text-gray-500 italic">{s.notes}</span>
                   )}
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">
@@ -671,20 +671,20 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
               </div>
               <div className="flex items-center gap-3">
                 {isLifting && <span className="text-xs text-gray-500">{s.workout_sets.length} sets</span>}
-                <span className="text-gray-600">{isOpen ? "▲" : "▼"}</span>
+                <span className="text-gray-500">{isOpen ? "▲" : "▼"}</span>
               </div>
             </button>
 
             {isOpen && !isEditing && (
-              <div className="px-5 pb-5 border-t border-[#2a2a2a]">
+              <div className="px-5 pb-5 border-t border-[#D9D7CF]">
                 {s.notes && <p className="text-xs text-gray-500 mt-3 mb-4 italic">{s.notes}</p>}
 
                 {!isLifting && s.cardio_data && (
                   <div className="mt-3 grid grid-cols-2 gap-3">
                     {cardioFields(s.type, s.cardio_data).map(({ label, value }) => (
-                      <div key={label} className="bg-[#252525] rounded-xl p-3">
+                      <div key={label} className="bg-white rounded-xl p-3">
                         <p className="text-xs text-gray-500">{label}</p>
-                        <p className="text-sm font-medium text-white mt-0.5">{value}</p>
+                        <p className="text-sm font-medium text-[#111] mt-0.5">{value}</p>
                       </div>
                     ))}
                   </div>
@@ -699,23 +699,23 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
                   return (
                     <div key={name} className="mt-4">
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-medium text-white">{name}</p>
+                        <p className="text-sm font-medium text-[#111]">{name}</p>
                         <div className="flex gap-3">
-                          {maxW > 0 && <span className="text-xs text-gray-500">Max <span className="text-white">{maxW} lbs</span></span>}
-                          {best1rm > 0 && <span className="text-xs text-gray-500">1RM est. <span className="text-blue-400">{best1rm} lbs</span></span>}
-                          {hasAmrap && <span className="text-xs text-gray-500">AMRAP best <span className="text-purple-400">{maxReps} reps</span></span>}
+                          {maxW > 0 && <span className="text-xs text-gray-500">Max <span className="text-[#111]">{maxW} lbs</span></span>}
+                          {best1rm > 0 && <span className="text-xs text-gray-500">1RM est. <span className="text-blue-600">{best1rm} lbs</span></span>}
+                          {hasAmrap && <span className="text-xs text-gray-500">AMRAP best <span className="text-purple-600">{maxReps} reps</span></span>}
                         </div>
                       </div>
                       <div className="grid grid-cols-[40px_1fr_1fr_60px] gap-2">
-                        <span className="text-xs text-gray-600">Set</span>
-                        <span className="text-xs text-gray-600">Weight</span>
-                        <span className="text-xs text-gray-600">Reps</span>
-                        <span className="text-xs text-gray-600">Type</span>
+                        <span className="text-xs text-gray-500">Set</span>
+                        <span className="text-xs text-gray-500">Weight</span>
+                        <span className="text-xs text-gray-500">Reps</span>
+                        <span className="text-xs text-gray-500">Type</span>
                         {exSets.map((st, i) => (
                           <>
                             <span key={st.id + "n"} className="text-xs text-gray-500">{i + 1}</span>
-                            <span key={st.id + "w"} className="text-xs text-white">{st.is_amrap ? "—" : `${st.weight_lbs ?? "—"} lbs`}</span>
-                            <span key={st.id + "r"} className="text-xs text-white">{st.reps ?? "—"} reps</span>
+                            <span key={st.id + "w"} className="text-xs text-[#111]">{st.is_amrap ? "—" : `${st.weight_lbs ?? "—"} lbs`}</span>
+                            <span key={st.id + "r"} className="text-xs text-[#111]">{st.reps ?? "—"} reps</span>
                             <span key={st.id + "t"} className="text-xs" style={{ color: st.is_amrap ? "#a78bfa" : "#6b7280" }}>{st.is_amrap ? "AMRAP" : "Weighted"}</span>
                           </>
                         ))}
@@ -725,65 +725,65 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
                 })}
 
                 <div className="flex gap-4 mt-5">
-                  <button onClick={() => startEdit(s)} className="text-xs text-gray-400 hover:text-white border border-[#333] rounded-lg px-3 py-1.5 transition-colors">Edit workout</button>
-                  <button onClick={async () => { await db.sessions.delete(s.id); onDelete(s.id); }} className="text-xs text-gray-600 hover:text-red-400 transition-colors">Delete</button>
+                  <button onClick={() => startEdit(s)} className="text-xs text-gray-500 hover:text-[#111] border border-[#C9C7BF] rounded-lg px-3 py-1.5 transition-colors">Edit workout</button>
+                  <button onClick={async () => { await db.sessions.delete(s.id); onDelete(s.id); }} className="text-xs text-gray-500 hover:text-red-600 transition-colors">Delete</button>
                 </div>
               </div>
             )}
 
             {isOpen && isEditing && (
-              <div className="px-5 pb-5 border-t border-[#2a2a2a] space-y-4 pt-4">
+              <div className="px-5 pb-5 border-t border-[#D9D7CF] space-y-4 pt-4">
                 <div className="flex gap-3">
-                  <input type="date" className="bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none" value={editDate} onChange={e => setEditDate(e.target.value)} />
-                  <input className="flex-1 bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none" placeholder="Notes…" value={editNotes} onChange={e => setEditNotes(e.target.value)} />
+                  <input type="date" className="bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] focus:outline-none" value={editDate} onChange={e => setEditDate(e.target.value)} />
+                  <input className="flex-1 bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] placeholder-gray-400 focus:outline-none" placeholder="Notes…" value={editNotes} onChange={e => setEditNotes(e.target.value)} />
                 </div>
 
                 {isLifting && editExercises.map((de, exIdx) => (
-                  <div key={de.exercise_id + exIdx} className="bg-[#252525] border border-[#333] rounded-xl p-4">
+                  <div key={de.exercise_id + exIdx} className="bg-white border border-[#C9C7BF] rounded-xl p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-medium text-white">{de.exercise_name}</p>
-                      <button onClick={() => removeEditExercise(exIdx)} className="text-xs text-gray-600 hover:text-red-400 transition-colors">Remove</button>
+                      <p className="text-sm font-medium text-[#111]">{de.exercise_name}</p>
+                      <button onClick={() => removeEditExercise(exIdx)} className="text-xs text-gray-500 hover:text-red-600 transition-colors">Remove</button>
                     </div>
                     <div className="grid grid-cols-[32px_1fr_1fr_60px_28px] gap-2 mb-1">
-                      <span className="text-xs text-gray-600">Set</span>
-                      <span className="text-xs text-gray-600">Weight</span>
-                      <span className="text-xs text-gray-600">Reps</span>
-                      <span className="text-xs text-gray-600 text-center">AMRAP</span>
+                      <span className="text-xs text-gray-500">Set</span>
+                      <span className="text-xs text-gray-500">Weight</span>
+                      <span className="text-xs text-gray-500">Reps</span>
+                      <span className="text-xs text-gray-500 text-center">AMRAP</span>
                       <span />
                     </div>
                     {de.sets.map((s, setIdx) => (
                       <div key={s.id} className="grid grid-cols-[32px_1fr_1fr_60px_28px] gap-2 mb-2 items-center">
                         <span className="text-xs text-gray-500">{setIdx + 1}</span>
-                        <input type="number" className={`bg-[#1e1e1e] border border-[#333] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none w-full ${s.is_amrap ? "opacity-30" : ""}`} value={s.weight_lbs} onChange={e => updateEditSet(exIdx, setIdx, "weight_lbs", e.target.value)} placeholder="lbs" disabled={s.is_amrap} />
-                        <input type="number" className="bg-[#1e1e1e] border border-[#333] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none w-full" value={s.reps} onChange={e => updateEditSet(exIdx, setIdx, "reps", e.target.value)} placeholder="reps" />
+                        <input type="number" className={`bg-[#F5F4F0] border border-[#C9C7BF] rounded-lg px-2 py-1.5 text-sm text-[#111] focus:outline-none w-full ${s.is_amrap ? "opacity-30" : ""}`} value={s.weight_lbs} onChange={e => updateEditSet(exIdx, setIdx, "weight_lbs", e.target.value)} placeholder="lbs" disabled={s.is_amrap} />
+                        <input type="number" className="bg-[#F5F4F0] border border-[#C9C7BF] rounded-lg px-2 py-1.5 text-sm text-[#111] focus:outline-none w-full" value={s.reps} onChange={e => updateEditSet(exIdx, setIdx, "reps", e.target.value)} placeholder="reps" />
                         <div className="flex justify-center">
                           <button
                             onClick={() => toggleEditAmrap(exIdx, setIdx)}
-                            className={`w-9 h-5 rounded-full transition-colors relative ${s.is_amrap ? "bg-purple-500" : "bg-[#444]"}`}
+                            className={`w-9 h-5 rounded-full transition-colors relative ${s.is_amrap ? "bg-purple-500" : "bg-[#E6E4DE]"}`}
                           >
                             <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${s.is_amrap ? "left-4" : "left-0.5"}`} />
                           </button>
                         </div>
-                        <button onClick={() => removeEditSet(exIdx, setIdx)} className="text-gray-600 hover:text-red-400 text-lg leading-none transition-colors">×</button>
+                        <button onClick={() => removeEditSet(exIdx, setIdx)} className="text-gray-500 hover:text-red-600 text-lg leading-none transition-colors">×</button>
                       </div>
                     ))}
-                    <button onClick={() => addEditSet(exIdx)} className="text-xs text-gray-500 hover:text-white border border-[#333] rounded-lg px-3 py-1 mt-1 transition-colors">+ Set</button>
+                    <button onClick={() => addEditSet(exIdx)} className="text-xs text-gray-500 hover:text-[#111] border border-[#C9C7BF] rounded-lg px-3 py-1 mt-1 transition-colors">+ Set</button>
                   </div>
                 ))}
 
                 {isLifting && (
                   <div className="relative">
                     <input
-                      className="w-full bg-[#252525] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none"
+                      className="w-full bg-white border border-[#C9C7BF] rounded-lg px-3 py-2 text-sm text-[#111] placeholder-gray-400 focus:outline-none"
                       placeholder="Add exercise…"
                       value={exSearch}
                       onChange={e => { setExSearch(e.target.value); setShowExDropdown(true); }}
                       onFocus={() => setShowExDropdown(true)}
                     />
                     {showExDropdown && exSearch.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-[#252525] border border-[#333] rounded-xl overflow-hidden shadow-xl">
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-[#C9C7BF] rounded-xl overflow-hidden shadow-xl">
                         {filteredEx.map(ex => (
-                          <button key={ex.id} className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-[#333] transition-colors" onMouseDown={() => addEditExercise(ex)}>
+                          <button key={ex.id} className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-[#E6E4DE] transition-colors" onMouseDown={() => addEditExercise(ex)}>
                             {ex.name}
                           </button>
                         ))}
@@ -793,8 +793,8 @@ function HistoryTab({ sessions, onDelete, onUpdate, exercises }: {
                 )}
 
                 <div className="flex gap-3 pt-1">
-                  <button onClick={() => saveEdit(s)} disabled={saving} className="bg-white text-black px-5 py-2 rounded-xl text-sm font-medium hover:bg-gray-100 disabled:opacity-50 transition-colors">{saving ? "Saving…" : "Save changes"}</button>
-                  <button onClick={() => setEditing(null)} className="text-sm text-gray-500 hover:text-white transition-colors">Cancel</button>
+                  <button onClick={() => saveEdit(s)} disabled={saving} className="bg-[#111] text-[#F5F4F0] px-5 py-2 rounded-xl text-sm font-medium hover:bg-[#333] disabled:opacity-50 transition-colors">{saving ? "Saving…" : "Save changes"}</button>
+                  <button onClick={() => setEditing(null)} className="text-sm text-gray-500 hover:text-[#111] transition-colors">Cancel</button>
                 </div>
               </div>
             )}
@@ -894,7 +894,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
 
   // Mini sparkline SVG for a card
   const Sparkline = ({ values, color, isAmrap }: { values: number[]; color: string; isAmrap: boolean }) => {
-    if (values.length < 2) return <div className="h-10 flex items-end"><span className="text-xs text-gray-600">Not enough data</span></div>;
+    if (values.length < 2) return <div className="h-10 flex items-end"><span className="text-xs text-gray-500">Not enough data</span></div>;
     const W = 120; const H = 36;
     const maxV = Math.max(...values);
     const minV = Math.min(...values);
@@ -924,17 +924,17 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
     const hasAmrap = amrapEntries.length > 0;
 
     if (!hasLifts && !hasAmrap && cardioSessions("running").length + cardioSessions("biking").length + cardioSessions("rollerblading").length + cardioSessions("muaythai").length < 1) {
-      return <p className="text-gray-600 text-sm">No workout data yet.</p>;
+      return <p className="text-gray-500 text-sm">No workout data yet.</p>;
     }
 
     return (
       <div className="space-y-5">
         {/* Monthly calendar — full width, 10 cols */}
-        <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-4">
+        <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-4">
           <div className="flex items-center justify-between mb-3">
-            <button onClick={() => { const d = new Date(calYear, calMonth - 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }} className="text-gray-500 hover:text-white w-6 h-6 flex items-center justify-center transition-colors">‹</button>
-            <p className="text-sm font-medium text-white">{calLabel} <span className="text-gray-500 font-normal text-xs">· {monthSessions.length} sessions</span></p>
-            <button onClick={() => { const d = new Date(calYear, calMonth + 1, 1); if (d <= now) { setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); } }} className={`w-6 h-6 flex items-center justify-center transition-colors ${new Date(calYear, calMonth + 1, 1) > now ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white"}`}>›</button>
+            <button onClick={() => { const d = new Date(calYear, calMonth - 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }} className="text-gray-500 hover:text-[#111] w-6 h-6 flex items-center justify-center transition-colors">‹</button>
+            <p className="text-sm font-medium text-[#111]">{calLabel} <span className="text-gray-500 font-normal text-xs">· {monthSessions.length} sessions</span></p>
+            <button onClick={() => { const d = new Date(calYear, calMonth + 1, 1); if (d <= now) { setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); } }} className={`w-6 h-6 flex items-center justify-center transition-colors ${new Date(calYear, calMonth + 1, 1) > now ? "text-gray-400 cursor-default" : "text-gray-500 hover:text-[#111]"}`}>›</button>
           </div>
           <div className="grid grid-cols-10 gap-1">
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
@@ -942,8 +942,8 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
               const types = workoutDateMap[ds] ?? [];
               const isToday = ds === todayStr();
               return (
-                <div key={d} className={`rounded-lg p-1.5 flex flex-col items-center gap-1 ${isToday ? "bg-[#2e2e2e]" : types.length > 0 ? "bg-[#252525]" : ""}`}>
-                  <span className={`text-xs leading-none ${isToday ? "font-bold text-white" : types.length > 0 ? "text-gray-300" : "text-gray-600"}`}>{d}</span>
+                <div key={d} className={`rounded-lg p-1.5 flex flex-col items-center gap-1 ${isToday ? "bg-[#E6E4DE]" : types.length > 0 ? "bg-white" : ""}`}>
+                  <span className={`text-xs leading-none ${isToday ? "font-bold text-[#111]" : types.length > 0 ? "text-gray-400" : "text-gray-500"}`}>{d}</span>
                   {types.length > 0 && (
                     <div className="flex gap-0.5 flex-wrap justify-center">
                       {types.map(t => (
@@ -957,7 +957,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3">
             {Object.entries(WORKOUT_COLORS).map(([type, color]) => (
-              <span key={type} className="flex items-center gap-1 text-[10px] text-gray-600 capitalize">
+              <span key={type} className="flex items-center gap-1 text-[10px] text-gray-500 capitalize">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
                 {type === "muaythai" ? "Muay Thai" : type}
               </span>
@@ -983,15 +983,15 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
                 const delta = best - first;
                 return (
                   <button key={exId} onClick={() => { setSelectedExercise(exId); setView("lift"); }}
-                    className="bg-[#1e1e1e] border border-[#2e2e2e] hover:border-[#444] rounded-2xl p-4 text-left transition-colors group">
+                    className="bg-[#F5F4F0] border border-[#D9D7CF] hover:border-[#111] rounded-2xl p-4 text-left transition-colors group">
                     <div className="flex items-start justify-between mb-2">
-                      <p className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors leading-tight">{exName}</p>
-                      <span className={`text-xs font-medium ml-2 shrink-0 ${delta >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      <p className="text-sm font-medium text-[#111] group-hover:text-blue-600 transition-colors leading-tight">{exName}</p>
+                      <span className={`text-xs font-medium ml-2 shrink-0 ${delta >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {first > 0 ? `${delta >= 0 ? "+" : ""}${delta} lbs` : "—"}
                       </span>
                     </div>
                     <Sparkline values={values} color="#3b82f6" isAmrap={false} />
-                    <p className="text-xs text-gray-500 mt-2">Est. 1RM: <span className="text-white">{best} lbs</span> · {pts.length} sessions</p>
+                    <p className="text-xs text-gray-500 mt-2">Est. 1RM: <span className="text-[#111]">{best} lbs</span> · {pts.length} sessions</p>
                   </button>
                 );
               })}
@@ -1013,15 +1013,15 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
                 const delta = last - first;
                 return (
                   <button key={exId} onClick={() => { setSelectedExercise(exId); setView("lift"); }}
-                    className="bg-[#1e1e1e] border border-[#2e2e2e] hover:border-[#444] rounded-2xl p-4 text-left transition-colors group">
+                    className="bg-[#F5F4F0] border border-[#D9D7CF] hover:border-[#111] rounded-2xl p-4 text-left transition-colors group">
                     <div className="flex items-start justify-between mb-2">
-                      <p className="text-sm font-medium text-white group-hover:text-purple-400 transition-colors leading-tight">{exName}</p>
-                      <span className={`text-xs font-medium ml-2 shrink-0 ${delta >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      <p className="text-sm font-medium text-[#111] group-hover:text-purple-600 transition-colors leading-tight">{exName}</p>
+                      <span className={`text-xs font-medium ml-2 shrink-0 ${delta >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {first > 0 ? `${delta >= 0 ? "+" : ""}${delta} reps` : "—"}
                       </span>
                     </div>
                     <Sparkline values={values} color="#a78bfa" isAmrap={true} />
-                    <p className="text-xs text-gray-500 mt-2">Best: <span className="text-white">{best} reps</span> · {pts.length} sessions</p>
+                    <p className="text-xs text-gray-500 mt-2">Best: <span className="text-[#111]">{best} reps</span> · {pts.length} sessions</p>
                   </button>
                 );
               })}
@@ -1037,11 +1037,11 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
           const totalMin = cs.reduce((a, s) => a + (s.cardio_data?.duration_min ?? 0), 0);
           return (
             <button key={wt.key} onClick={() => { setCardioType(wt.key); setView("cardio"); }}
-              className="w-full bg-[#1e1e1e] border border-[#2e2e2e] hover:border-[#444] rounded-2xl p-4 flex items-center justify-between transition-colors">
+              className="w-full bg-[#F5F4F0] border border-[#D9D7CF] hover:border-[#111] rounded-2xl p-4 flex items-center justify-between transition-colors">
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{wt.emoji}</span>
                 <div className="text-left">
-                  <p className="text-sm font-medium text-white">{wt.label}</p>
+                  <p className="text-sm font-medium text-[#111]">{wt.label}</p>
                   <p className="text-xs text-gray-500">
                     {cs.length} sessions
                     {totalDist > 0 && ` · ${totalDist.toFixed(1)} mi`}
@@ -1079,9 +1079,9 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => setView("overview")} className="text-sm text-gray-500 hover:text-white transition-colors">← Overview</button>
+          <button onClick={() => setView("overview")} className="text-sm text-gray-500 hover:text-[#111] transition-colors">← Overview</button>
           <select
-            className="bg-[#252525] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none"
+            className="bg-white border border-[#C9C7BF] rounded-lg px-3 py-1.5 text-sm text-[#111] focus:outline-none"
             value={selectedExercise ?? ""}
             onChange={e => setSelectedExercise(e.target.value)}
           >
@@ -1089,7 +1089,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
               <option key={exId} value={exId}>{exercises.find(e => e.id === exId)?.name ?? exId}</option>
             ))}
           </select>
-          {isAmrap && <span className="text-xs text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full">AMRAP</span>}
+          {isAmrap && <span className="text-xs text-purple-600 bg-purple-500/10 px-2 py-0.5 rounded-full">AMRAP</span>}
         </div>
 
         <div className="grid grid-cols-4 gap-3">
@@ -1099,19 +1099,19 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
             { label: "Progress", value: first ? `+${best1RM - first} ${unit}` : "—" },
             { label: "Sessions", value: String(pts.length) },
           ].map(({ label, value }) => (
-            <div key={label} className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-xl p-4">
+            <div key={label} className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-xl p-4">
               <p className="text-xs text-gray-500 mb-1">{label}</p>
-              <p className="text-lg font-bold text-white">{value}</p>
+              <p className="text-lg font-bold text-[#111]">{value}</p>
             </div>
           ))}
         </div>
 
-        <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+        <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-4">
             {exName} — {isAmrap ? "Max reps per session" : "Est. 1RM per session"}
           </p>
           {pts.length < 2 ? (
-            <p className="text-gray-600 text-sm">Need at least 2 sessions to show a trend.</p>
+            <p className="text-gray-500 text-sm">Need at least 2 sessions to show a trend.</p>
           ) : (
             <svg viewBox={`0 0 ${W} ${H + 30}`} className="w-full">
               {[0, 0.25, 0.5, 0.75, 1].map(pct => {
@@ -1119,7 +1119,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
                 const val = Math.round(pct * maxVal);
                 return (
                   <g key={pct}>
-                    <line x1="30" y1={y} x2={W} y2={y} stroke="#2a2a2a" strokeWidth="1" />
+                    <line x1="30" y1={y} x2={W} y2={y} stroke="#D9D7CF" strokeWidth="1" />
                     <text x="0" y={y + 4} fill="#555" fontSize="9">{val}</text>
                   </g>
                 );
@@ -1152,42 +1152,42 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
           )}
         </div>
 
-        <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl overflow-hidden">
+        <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl overflow-hidden">
           <p className="text-xs text-gray-500 uppercase tracking-wider p-5 pb-3">Session History</p>
           <div>
             {[...pts].reverse().map((p, i) => {
               const key = p.date + i;
               const isOpen = expandedSession === key;
               return (
-                <div key={key} className="border-t border-[#2a2a2a]">
+                <div key={key} className="border-t border-[#D9D7CF]">
                   <button
-                    className="w-full flex items-center justify-between px-5 py-3 hover:bg-[#242424] transition-colors text-left"
+                    className="w-full flex items-center justify-between px-5 py-3 hover:bg-[#E6E4DE] transition-colors text-left"
                     onClick={() => setExpandedSession(isOpen ? null : key)}
                   >
-                    <span className="text-sm text-gray-300">{formatDate(p.date)}</span>
+                    <span className="text-sm text-gray-400">{formatDate(p.date)}</span>
                     <div className="flex items-center gap-4">
                       {isAmrap
                         ? <span className="text-xs text-gray-500">Max reps <span style={{ color }}>{p.maxReps}</span></span>
                         : <>
-                          <span className="text-xs text-gray-500">Est. 1RM <span className="text-blue-400">{p.best1RM} lbs</span></span>
-                          <span className="text-xs text-gray-500">Max <span className="text-white">{p.maxWeight} lbs</span></span>
+                          <span className="text-xs text-gray-500">Est. 1RM <span className="text-blue-600">{p.best1RM} lbs</span></span>
+                          <span className="text-xs text-gray-500">Max <span className="text-[#111]">{p.maxWeight} lbs</span></span>
                         </>
                       }
-                      <span className="text-gray-600 text-xs">{isOpen ? "▲" : "▼"}</span>
+                      <span className="text-gray-500 text-xs">{isOpen ? "▲" : "▼"}</span>
                     </div>
                   </button>
                   {isOpen && (
-                    <div className="px-5 pb-4 bg-[#191919]">
+                    <div className="px-5 pb-4 bg-[#F5F4F0]">
                       <div className="grid grid-cols-[2rem_1fr_1fr_4rem] gap-x-3 gap-y-1 mt-1">
-                        <span className="text-xs text-gray-600">Set</span>
-                        <span className="text-xs text-gray-600">Weight</span>
-                        <span className="text-xs text-gray-600">Reps</span>
-                        <span className="text-xs text-gray-600">Type</span>
+                        <span className="text-xs text-gray-500">Set</span>
+                        <span className="text-xs text-gray-500">Weight</span>
+                        <span className="text-xs text-gray-500">Reps</span>
+                        <span className="text-xs text-gray-500">Type</span>
                         {p.sets.sort((a, b) => a.set_number - b.set_number).map((st, si) => (
                           <>
                             <span key={st.id + "n"} className="text-xs text-gray-500">{si + 1}</span>
-                            <span key={st.id + "w"} className="text-xs text-white">{st.is_amrap ? "—" : `${st.weight_lbs ?? "—"} lbs`}</span>
-                            <span key={st.id + "r"} className="text-xs text-white">{st.reps ?? "—"}</span>
+                            <span key={st.id + "w"} className="text-xs text-[#111]">{st.is_amrap ? "—" : `${st.weight_lbs ?? "—"} lbs`}</span>
+                            <span key={st.id + "r"} className="text-xs text-[#111]">{st.reps ?? "—"}</span>
                             <span key={st.id + "t"} className="text-xs" style={{ color: st.is_amrap ? "#a78bfa" : "#6b7280" }}>{st.is_amrap ? "AMRAP" : ""}</span>
                           </>
                         ))}
@@ -1222,7 +1222,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
         return `${x},${y}`;
       }).join(" ");
       return (
-        <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5">
+        <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">{label}</p>
           <svg viewBox={`0 0 ${W} ${H + 20}`} className="w-full">
             <polyline points={pointsStr} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -1239,7 +1239,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
               );
             })}
           </svg>
-          <p className="text-xs text-gray-500 mt-2">Best: <span className="text-white">{Math.max(...pts.map(p => p.val))} {unit}</span></p>
+          <p className="text-xs text-gray-500 mt-2">Best: <span className="text-[#111]">{Math.max(...pts.map(p => p.val))} {unit}</span></p>
         </div>
       );
     };
@@ -1247,13 +1247,13 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => setView("overview")} className="text-sm text-gray-500 hover:text-white transition-colors">← Overview</button>
+          <button onClick={() => setView("overview")} className="text-sm text-gray-500 hover:text-[#111] transition-colors">← Overview</button>
           <div className="flex gap-2">
             {WORKOUT_TYPES.filter(wt => wt.key !== "lifting").map(wt => (
               <button
                 key={wt.key}
                 onClick={() => setCardioType(wt.key)}
-                className={`px-3 py-1 rounded-lg text-sm transition-colors ${cardioType === wt.key ? "text-black font-medium" : "text-gray-400 border border-[#333]"}`}
+                className={`px-3 py-1 rounded-lg text-sm transition-colors ${cardioType === wt.key ? "text-black font-medium" : "text-gray-500 border border-[#C9C7BF]"}`}
                 style={cardioType === wt.key ? { backgroundColor: wt.color } : {}}
               >
                 {wt.emoji} {wt.label}
@@ -1268,9 +1268,9 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
             { label: "Total time", value: cs.reduce((a, s) => a + (s.cardio_data?.duration_min ?? 0), 0) + " min" },
             { label: "Total distance", value: hasDist ? cs.reduce((a, s) => a + (s.cardio_data?.distance_miles ?? 0), 0).toFixed(1) + " mi" : "—" },
           ].map(({ label, value }) => (
-            <div key={label} className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-xl p-4">
+            <div key={label} className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-xl p-4">
               <p className="text-xs text-gray-500 mb-1">{label}</p>
-              <p className="text-lg font-bold text-white">{value}</p>
+              <p className="text-lg font-bold text-[#111]">{value}</p>
             </div>
           ))}
         </div>
@@ -1282,7 +1282,7 @@ function ProgressTab({ sessions, exercises }: { sessions: Session[]; exercises: 
     );
   };
 
-  if (sessions.length === 0) return <p className="text-gray-600 text-sm">No workouts logged yet.</p>;
+  if (sessions.length === 0) return <p className="text-gray-500 text-sm">No workouts logged yet.</p>;
 
   return (
     <div>

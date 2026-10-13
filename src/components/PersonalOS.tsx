@@ -1,6 +1,7 @@
 /**
  * PersonalOS.tsx — Dark mode personal dashboard
- * Bubble home: greeting + weather, then one bubble per page (Jobs, Finances, Gym, Movies, Notes).
+ * Light editorial home: giant greeting, live reminders (job follow-ups, gym, note to-dos), then one
+ * outlined bubble per page (Jobs, Finances, Gym, Movies, Notes).
  * Each bubble opens a full page; the URL hash (#jobs etc.) tracks the open page.
  */
 
@@ -43,7 +44,7 @@ function makePath(vals: number[], maxVal: number, W: number, H: number, minVal =
 type FinanceTab = "total" | "savings" | "investments" | "leftover" | "runway";
 
 const FINANCE_TABS: { key: FinanceTab; label: string; color: string }[] = [
-  { key: "total",       label: "Total",    color: "#ffffff" },
+  { key: "total",       label: "Total",    color: "#111111" },
   { key: "savings",     label: "Savings",  color: "#22c55e" },
   { key: "investments", label: "Investing", color: "#a78bfa" },
   { key: "leftover",    label: "Leftover", color: "#3b82f6" },
@@ -90,15 +91,15 @@ function RunwayInline({ rows, loading, hoveredIdx, setHoveredIdx }: {
   return (
     <>
       <div className="flex items-center justify-between mb-1">
-        <div className="text-2xl font-bold text-white">${currentTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-sm text-gray-500 font-normal">/ $20k ({pct}%)</span></div>
+        <div className="text-2xl font-bold text-[#111]">${currentTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-sm text-gray-500 font-normal">/ $20k ({pct}%)</span></div>
         {monthsLeft !== null && monthsLeft > 0 && (
-          <span className="text-xs text-gray-400"><span className="font-semibold text-white">{monthsLeft}mo</span> / <span className="font-semibold text-white">{weeksLeft}wk</span> away</span>
+          <span className="text-xs text-gray-500"><span className="font-semibold text-[#111]">{monthsLeft}mo</span> / <span className="font-semibold text-[#111]">{weeksLeft}wk</span> away</span>
         )}
-        {currentTotal >= RUNWAY_TARGET && <span className="text-xs font-semibold text-emerald-400">🎉 Goal reached!</span>}
+        {currentTotal >= RUNWAY_TARGET && <span className="text-xs font-semibold text-emerald-600">🎉 Goal reached!</span>}
       </div>
-      {loading ? <div className="h-16 flex items-center justify-center text-xs text-gray-600">Loading…</div> : (
+      {loading ? <div className="h-16 flex items-center justify-center text-xs text-gray-500">Loading…</div> : (
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-24" preserveAspectRatio="none">
-          <line x1={0} y1={targetY} x2={W} y2={targetY} stroke="#374151" strokeWidth={1} strokeDasharray="4 3" />
+          <line x1={0} y1={targetY} x2={W} y2={targetY} stroke="#C9C7BF" strokeWidth={1} strokeDasharray="4 3" />
           <text x={W - 2} y={targetY - 3} textAnchor="end" fontSize={7} fill="#6b7280">$20k</text>
           {solidPoints.length > 1 && <path d={`${solidPath} L ${currentX} ${H} L 0 ${H} Z`} fill="#22c55e" fillOpacity="0.08" />}
           <path d={solidPath} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -107,11 +108,11 @@ function RunwayInline({ rows, loading, hoveredIdx, setHoveredIdx }: {
             const cx = xScale(i + 1), cy = yScale(v), isH = hoveredIdx === i;
             return (
               <g key={i}>
-                <circle cx={cx} cy={cy} r={isH ? 4.5 : 3} fill="#22c55e" stroke="#1e1e1e" strokeWidth="1.5" />
+                <circle cx={cx} cy={cy} r={isH ? 4.5 : 3} fill="#22c55e" stroke="#F5F4F0" strokeWidth="1.5" />
                 {isH && (
                   <g>
-                    <rect x={cx - 38} y={cy - 23} width={76} height={16} rx={4} fill="#1a1a1a" stroke="#333" strokeWidth={1} />
-                    <text x={cx} y={cy - 12} textAnchor="middle" fontSize={8} fill="#e5e7eb">{sortedMonths[i]} · ${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}</text>
+                    <rect x={cx - 38} y={cy - 23} width={76} height={16} rx={4} fill="#F5F4F0" stroke="#333" strokeWidth={1} />
+                    <text x={cx} y={cy - 12} textAnchor="middle" fontSize={8} fill="#5f5e5a">{sortedMonths[i]} · ${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}</text>
                   </g>
                 )}
                 <circle cx={cx} cy={cy} r="10" fill="transparent" className="cursor-pointer" onMouseEnter={() => setHoveredIdx(i)} onMouseLeave={() => setHoveredIdx(null)} />
@@ -122,7 +123,7 @@ function RunwayInline({ rows, loading, hoveredIdx, setHoveredIdx }: {
           {sortedMonths.map((m, i) => <text key={m} x={xScale(i + 1)} y={H - 1} textAnchor="middle" fontSize={7} fill="#4b5563">{m.slice(5)}</text>)}
         </svg>
       )}
-      <div className="mt-2 bg-[#2a2a2a] rounded-full h-1 overflow-hidden">
+      <div className="mt-2 bg-[#E6E4DE] rounded-full h-1 overflow-hidden">
         <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
       </div>
     </>
@@ -175,13 +176,13 @@ function FinanceBox() {
   const prevMonthY = prevMonthValue !== null ? yOf(prevMonthValue) : null;
 
   return (
-    <div className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-[28px] p-6">
+    <div className="w-full bg-[#F5F4F0] border border-[#D9D7CF] rounded-[28px] p-6">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
           {FINANCE_TABS.find(t => t.key === tab)!.label}
         </span>
         <div className="flex items-center gap-3">
-          <button onClick={() => setHidden(h => !h)} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">{hidden ? "Show" : "Hide"}</button>
+          <button onClick={() => setHidden(h => !h)} className="text-xs text-gray-500 hover:text-[#111] transition-colors">{hidden ? "Show" : "Hide"}</button>
         </div>
       </div>
       <div className={`transition-all duration-200 ${hidden ? "blur-md select-none pointer-events-none" : ""}`}>
@@ -206,8 +207,8 @@ function FinanceBox() {
           <path d={activePath} fill="none" stroke={activeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           {prevMonthX !== null && prevMonthY !== null && (
             <>
-              <line x1={prevMonthX} y1={0} x2={prevMonthX} y2={H} stroke="#374151" strokeWidth={1} strokeDasharray="3 3" />
-              <circle cx={prevMonthX} cy={prevMonthY} r="3" fill="#374151" stroke={activeColor} strokeWidth="1.5" />
+              <line x1={prevMonthX} y1={0} x2={prevMonthX} y2={H} stroke="#C9C7BF" strokeWidth={1} strokeDasharray="3 3" />
+              <circle cx={prevMonthX} cy={prevMonthY} r="3" fill="#C9C7BF" stroke={activeColor} strokeWidth="1.5" />
               <circle cx={prevMonthX} cy={prevMonthY} r="8" fill="transparent" className="cursor-pointer"
                 onMouseEnter={() => setHoveredNode("prev")} onMouseLeave={() => setHoveredNode(null)} />
             </>
@@ -222,13 +223,13 @@ function FinanceBox() {
         </svg>
       )}
       {hoveredNode === "prev" && prevMonthX !== null && prevMonthY !== null && prevMonthValue !== null && (
-        <div className="absolute pointer-events-none bg-[#1a1a1a] border border-[#333] rounded-lg px-2 py-1 text-xs text-gray-200 whitespace-nowrap z-10"
+        <div className="absolute pointer-events-none bg-[#F5F4F0] border border-[#C9C7BF] rounded-lg px-2 py-1 text-xs text-gray-800 whitespace-nowrap z-10"
           style={{ bottom: `${H - prevMonthY + 10}px`, left: `${(prevMonthX / W) * 100}%`, transform: "translateX(-50%)" }}>
           {sortedMonths[sortedMonths.length - 2]} · {prevMonthValue < 0 ? "-" : ""}${Math.abs(prevMonthValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </div>
       )}
       {hoveredNode === "curr" && sortedMonths.length > 0 && (
-        <div className="absolute pointer-events-none bg-[#1a1a1a] border border-[#333] rounded-lg px-2 py-1 text-xs text-gray-200 whitespace-nowrap z-10"
+        <div className="absolute pointer-events-none bg-[#F5F4F0] border border-[#C9C7BF] rounded-lg px-2 py-1 text-xs text-gray-800 whitespace-nowrap z-10"
           style={{ bottom: `${H - lastY + 10}px`, right: 0 }}>
           {sortedMonths[sortedMonths.length - 1]} · {activeValue < 0 ? "-" : ""}${Math.abs(activeValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </div>
@@ -262,13 +263,6 @@ const WMO_LABELS: Record<number, string> = {
   95: "Thunderstorm", 96: "Thunderstorm", 99: "Thunderstorm",
 };
 
-const WMO_EMOJI: Record<number, string> = {
-  0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
-  45: "🌫️", 48: "🌫️", 51: "🌦️", 53: "🌦️", 55: "🌧️",
-  61: "🌧️", 63: "🌧️", 65: "🌧️", 71: "🌨️", 73: "🌨️", 75: "🌨️",
-  80: "🌦️", 81: "🌦️", 82: "⛈️", 95: "⛈️", 96: "⛈️", 99: "⛈️",
-};
-
 
 // ─── Jobs Panel ──────────────────────────────────────────────────────────────
 // Rows come from public.job_postings — found + scored by the external scanner, or added
@@ -281,8 +275,8 @@ const JOB_TABS: { key: JobTab; label: string; color: string; statuses: JobStatus
   { key: "new",        label: "New",        color: "#3b82f6", statuses: ["new"] },
   { key: "interested", label: "Interested", color: "#f59e0b", statuses: ["interested"] },
   { key: "applied",    label: "Applied",    color: "#a78bfa", statuses: ["applied"] },
-  { key: "pipeline",   label: "Pipeline",   color: "#22d3ee", statuses: ["screen", "interview", "offer"] },
-  { key: "archive",    label: "Archive",    color: "#9ca3af", statuses: ["rejected", "withdrawn", "skipped", "closed"] },
+  { key: "pipeline",   label: "Pipeline",   color: "#0891b2", statuses: ["screen", "interview", "offer"] },
+  { key: "archive",    label: "Archive",    color: "#6b7280", statuses: ["rejected", "withdrawn", "skipped", "closed"] },
 ];
 // "In process" = applied or further along (used for the "Applied <date> · Nd in stage" line).
 const PIPELINE: JobStatus[] = ["applied", "screen", "interview", "offer"];
@@ -350,7 +344,7 @@ const needsFollowUp = (j: JobPosting) =>
 
 function FitBadge({ score }: { score: number | null }) {
   if (score == null) {
-    return <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs text-gray-600 border border-[#333]" title="Not scored">—</span>;
+    return <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs text-gray-500 border border-[#C9C7BF]" title="Not scored">—</span>;
   }
   const c = fitColor(score);
   return (
@@ -363,9 +357,9 @@ function FitBadge({ score }: { score: number | null }) {
 
 // Category is set from the title by a DB trigger on insert; can be overridden per job.
 const JOB_CATEGORY_META: Record<JobCategory, { label: string; color: string }> = {
-  lead:     { label: "Lead",     color: "#f472b6" },
-  engineer: { label: "Engineer", color: "#2dd4bf" },
-  product:  { label: "Product",  color: "#facc15" },
+  lead:     { label: "Lead",     color: "#be185d" },
+  engineer: { label: "Engineer", color: "#0f766e" },
+  product:  { label: "Product",  color: "#a16207" },
 };
 const JOB_CATEGORIES = Object.keys(JOB_CATEGORY_META) as JobCategory[];
 type JobCategoryFilter = "all" | JobCategory;
@@ -388,7 +382,7 @@ function StatusChip({ status }: { status: JobStatus }) {
   );
 }
 
-const jobInputCls = "w-full bg-[#222] border border-[#333] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#555]";
+const jobInputCls = "w-full bg-white border border-[#C9C7BF] rounded-xl px-3 py-2 text-xs text-[#111] placeholder-gray-400 focus:outline-none focus:border-[#111]";
 
 /** Text / textarea / date input that saves on blur when the value changed ("" → null).
  *  Callers key it by value so it resets when the server changes the field (e.g. applied_at via trigger). */
@@ -411,7 +405,7 @@ function JobField({ label, value, kind = "text", placeholder, onSave }: {
         <textarea className={`${jobInputCls} resize-none`} rows={2} placeholder={placeholder}
           value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit} />
       ) : (
-        <input type={kind} className={`${jobInputCls} [color-scheme:dark]`} placeholder={placeholder}
+        <input type={kind} className={`${jobInputCls} [color-scheme:light]`} placeholder={placeholder}
           value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit} />
       )}
     </label>
@@ -428,13 +422,13 @@ function JobDetails({ job, onUpdate }: {
   const save = (field: keyof JobUpdate) => (v: string | null) => onUpdate({ [field]: v });
 
   return (
-    <div className="border-t border-[#2a2a2a] mt-1 pt-4 pb-5 pl-10 pr-1 space-y-3">
+    <div className="border-t border-[#D9D7CF] mt-1 pt-4 pb-5 pl-10 pr-1 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         {JOB_QUICK_ACTIONS[job.status].map(a => {
           const c = JOB_STATUS_META[a.to].color;
           return (
             <button key={a.to} onClick={() => onUpdate({ status: a.to })}
-              className="text-xs font-medium px-3 py-1 rounded-full border transition-colors hover:bg-white/5"
+              className="text-xs font-medium px-3 py-1 rounded-full border transition-colors hover:bg-black/5"
               style={{ color: c, borderColor: `${c}66` }}>
               {a.label}
             </button>
@@ -444,7 +438,7 @@ function JobDetails({ job, onUpdate }: {
           value={job.status}
           onChange={e => onUpdate({ status: e.target.value as JobStatus })}
           title="Set any status"
-          className="bg-[#222] border border-[#333] rounded-full px-3 py-1 text-xs focus:outline-none focus:border-[#555] [color-scheme:dark]"
+          className="bg-white border border-[#C9C7BF] rounded-full px-3 py-1 text-xs focus:outline-none focus:border-[#111] [color-scheme:light]"
           style={{ color: JOB_STATUS_META[job.status].color }}>
           {JOB_TABS.map(t => (
             <optgroup key={t.key} label={t.label}>
@@ -452,19 +446,19 @@ function JobDetails({ job, onUpdate }: {
             </optgroup>
           ))}
         </select>
-        <span className="text-[10px] text-gray-600">{daysSince(job.status_changed_at)}d in stage</span>
+        <span className="text-[10px] text-gray-500">{daysSince(job.status_changed_at)}d in stage</span>
         <select
           value={job.category ?? ""}
           onChange={e => onUpdate({ category: e.target.value as JobCategory })}
           title="Category (auto-set from title — change if it's wrong)"
-          className="bg-[#222] border border-[#333] rounded-full px-3 py-1 text-xs focus:outline-none focus:border-[#555] [color-scheme:dark]"
+          className="bg-white border border-[#C9C7BF] rounded-full px-3 py-1 text-xs focus:outline-none focus:border-[#111] [color-scheme:light]"
           style={{ color: job.category ? JOB_CATEGORY_META[job.category].color : "#6b7280" }}>
           {!job.category && <option value="" disabled>Category —</option>}
           {JOB_CATEGORIES.map(c => <option key={c} value={c}>{JOB_CATEGORY_META[c].label}</option>)}
         </select>
         {isHttpUrl(job.url) && (
           <a href={job.url} target="_blank" rel="noopener noreferrer"
-            className="ml-auto text-xs font-medium text-blue-400 hover:underline">
+            className="ml-auto text-xs font-medium text-blue-600 hover:underline">
             Apply →
           </a>
         )}
@@ -472,30 +466,30 @@ function JobDetails({ job, onUpdate }: {
 
       {/* Fit (scanner rows only — manual rows show "—") */}
       {job.fit_score == null ? (
-        <p className="text-xs text-gray-600"><span className="text-[10px] uppercase tracking-widest text-gray-500 mr-2">Fit</span>—</p>
+        <p className="text-xs text-gray-500"><span className="text-[10px] uppercase tracking-widest text-gray-500 mr-2">Fit</span>—</p>
       ) : (
         <>
-          {job.fit_summary && <p className="text-xs text-gray-300 leading-relaxed">{job.fit_summary}</p>}
+          {job.fit_summary && <p className="text-xs text-gray-400 leading-relaxed">{job.fit_summary}</p>}
           {(reasons.length > 0 || flags.length > 0) && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Reasons</p>
                 <ul className="space-y-0.5">
-                  {reasons.map((r, i) => <li key={i} className="text-xs text-gray-400 flex gap-1.5"><span className="text-emerald-500">+</span>{r}</li>)}
-                  {reasons.length === 0 && <li className="text-xs text-gray-700">—</li>}
+                  {reasons.map((r, i) => <li key={i} className="text-xs text-gray-500 flex gap-1.5"><span className="text-emerald-500">+</span>{r}</li>)}
+                  {reasons.length === 0 && <li className="text-xs text-gray-400">—</li>}
                 </ul>
               </div>
               <div>
                 <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Red flags</p>
                 <ul className="space-y-0.5">
-                  {flags.map((r, i) => <li key={i} className="text-xs text-gray-400 flex gap-1.5"><span className="text-red-400">!</span>{r}</li>)}
-                  {flags.length === 0 && <li className="text-xs text-gray-700">—</li>}
+                  {flags.map((r, i) => <li key={i} className="text-xs text-gray-500 flex gap-1.5"><span className="text-red-600">!</span>{r}</li>)}
+                  {flags.length === 0 && <li className="text-xs text-gray-400">—</li>}
                 </ul>
               </div>
             </div>
           )}
           {resume && (
-            <p className="text-xs text-gray-500">Resume: <span className="font-mono text-gray-300">{resume}</span></p>
+            <p className="text-xs text-gray-500">Resume: <span className="font-mono text-gray-400">{resume}</span></p>
           )}
         </>
       )}
@@ -532,7 +526,7 @@ function AddJobForm({ onAdded, onCancel }: { onAdded: (job: JobPosting) => void;
   };
 
   return (
-    <form onSubmit={submit} className="mb-4 p-5 rounded-[28px] border border-[#2a2a2a] bg-[#1a1a1a] space-y-2">
+    <form onSubmit={submit} className="mb-4 p-5 rounded-[28px] border border-[#D9D7CF] bg-[#F5F4F0] space-y-2">
       <div className="grid grid-cols-2 gap-2">
         <input className={jobInputCls} placeholder="Company *" value={form.company} onChange={set("company")} autoFocus />
         <input className={jobInputCls} placeholder="Title *" value={form.title} onChange={set("title")} />
@@ -541,10 +535,10 @@ function AddJobForm({ onAdded, onCancel }: { onAdded: (job: JobPosting) => void;
       </div>
       <textarea className={`${jobInputCls} resize-none`} rows={2} placeholder="Why interested?" value={form.why_interested} onChange={set("why_interested")} />
       <div className="flex items-center gap-2">
-        {error && <span className="text-xs text-red-400">{error}</span>}
-        <button type="button" onClick={onCancel} className="ml-auto text-xs text-gray-500 hover:text-gray-300 px-2 py-1">Cancel</button>
+        {error && <span className="text-xs text-red-600">{error}</span>}
+        <button type="button" onClick={onCancel} className="ml-auto text-xs text-gray-500 hover:text-[#111] px-2 py-1">Cancel</button>
         <button type="submit" disabled={saving}
-          className="text-xs font-semibold bg-white text-black rounded-full px-4 py-1.5 hover:bg-gray-200 disabled:opacity-50">
+          className="text-xs font-semibold bg-[#111] text-[#F5F4F0] rounded-full px-4 py-1.5 hover:bg-[#333] disabled:opacity-50">
           {saving ? "Adding…" : "Add job"}
         </button>
       </div>
@@ -626,10 +620,9 @@ function JobsPanel() {
           const n = jobs.filter(j => inTab(j, t.key) && inCategory(j) && (!searching || matches(j))).length;
           return (
             <button key={t.key} onClick={() => { setTab(t.key); setExpanded(null); setQuery(""); }}
-              className="text-left rounded-[22px] border p-4 transition-colors hover:border-[#3a3a3a]"
-              style={{ borderColor: active ? `${t.color}80` : "#2a2a2a", backgroundColor: active ? `${t.color}14` : "#1a1a1a" }}>
-              <div className="text-xs font-medium" style={{ color: t.color }}>{t.label}</div>
-              <div className="text-2xl font-bold text-white tabular-nums mt-1">{n}</div>
+              className={`text-left rounded-[22px] border p-4 transition-colors ${active ? "bg-[#111] border-[#111] text-[#ECEBE7]" : "border-[#111] hover:bg-[#111] hover:text-[#ECEBE7]"}`}>
+              <div className="text-xs font-medium opacity-70">{t.label}</div>
+              <div className="text-3xl font-medium tracking-[-0.04em] tabular-nums mt-1">{n}</div>
             </button>
           );
         })}
@@ -643,14 +636,14 @@ function JobsPanel() {
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === "Escape") setQuery(""); }}
             placeholder="Search all jobs — company, title, #id, contact, notes…"
-            className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-full pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#555] [color-scheme:dark]"
+            className="w-full bg-[#F5F4F0] border border-[#D9D7CF] rounded-full pl-10 pr-4 py-2.5 text-sm text-[#111] placeholder-gray-400 focus:outline-none focus:border-[#111] [color-scheme:light]"
           />
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 text-sm pointer-events-none">⌕</span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">⌕</span>
         </div>
-        <div className="flex items-center gap-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-full p-1 flex-shrink-0">
+        <div className="flex items-center gap-1 bg-[#F5F4F0] border border-[#D9D7CF] rounded-full p-1 flex-shrink-0">
           {(["all", ...JOB_CATEGORIES] as JobCategoryFilter[]).map(c => {
             const active = category === c;
-            const color = c === "all" ? "#e5e7eb" : JOB_CATEGORY_META[c].color;
+            const color = c === "all" ? "#111111" : JOB_CATEGORY_META[c].color;
             const n = jobs.filter(j => inView(j) && (c === "all" || j.category === c)).length;
             return (
               <button key={c} onClick={() => { setCategory(c); setExpanded(null); }}
@@ -662,7 +655,7 @@ function JobsPanel() {
           })}
         </div>
         <button onClick={() => setAdding(a => !a)}
-          className="text-xs font-semibold bg-white text-black rounded-full px-4 py-2.5 hover:bg-gray-200 transition-colors flex-shrink-0">
+          className="text-xs font-semibold bg-[#111] text-[#F5F4F0] rounded-full px-4 py-2.5 hover:bg-[#333] transition-colors flex-shrink-0">
           {adding ? "× Close" : "+ Add job"}
         </button>
       </div>
@@ -671,10 +664,10 @@ function JobsPanel() {
 
       {loading ? (
         <div className="space-y-3">
-          {[1,2,3].map(i => <div key={i} className="h-16 bg-[#1a1a1a] rounded-2xl animate-pulse" />)}
+          {[1,2,3].map(i => <div key={i} className="h-16 bg-[#F5F4F0] rounded-2xl animate-pulse" />)}
         </div>
       ) : visible.length === 0 ? (
-        <p className="text-sm text-gray-600 text-center py-10 bg-[#1a1a1a] border border-[#2a2a2a] rounded-[28px]">{searching ? `No jobs match “${query.trim()}”` : "No jobs here"}{category !== "all" ? ` (${JOB_CATEGORY_META[category].label} only)` : ""}</p>
+        <p className="text-sm text-gray-500 text-center py-10 bg-[#F5F4F0] border border-[#D9D7CF] rounded-[28px]">{searching ? `No jobs match “${query.trim()}”` : "No jobs here"}{category !== "all" ? ` (${JOB_CATEGORY_META[category].label} only)` : ""}</p>
       ) : (
         <div className="space-y-2">
           {visible.map(job => {
@@ -682,32 +675,32 @@ function JobsPanel() {
             const inPipeline = PIPELINE.includes(job.status);
             const showStatus = searching || tab === "pipeline" || tab === "archive" || !inTab(job, tab);
             return (
-              <div key={job.id} className={`px-4 rounded-2xl border transition-colors ${isOpen ? "bg-[#1c1c1c] border-[#3a3a3a]" : "bg-[#1a1a1a] border-[#2a2a2a] hover:border-[#3a3a3a]"} ${ARCHIVE.includes(job.status) && tab !== "archive" ? "opacity-60" : ""}`}>
+              <div key={job.id} className={`px-4 rounded-2xl border transition-colors ${isOpen ? "bg-[#F5F4F0] border-[#C9C7BF]" : "bg-[#F5F4F0] border-[#D9D7CF] hover:border-[#111]"} ${ARCHIVE.includes(job.status) && tab !== "archive" ? "opacity-60" : ""}`}>
                 <div className="py-3.5 cursor-pointer grid grid-cols-[28px_minmax(0,1fr)_minmax(0,10rem)_6.5rem_auto] items-center gap-3"
                   onClick={() => setExpanded(isOpen ? null : job.id)}>
                   <FitBadge score={job.fit_score} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-sm font-medium text-gray-100 truncate" title={job.title}>{job.title}</span>
+                      <span className="text-sm font-medium text-gray-900 truncate" title={job.title}>{job.title}</span>
                       <CategoryChip category={job.category} />
                       {showStatus && <StatusChip status={job.status} />}
                       {needsFollowUp(job) && (
-                        <span className="flex-shrink-0 text-[9px] uppercase tracking-wider rounded-full px-1.5 bg-orange-500/15 text-orange-400 border border-orange-400/40"
+                        <span className="flex-shrink-0 text-[9px] uppercase tracking-wider rounded-full px-1.5 bg-orange-500/15 text-orange-600 border border-orange-600/40"
                           title={`Follow up on ${fmtShortDate(job.follow_up_on!)}`}>Follow up</span>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 min-w-0 text-[11px] mt-0.5">
                       <span className="flex-shrink-0 font-mono text-gray-500 tabular-nums" title="Supabase job_postings.id">#{job.id}</span>
-                      <span className="font-medium truncate flex-shrink-0 max-w-[50%] text-gray-300" title={job.company}>{job.company}</span>
+                      <span className="font-medium truncate flex-shrink-0 max-w-[50%] text-gray-400" title={job.company}>{job.company}</span>
                       {job.next_step && <span className="text-gray-500 truncate" title={job.next_step}>· {job.next_step}</span>}
                     </div>
                   </div>
                   <span className="text-[11px] text-gray-500 flex items-center gap-1.5 min-w-0">
                     <span className="truncate" title={job.location ?? ""}>{job.location ?? "—"}</span>
-                    {job.remote && <span className="flex-shrink-0 text-[9px] uppercase tracking-wider text-cyan-400 border border-cyan-400/40 rounded-full px-1.5">Remote</span>}
+                    {job.remote && <span className="flex-shrink-0 text-[9px] uppercase tracking-wider text-cyan-600 border border-cyan-600/40 rounded-full px-1.5">Remote</span>}
                   </span>
-                  <span className="text-[11px] text-gray-400 truncate tabular-nums text-right" title={job.salary ?? ""}>{job.salary ?? "—"}</span>
-                  <span className="text-[10px] text-gray-600 text-right tabular-nums whitespace-nowrap">
+                  <span className="text-[11px] text-gray-500 truncate tabular-nums text-right" title={job.salary ?? ""}>{job.salary ?? "—"}</span>
+                  <span className="text-[10px] text-gray-500 text-right tabular-nums whitespace-nowrap">
                     {inPipeline
                       ? `${job.applied_at ? `Applied ${fmtShortDate(job.applied_at)} · ` : ""}${daysSince(job.status_changed_at)}d in stage`
                       : jobAge(job.first_seen_at)}
@@ -750,11 +743,11 @@ function NotesBox() {
   }, [notes]);
 
   return (
-    <div className="bg-[#1e1e1e] border border-[#2e2e2e] rounded-2xl p-5 flex flex-col">
+    <div className="bg-[#F5F4F0] border border-[#D9D7CF] rounded-2xl p-5 flex flex-col">
       <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Notes</p>
       <textarea
         ref={textareaRef}
-        className="bg-transparent text-sm text-gray-300 placeholder-gray-700 resize-none focus:outline-none leading-relaxed overflow-hidden"
+        className="bg-transparent text-sm text-gray-400 placeholder-gray-400 resize-none focus:outline-none leading-relaxed overflow-hidden"
         style={{ minHeight: "10rem", maxHeight: "30rem" }}
         placeholder="Jot something down…"
         value={notes}
@@ -764,9 +757,9 @@ function NotesBox() {
   );
 }
 
-// ─── Home: weather chip ──────────────────────────────────────────────────────
+// ─── Home: weather line ──────────────────────────────────────────────────────
 
-function WeatherChip() {
+function WeatherLine() {
   const [w, setW] = useState<{ temp: number; code: number; high: number; low: number } | null>(null);
 
   useEffect(() => {
@@ -784,24 +777,27 @@ function WeatherChip() {
   }, []);
 
   if (!w) return null;
-  return (
-    <div className="flex items-center gap-2 text-sm text-gray-400" title={WMO_LABELS[w.code] ?? ""}>
-      <span className="text-lg">{WMO_EMOJI[w.code] ?? "🌡️"}</span>
-      <span className="text-white font-semibold">{w.temp}°</span>
-      <span className="text-gray-600">H{w.high} L{w.low} · NYC</span>
-    </div>
-  );
+  return <p>{w.temp}° {(WMO_LABELS[w.code] ?? "").toLowerCase()} · H{w.high} L{w.low} · New York</p>;
 }
 
-// ─── Home: bubble previews ───────────────────────────────────────────────────
+// ─── Home: bubble previews + reminders ───────────────────────────────────────
 
-interface HomeStats {
+type Page = "jobs" | "money" | "gym" | "movies" | "notes";
+const PAGES: Page[] = ["jobs", "money", "gym", "movies", "notes"];
+const PAGE_TITLES: Record<Page, string> = {
+  jobs: "Jobs", money: "Finances", gym: "Gym", movies: "Movies", notes: "Notes",
+};
+
+interface Reminder { text: string; page: Page; }
+
+interface HomeData {
   jobsNew: number;
   jobsPipeline: number;
   jobsFollowUps: number;
   spentToday: number | null;
   sessionsThisWeek: number | null;
   notesFirstLine: string;
+  reminders: { jobs: Reminder[]; gym: Reminder[]; notes: Reminder[] };
 }
 
 function startOfWeekYmd(): string {
@@ -811,52 +807,70 @@ function startOfWeekYmd(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function useHomeStats(): HomeStats {
-  const [stats, setStats] = useState<HomeStats>({
+/** First sentence of a free-text field, capped so reminders stay one or two lines. */
+function shorten(text: string, max = 70): string {
+  const first = text.split(/(?<=\.)\s/)[0].replace(/\.$/, "");
+  return first.length > max ? `${first.slice(0, max - 1).trimEnd()}…` : first;
+}
+
+// Open to-dos in the notes scratchpad: "[ ] thing", "- [ ] thing", or "todo: thing".
+const NOTE_TODO = /^\s*(?:[-*]\s*)?(?:\[\s\]|todo:?)\s+(.+)$/i;
+
+function useHomeData(): HomeData {
+  const [data, setData] = useState<HomeData>({
     jobsNew: 0, jobsPipeline: 0, jobsFollowUps: 0, spentToday: null, sessionsThisWeek: null, notesFirstLine: "",
+    reminders: { jobs: [], gym: [], notes: [] },
   });
+  const setReminders = (key: keyof HomeData["reminders"], list: Reminder[]) =>
+    setData(d => ({ ...d, reminders: { ...d.reminders, [key]: list } }));
 
   useEffect(() => {
     const today = todayStr();
     db.jobs.list().then(jobs => {
       if (!Array.isArray(jobs)) return;
-      setStats(s => ({
-        ...s,
+      const followUps = jobs.filter(needsFollowUp);
+      const nextSteps = jobs.filter(j => PIPELINE.includes(j.status) && j.next_step && !needsFollowUp(j));
+      setData(d => ({
+        ...d,
         jobsNew: jobs.filter(j => j.status === "new").length,
         jobsPipeline: jobs.filter(j => PIPELINE.includes(j.status)).length,
-        jobsFollowUps: jobs.filter(needsFollowUp).length,
+        jobsFollowUps: followUps.length,
       }));
+      // Several applications at one company often share a next step, so dedupe the text.
+      const texts = [
+        ...followUps.map(j => `Follow up with ${j.company}${j.next_step ? ` — ${shorten(j.next_step)}` : ""}`),
+        ...nextSteps.map(j => `${j.company}: ${shorten(j.next_step!)}`),
+      ];
+      setReminders("jobs", [...new Set(texts)].map(text => ({ text, page: "jobs" as Page })));
     }).catch(() => {});
-    db.budget.get(today.slice(0, 7)).then((data: { logs?: { date: string; amount: number; owed?: number }[] } | null) => {
-      const spent = (data?.logs ?? []).filter(l => l.date === today).reduce((sum, l) => sum + (l.owed ?? l.amount), 0);
-      setStats(s => ({ ...s, spentToday: spent }));
-    }).catch(() => setStats(s => ({ ...s, spentToday: 0 })));
+    db.budget.get(today.slice(0, 7)).then((b: { logs?: { date: string; amount: number; owed?: number }[] } | null) => {
+      const spent = (b?.logs ?? []).filter(l => l.date === today).reduce((sum, l) => sum + (l.owed ?? l.amount), 0);
+      setData(d => ({ ...d, spentToday: spent }));
+    }).catch(() => setData(d => ({ ...d, spentToday: 0 })));
     db.sessions.list().then((rows: { date: string }[]) => {
       if (!Array.isArray(rows)) return;
       const monday = startOfWeekYmd();
-      setStats(s => ({ ...s, sessionsThisWeek: rows.filter(r => r.date >= monday).length }));
+      const thisWeek = rows.filter(r => r.date >= monday).length;
+      const last = rows.map(r => r.date).sort().at(-1);
+      const daysAgo = last ? daysSince(`${last}T12:00:00`) : null;
+      setData(d => ({ ...d, sessionsThisWeek: thisWeek }));
+      setReminders("gym",
+        thisWeek === 0 ? [{ text: "No gym sessions yet this week. Set your gym schedule.", page: "gym" }]
+        : daysAgo !== null && daysAgo >= 3 ? [{ text: `Last workout was ${daysAgo} days ago.`, page: "gym" }]
+        : []);
     }).catch(() => {});
-    db.notes.get().then((d: { content?: string }) => {
-      const first = (d?.content ?? "").split("\n").map(l => l.trim()).find(Boolean) ?? "";
-      setStats(s => ({ ...s, notesFirstLine: first }));
+    db.notes.get().then((n: { content?: string }) => {
+      const lines = (n?.content ?? "").split("\n").map(l => l.trim()).filter(Boolean);
+      setData(d => ({ ...d, notesFirstLine: lines[0] ?? "" }));
+      setReminders("notes", lines
+        .map(l => l.match(NOTE_TODO)?.[1])
+        .filter((t): t is string => !!t)
+        .map(t => ({ text: `To do: ${t}`, page: "notes" })));
     }).catch(() => {});
   }, []);
 
-  return stats;
+  return data;
 }
-
-// ─── Home: pages + bubbles ───────────────────────────────────────────────────
-
-type Page = "jobs" | "money" | "gym" | "movies" | "notes";
-const PAGES: Page[] = ["jobs", "money", "gym", "movies", "notes"];
-
-const PAGE_META: Record<Page, { title: string; icon: string; tint: string }> = {
-  jobs:   { title: "Jobs",     icon: "💼", tint: "bg-blue-500/15" },
-  money:  { title: "Finances", icon: "💵", tint: "bg-green-500/15" },
-  gym:    { title: "Gym",      icon: "🏋️", tint: "bg-orange-500/15" },
-  movies: { title: "Movies",   icon: "🎬", tint: "bg-violet-500/15" },
-  notes:  { title: "Notes",    icon: "📝", tint: "bg-amber-500/15" },
-};
 
 function pageFromHash(): Page | null {
   const h = window.location.hash.replace(/^#\/?/, "");
@@ -864,16 +878,16 @@ function pageFromHash(): Page | null {
 }
 
 function Bubble({ page, line, sub, onOpen }: { page: Page; line: string; sub: string; onOpen: () => void }) {
-  const m = PAGE_META[page];
   return (
     <button
       onClick={onOpen}
-      className="text-left bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#3a3a3a] hover:-translate-y-0.5 rounded-[28px] p-6 flex flex-col gap-2 min-h-[160px] transition-all"
+      className="group text-left border border-[#111] rounded-[28px] p-5 flex flex-col justify-between gap-6 min-h-[150px] transition-colors hover:bg-[#111] hover:text-[#ECEBE7]"
     >
-      <div className={`w-11 h-11 rounded-full flex items-center justify-center text-xl ${m.tint}`}>{m.icon}</div>
-      <div className="text-base font-semibold text-white mt-1">{m.title}</div>
-      <div className="text-sm text-gray-300 truncate">{line}</div>
-      <div className="text-xs text-gray-600">{sub}</div>
+      <div className="text-xl font-medium tracking-[-0.03em]">{PAGE_TITLES[page]}</div>
+      <div className="text-[13px] leading-snug text-[#5f5e5a] group-hover:text-[#b4b2a9]">
+        <div className="truncate">{line}</div>
+        <div>{sub}</div>
+      </div>
     </button>
   );
 }
@@ -883,12 +897,12 @@ function GymPage() {
   const pill = (key: typeof tab, label: string) => (
     <button
       onClick={() => setTab(key)}
-      className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-colors ${tab === key ? "bg-white text-black" : "text-gray-400 hover:text-white"}`}
+      className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-colors ${tab === key ? "bg-[#111] text-[#F5F4F0]" : "text-gray-500 hover:text-[#111]"}`}
     >{label}</button>
   );
   return (
     <>
-      <div className="flex gap-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-full p-1 w-fit mb-6 mx-auto">
+      <div className="flex gap-1 bg-[#F5F4F0] border border-[#D9D7CF] rounded-full p-1 w-fit mb-6">
         {pill("workouts", "Workouts")}
         {pill("running", "10K plan")}
       </div>
@@ -899,19 +913,20 @@ function GymPage() {
 
 function MoviesPage() {
   return (
-    <div className="max-w-3xl mx-auto bg-[#1a1a1a] border border-[#2a2a2a] rounded-[28px] p-10 text-center">
-      <div className="text-4xl mb-3">🎬</div>
-      <p className="text-white font-semibold mb-1">Movie recommendations are coming</p>
-      <p className="text-sm text-gray-500">A watchlist and nightly picks will live here.</p>
+    <div className="max-w-3xl border border-[#111] rounded-[28px] p-10">
+      <p className="text-2xl font-medium tracking-[-0.03em] mb-1">Movie recommendations are coming</p>
+      <p className="text-sm text-[#5f5e5a]">A watchlist and nightly picks will live here.</p>
     </div>
   );
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
+const display = "font-medium uppercase leading-[0.86] tracking-[-0.055em]";
+
 export default function PersonalOS() {
   const [page, setPage] = useState<Page | null>(pageFromHash);
-  const stats = useHomeStats();
+  const home = useHomeData();
 
   // The hash is the source of truth so refresh and the browser back button work.
   useEffect(() => {
@@ -920,24 +935,20 @@ export default function PersonalOS() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  const open = (p: Page) => { window.location.hash = p; window.scrollTo(0, 0); };
+  const open = (p: Page) => { window.location.assign(`#${p}`); window.scrollTo(0, 0); };
   const goHome = () => { history.pushState(null, "", window.location.pathname); setPage(null); };
 
   if (page) {
-    const m = PAGE_META[page];
     return (
-      <div className="min-h-screen bg-[#111] text-white p-6 sm:p-8">
+      <div className="min-h-screen bg-[#ECEBE7] text-[#111] p-6 sm:p-10">
         <div className="max-w-6xl mx-auto">
-          <button onClick={goHome} className="text-sm text-gray-500 hover:text-white transition-colors">← Home</button>
-          <div className="flex items-center gap-3 mt-5 mb-8">
-            <div className={`w-11 h-11 rounded-full flex items-center justify-center text-xl ${m.tint}`}>{m.icon}</div>
-            <h1 className="text-2xl font-bold">{m.title}</h1>
-          </div>
+          <button onClick={goHome} className="text-sm text-[#5f5e5a] hover:text-[#111] transition-colors">← Home</button>
+          <h1 className={`${display} text-6xl sm:text-7xl mt-6 mb-10`}>{PAGE_TITLES[page]}</h1>
           {page === "jobs" && <JobsPanel />}
           {page === "money" && <BudgetPanel overviewTop={<FinanceBox />} />}
           {page === "gym" && <GymPage />}
           {page === "movies" && <MoviesPage />}
-          {page === "notes" && <div className="max-w-3xl mx-auto"><NotesBox /></div>}
+          {page === "notes" && <div className="max-w-3xl"><NotesBox /></div>}
         </div>
       </div>
     );
@@ -945,34 +956,50 @@ export default function PersonalOS() {
 
   const now = new Date();
   const hour = now.getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greeting = hour < 12 ? "Good morning," : hour < 17 ? "Good afternoon," : "Good evening,";
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const { jobs, gym, notes } = home.reminders;
+  const reminders = [...jobs.slice(0, 4), ...gym, ...notes.slice(0, 3)];
 
   return (
-    <div className="min-h-screen bg-[#111] text-white p-6 sm:p-8">
-      <div className="max-w-5xl mx-auto pt-6">
-        <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
-          <div>
-            <h1 className="text-3xl font-bold">{greeting}, Finn</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-            </p>
+    <div className="min-h-screen bg-[#ECEBE7] text-[#111] p-6 sm:p-10">
+      <div className="max-w-6xl mx-auto pt-4 sm:pt-10">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
+          <h1 className={`${display} text-[clamp(3.5rem,10vw,8.5rem)]`}>
+            {greeting.split(" ").map((w, i) => <span key={i} className="block">{w}</span>)}
+            <span className="block">Finn</span>
+          </h1>
+          <div className="lg:max-w-[17rem] lg:pt-3 text-[13px] leading-snug text-[#5f5e5a] space-y-3">
+            <div>
+              <p>{now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
+              <WeatherLine />
+            </div>
+            {reminders.length > 0 ? (
+              <ul className="space-y-1.5">
+                {reminders.map((r, i) => (
+                  <li key={i}>
+                    <button onClick={() => open(r.page)} className="text-left hover:text-[#111] transition-colors">{r.text}</button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>Nothing due. Enjoy the day.</p>
+            )}
           </div>
-          <WeatherChip />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mt-12">
           <Bubble page="jobs" onOpen={() => open("jobs")}
-            line={stats.jobsFollowUps > 0 ? `${plural(stats.jobsFollowUps, "follow-up")} due` : `${stats.jobsPipeline} in pipeline`}
-            sub={`${stats.jobsNew} new · ${stats.jobsPipeline} in pipeline`} />
+            line={home.jobsFollowUps > 0 ? `${plural(home.jobsFollowUps, "follow-up")} due` : `${home.jobsNew} new`}
+            sub={`${home.jobsPipeline} in pipeline`} />
           <Bubble page="money" onOpen={() => open("money")}
-            line={stats.spentToday === null ? "…" : `$${stats.spentToday.toFixed(2)} spent today`}
+            line={home.spentToday === null ? "…" : `$${home.spentToday.toFixed(2)} today`}
             sub="Budget and savings" />
           <Bubble page="gym" onOpen={() => open("gym")}
-            line={stats.sessionsThisWeek === null ? "…" : `${plural(stats.sessionsThisWeek, "session")} this week`}
-            sub="Workouts and 10K plan" />
-          <Bubble page="movies" onOpen={() => open("movies")} line="Coming soon" sub="Watchlist and picks" />
-          <Bubble page="notes" onOpen={() => open("notes")} line={stats.notesFirstLine || "Empty scratchpad"} sub="Scratchpad" />
+            line={home.sessionsThisWeek === null ? "…" : `${plural(home.sessionsThisWeek, "session")} this week`}
+            sub="Workouts, 10K plan" />
+          <Bubble page="movies" onOpen={() => open("movies")} line="Coming soon" sub="Watchlist" />
+          <Bubble page="notes" onOpen={() => open("notes")} line={home.notesFirstLine || "Empty"} sub="Scratchpad" />
         </div>
       </div>
     </div>
