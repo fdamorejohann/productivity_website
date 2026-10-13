@@ -250,3 +250,21 @@ create table if not exists public.nyc_events (
 );
 create index if not exists nyc_events_status_idx on public.nyc_events (status);
 alter table public.nyc_events enable row level security;
+
+-- Movies: Letterboxd (cocomon415) watchlist + watched films, synced by a scheduled Claude task, plus Claude's picks.
+create table if not exists public.movies (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  title text not null,
+  year int,
+  on_watchlist boolean not null default false,
+  watched boolean not null default false,
+  watched_on date,
+  pick_status text check (pick_status in ('new', 'interested', 'not_interested')),
+  why text,
+  tags text[] not null default '{}',
+  source text not null default 'letterboxd' check (source in ('letterboxd', 'claude', 'site')),
+  created_at timestamptz not null default now(),
+  synced_at timestamptz
+);
+alter table public.movies enable row level security;

@@ -258,3 +258,20 @@ export interface NycEvent {
   status_changed_at: string | null;
   found_at: string;
 }
+
+// ─── Movies (public.movies) ──────────────────────────────────────────────────
+
+export interface Movie {
+  id: string;
+  slug: string;                 // letterboxd.com/film/<slug>/
+  title: string;
+  year: number | null;
+  on_watchlist: boolean;
+  watched: boolean;
+  watched_on: string | null;
+  pick_status: "new" | "interested" | "not_interested" | null;  // set only on Claude's picks
+  why: string | null;
+  tags: string[];
+  source: "letterboxd" | "claude" | "site";
+  synced_at: string | null;
+}

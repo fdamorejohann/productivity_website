@@ -13,6 +13,7 @@ import { useState } from "react";
 import { db } from "../lib/db";
 import type { CycleArea, CycleGoal, CycleTactic, CycleWeekItem } from "../lib/types";
 import NycEvents from "./NycEvents";
+import Movies from "./Movies";
 import {
   AREAS, CYCLE, DAY_NAMES, addDays, areaColor, cycleEnd, cycleWeek, goalStatus, listItems, measurements, mondayOf,
   parseYmd, shortDate, useCycleGoals, useCycleWeek, cycleWorkoutWeeks, isWorkoutGoal, ymd,
@@ -456,12 +457,15 @@ export function CalmPage() {
   const s = useCycleGoals();
   // Marking an NYC event "Went" checks it off on the shows / museums checklist goal.
   const showsGoal = s.goals.find(g => g.area === "calm" && g.mode === "list" && /show|museum/i.test(g.title));
+  // Marking a film watched checks it off on the movies goal.
+  const moviesGoal = s.goals.find(g => g.area === "calm" && g.mode === "list" && /movie|film/i.test(g.title));
   return (
     <div className="max-w-4xl">
       <div className="max-w-3xl">
         <GoalStripView area="calm" columns={1} s={s} />
         <p className="text-[13px] text-[#5f5e5a]">Open a goal to add books, shows, movies, or game steps and check them off. Log screen time as your weekly average.</p>
       </div>
+      <Movies onWatched={m => { if (moviesGoal) s.addItem(moviesGoal.id, m.title, true); }} />
       <NycEvents onWent={e => { if (showsGoal) s.addItem(showsGoal.id, e.title, true); }} />
     </div>
   );

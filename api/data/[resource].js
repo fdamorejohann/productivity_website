@@ -40,6 +40,7 @@ export default async function handler(req, res) {
     case "cycle-week":       return handleCycleTable(req, res, "cycle_week_items", "week_start");
     case "cycle-entries":    return handleCycleTable(req, res, "cycle_goal_entries", "created_at");
     case "nyc-events":       return handleNycEvents(req, res);
+    case "movies":           return handleMovies(req, res);
     default:                 return res.status(404).json({ error: "Not found" });
   }
 }
@@ -974,6 +975,34 @@ async function handleNycEvents(req, res) {
     if (!["new", "interested", "not_interested", "went"].includes(status)) return res.status(400).json({ error: "Bad status" });
     const { data, error } = await supabase.from("nyc_events")
       .update({ status, status_changed_at: new Date().toISOString() }).eq("id", id).select();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
+  }
+  res.status(405).end();
+}
+
+// ─── Movies (Calm page) ──────────────────────────────────────────────────────
+// Letterboxd (cocomon415) watchlist / watched + Claude's picks, synced by a scheduled Claude task.
+// The site only marks picks and marks films watched.
+async function handleMovies(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase.from("movies").select("*").order("created_at", { ascending: true });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+  if (req.method === "PATCH") {
+    const { id, ...body } = req.body;
+    const updates = {};
+    if ("pick_status" in body) {
+      if (!["new", "interested", "not_interested"].includes(body.pick_status)) return res.status(400).json({ error: "Bad pick_status" });
+      updates.pick_status = body.pick_status;
+    }
+    if (body.watched === true) {
+      updates.watched = true;
+      updates.watched_on = /^\d{4}-\d{2}-\d{2}$/.test(body.watched_on ?? "") ? body.watched_on : new Date().toISOString().slice(0, 10);
+    }
+    if (Object.keys(updates).length === 0) return res.status(400).json({ error: "Nothing to update" });
+    const { data, error } = await supabase.from("movies").update(updates).eq("id", id).select();
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data[0]);
   }
