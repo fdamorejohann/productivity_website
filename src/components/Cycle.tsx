@@ -14,7 +14,7 @@ import { db } from "../lib/db";
 import type { CycleArea, CycleGoal, CycleTactic, CycleWeekItem } from "../lib/types";
 import {
   AREAS, CYCLE, DAY_NAMES, addDays, areaColor, cycleEnd, cycleWeek, goalStatus, listItems, measurements, mondayOf,
-  parseYmd, shortDate, useCycleGoals, useCycleWeek, workoutWeeks, ymd,
+  parseYmd, shortDate, useCycleGoals, useCycleWeek, cycleWorkoutWeeks, isWorkoutGoal, ymd,
 } from "../lib/cycle";
 import type { GoalsState, WeekState } from "../lib/cycle";
 
@@ -87,20 +87,25 @@ function MeasurePanel({ g, s }: { g: CycleGoal; s: GoalsState }) {
   );
 }
 
-/** Kettlebell / pull-up goals: weekly bests read from logged workouts. */
+const WORKOUT_GOAL_SOURCE: Record<string, string> = {
+  kettlebell: "From kettlebell workouts with 5+ sets: log sets and total time under Workouts → Log.",
+  pullups: "From pull-up and chin-up sets in your lifting workouts: your most reps in one set.",
+  run: "From running workouts: your longest run each week.",
+  lsit: "From the “L-sit (seconds as reps)” exercise in lifting workouts: enter the seconds held as reps.",
+};
+
+/** Kettlebell / pull-up / run goals: weekly bests read from logged workouts since the cycle began. */
 function WorkoutHistoryPanel({ g, s }: { g: CycleGoal; s: GoalsState }) {
-  const weeks = workoutWeeks(g, s);
+  const { weeks, priorBest } = cycleWorkoutWeeks(g, s);
   const unit = g.unit ? ` ${g.unit}` : "";
   return (
     <div className="pt-2 pb-1 text-[12px] text-[#5f5e5a]">
-      <p>{g.auto === "kettlebell"
-        ? "From kettlebell workouts with 5+ sets: log sets and total time under Workouts → Log."
-        : "From pull-up and chin-up sets in your lifting workouts: your most reps in one set."}</p>
+      <p>{WORKOUT_GOAL_SOURCE[g.auto ?? ""]}{priorBest !== null && ` Before ${CYCLE.name}: ${priorBest}${unit}.`}</p>
       {weeks.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {weeks.map(w => (
             <span key={w.week_start} className="text-[11px] rounded-full px-2 py-0.5 border border-[#C9C7BF]">
-              {cycleWeek(w.week_start) >= 1 ? `W${cycleWeek(w.week_start)}` : shortDate(w.week_start)} · {w.value}{unit}
+              W{cycleWeek(w.week_start)} · {w.value}{unit}
             </span>
           ))}
         </div>
@@ -113,7 +118,7 @@ function GoalLine({ g, s, editable, onOpen }: { g: CycleGoal; s: GoalsState; edi
   const { text, pct } = goalStatus(g, s);
   const [open, setOpen] = useState(false);
   const done = pct !== null && pct >= 1;
-  const fromWorkouts = g.auto === "kettlebell" || g.auto === "pullups";
+  const fromWorkouts = isWorkoutGoal(g);
   const expandable = editable && (g.mode === "list" || g.mode === "measure" || fromWorkouts);
   const title = <span className={`text-[14px] leading-snug text-left ${done ? "line-through decoration-1 text-[#5f5e5a]" : ""}`}>{g.title}</span>;
   return (

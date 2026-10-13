@@ -55,11 +55,12 @@ export function useCycleGoals(reloadKey?: unknown) {
   const [yogaWeeks, setYogaWeeks] = useState<string[] | null>(null);   // Mondays with a Yoga tactic checked off
 
   useEffect(() => {
-    db.sessions.list().then((rows: LoggedWorkout[]) => { if (Array.isArray(rows)) setWorkouts(rows); }).catch(() => {});
-    Promise.all([db.cycle.tactics.list(), db.cycle.week.list()]).then(([ts, items]) => {
-      if (!Array.isArray(ts) || !Array.isArray(items)) return;
+    Promise.all([db.sessions.list(), db.cycle.tactics.list(), db.cycle.week.list()]).then(([rows, ts, items]) => {
+      if (!Array.isArray(rows) || !Array.isArray(ts) || !Array.isArray(items)) return;
+      setWorkouts(rows as LoggedWorkout[]);
       const yoga = new Set(ts.filter(t => /^yoga/i.test(t.title)).map(t => t.id));
-      setYogaWeeks([...new Set(items.filter(i => i.done && yoga.has(i.tactic_id)).map(i => i.week_start))]);
+      const logged = (rows as LoggedWorkout[]).filter(w => w.type === "yoga" && w.date >= CYCLE.start).map(w => mondayOf(parseYmd(w.date)));
+      setYogaWeeks([...new Set([...logged, ...items.filter(i => i.done && yoga.has(i.tactic_id)).map(i => i.week_start)])]);
     }).catch(() => {});
     db.cycle.goals.list().then(g => { if (Array.isArray(g)) setGoals(g); }).catch(() => {});
     db.cycle.entries.list().then(e => { if (Array.isArray(e)) setEntries(e); }).catch(() => {});
@@ -127,15 +128,18 @@ export type GoalsState = ReturnType<typeof useCycleGoals>;
 export interface LoggedWorkout {
   date: string;
   type: string | null;
-  cardio_data?: { sets?: number; duration_min?: number } | null;
+  cardio_data?: { sets?: number; duration_min?: number; distance_miles?: number } | null;
   workout_sets?: { reps: number | null; exercises?: { name: string } | null }[];
 }
 
 // Bodyweight pull-ups / chin-ups; not pull-downs, pullovers, or weighted sets.
 const isPullUp = (name: string) => /(pull[\s-]?ups?|chin[\s-]?ups?)/i.test(name) && !/down|over|weighted/i.test(name);
+const isLSit = (name: string) => /l[\s-]?sit/i.test(name);
 const KB_SETS = 5;
 
-/** Per-week best from logged workouts: kettlebell = fastest time for 5+ sets; pull-ups = most reps in one set. */
+/** Per-week best from logged workouts (all time): kettlebell = fastest time for 5+ sets; pull-ups = most reps in one set;
+ *  run = longest run in miles; L-sit = longest hold (seconds logged as reps). Goal progress only counts weeks from the
+ *  cycle start (see cycleWorkoutWeeks). */
 export function workoutWeeks(g: CycleGoal, s: GoalsState): { week_start: string; value: number }[] {
   const byWeek = new Map<string, number>();
   for (const w of s.workouts ?? []) {
@@ -143,8 +147,12 @@ export function workoutWeeks(g: CycleGoal, s: GoalsState): { week_start: string;
     if (g.auto === "kettlebell" && w.type === "kettlebell" && (w.cardio_data?.sets ?? 0) >= KB_SETS && w.cardio_data?.duration_min) {
       v = w.cardio_data.duration_min;
     }
-    if (g.auto === "pullups") {
-      const reps = (w.workout_sets ?? []).filter(st => st.exercises?.name && isPullUp(st.exercises.name)).map(st => st.reps ?? 0);
+    if (g.auto === "run" && w.type === "running" && w.cardio_data?.distance_miles) {
+      v = w.cardio_data.distance_miles;
+    }
+    if (g.auto === "pullups" || g.auto === "lsit") {
+      const match = g.auto === "pullups" ? isPullUp : isLSit;
+      const reps = (w.workout_sets ?? []).filter(st => st.exercises?.name && match(st.exercises.name)).map(st => st.reps ?? 0);
       if (reps.length) v = Math.max(...reps);
     }
     if (v === null || v <= 0) continue;
@@ -153,6 +161,18 @@ export function workoutWeeks(g: CycleGoal, s: GoalsState): { week_start: string;
     byWeek.set(wk, prev === undefined ? v : g.lower_is_better ? Math.min(prev, v) : Math.max(prev, v));
   }
   return [...byWeek.entries()].map(([week_start, value]) => ({ week_start, value })).sort((a, b) => a.week_start.localeCompare(b.week_start));
+}
+
+export const isWorkoutGoal = (g: CycleGoal) => g.auto === "kettlebell" || g.auto === "pullups" || g.auto === "run" || g.auto === "lsit";
+
+/** Workout weeks inside the cycle, and the best result from before it (a starting point). */
+export function cycleWorkoutWeeks(g: CycleGoal, s: GoalsState) {
+  const all = workoutWeeks(g, s);
+  const before = all.filter(w => w.week_start < CYCLE.start).map(w => w.value);
+  return {
+    weeks: all.filter(w => w.week_start >= CYCLE.start),
+    priorBest: before.length ? (g.lower_is_better ? Math.min(...before) : Math.max(...before)) : null,
+  };
 }
 
 export const listItems = (g: CycleGoal, s: GoalsState) => s.entries.filter(e => e.goal_id === g.id && e.title !== null);
@@ -178,9 +198,19 @@ export function goalStatus(g: CycleGoal, s: GoalsState): { text: string; pct: nu
     if (!s.yogaWeeks) return { text: "…", pct: null };
     return { text: `${s.yogaWeeks.length} / ${num(g.target ?? 0)}${unit}`, pct: g.target ? Math.min(1, s.yogaWeeks.length / g.target) : null };
   }
-  if (g.auto === "kettlebell" || g.auto === "pullups") {
+  if (isWorkoutGoal(g)) {
     if (!s.workouts) return { text: "…", pct: null };
-    const vals = workoutWeeks(g, s).map(w => w.value);
+    const vals = cycleWorkoutWeeks(g, s).weeks.map(w => w.value);
+    if (vals.length === 0 && g.auto === "kettlebell") {
+      const partial = (s.workouts ?? [])
+        .filter(w => w.type === "kettlebell" && w.date >= CYCLE.start && (w.cardio_data?.sets ?? 0) > 0)
+        .sort((a, b) => (b.cardio_data!.sets! - a.cardio_data!.sets!) || ((a.cardio_data?.duration_min ?? 1e9) - (b.cardio_data?.duration_min ?? 1e9)))[0];
+      if (partial) {
+        const sets = partial.cardio_data!.sets!;
+        const mins = partial.cardio_data?.duration_min;
+        return { text: `${sets} sets${mins ? ` · ${num(mins)} min` : ""}`, pct: Math.min(0.9, sets / KB_SETS) };
+      }
+    }
     if (vals.length === 0) return { text: `goal ${num(g.target ?? 0)}${unit}`, pct: 0 };
     const best = g.lower_is_better ? Math.min(...vals) : Math.max(...vals);
     return g.lower_is_better
@@ -206,6 +236,38 @@ export function goalStatus(g: CycleGoal, s: GoalsState): { text: string; pct: nu
 }
 
 // ─── Weekly tactics ──────────────────────────────────────────────────────────
+
+// Logged workouts check off this week's fitness tactics: lifting → Gym, kettlebell → Kettlebell,
+// running / biking → Cardio, yoga → Yoga. One-way: unchecking by hand is undone on the next load.
+const TACTIC_FOR_WORKOUT: { tactic: RegExp; types: string[] }[] = [
+  { tactic: /^gym/i, types: ["lifting"] },
+  { tactic: /^kettlebell/i, types: ["kettlebell"] },
+  { tactic: /^cardio/i, types: ["running", "biking"] },
+  { tactic: /^yoga/i, types: ["yoga"] },
+];
+
+async function checkOffFromWorkouts(monday: string, tactics: CycleTactic[], items: CycleWeekItem[]): Promise<boolean> {
+  const sunday = addDays(monday, 6);
+  const sessions = await db.sessions.list().catch(() => []) as LoggedWorkout[];
+  const week = Array.isArray(sessions) ? sessions.filter(w => w.date >= monday && w.date <= sunday) : [];
+  const patches: Promise<unknown>[] = [];
+  for (const rule of TACTIC_FOR_WORKOUT) {
+    const logged = week.filter(w => rule.types.includes(w.type ?? "")).sort((a, b) => a.date.localeCompare(b.date));
+    const slots = items.filter(i => i.week_start === monday && rule.tactic.test(tactics.find(t => t.id === i.tactic_id)?.title ?? ""));
+    const open = slots.filter(i => !i.done);
+    // Workouts already covered by a checked-off slot need nothing; each remaining one takes the open slot on
+    // its weekday if there is one, else the first open slot, which then moves to the day you trained.
+    for (const w of logged.slice(slots.length - open.length)) {
+      if (open.length === 0) break;
+      const weekday = (parseYmd(w.date).getDay() + 6) % 7;
+      const k = Math.max(0, open.findIndex(i => i.day === weekday));
+      const [slot] = open.splice(k, 1);
+      patches.push(db.cycle.week.update(slot.id, { done: true, day: weekday }));
+    }
+  }
+  await Promise.all(patches);
+  return patches.length > 0;
+}
 
 export function useCycleWeek(reloadKey?: unknown) {
   const monday = mondayOf();
@@ -234,9 +296,11 @@ export function useCycleWeek(reloadKey?: unknown) {
             await Promise.all(unplaced.map(i => db.cycle.week.update(i.id, { day: missing.find(t => t.id === i.tactic_id)!.default_day })));
             fresh = await db.cycle.week.list();
           }
+          if (Array.isArray(fresh) && inCycle && await checkOffFromWorkouts(monday, ts, fresh)) fresh = await db.cycle.week.list();
           if (!cancelled && Array.isArray(fresh)) setItems(fresh);
         } else {
-          setItems(all);
+          const updated = inCycle && await checkOffFromWorkouts(monday, ts, all) ? await db.cycle.week.list() : all;
+          if (!cancelled && Array.isArray(updated)) setItems(updated);
         }
       } catch { /* leave empty */ } finally {
         if (!cancelled) setLoaded(true);

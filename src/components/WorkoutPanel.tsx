@@ -24,7 +24,7 @@ interface WorkoutSet {
 }
 
 // rollerblading / muaythai are no longer offered but old sessions still display.
-type WorkoutType = "lifting" | "running" | "kettlebell" | "biking" | "rollerblading" | "muaythai";
+type WorkoutType = "lifting" | "running" | "kettlebell" | "biking" | "yoga" | "rollerblading" | "muaythai";
 
 interface CardioData {
   duration_min?: number;
@@ -49,6 +49,7 @@ const WORKOUT_COLORS: Record<string, string> = {
   running: "#eb6834",
   kettlebell: "#1baf7a",
   biking: "#eda100",
+  yoga: "#e87ba4",
   rollerblading: "#898781",
   muaythai: "#898781",
 };
@@ -58,6 +59,7 @@ const WORKOUT_TYPES: { key: WorkoutType; label: string; emoji: string; color: st
   { key: "running",    label: "Running",    emoji: "🏃", color: "#eb6834" },
   { key: "kettlebell", label: "Kettlebell", emoji: "💪", color: "#1baf7a" },
   { key: "biking",     label: "Biking",     emoji: "🚴", color: "#eda100" },
+  { key: "yoga",       label: "Yoga",       emoji: "🧘", color: "#e87ba4" },
 ];
 // Retired types, kept so older sessions still show their label.
 const LEGACY_WORKOUT_TYPES: typeof WORKOUT_TYPES = [

@@ -203,8 +203,8 @@ export interface CycleGoal {
   progress: number | null;        // manual progress; ignored when `auto` is set
   unit: string | null;
   lower_is_better: boolean;       // e.g. minutes for the KB routine, screen-time hours
-  // computed instead of `progress`: Finances savings, Jobs pipeline, logged kettlebell / pull-up workouts, weeks with Yoga checked off
-  auto: "savings" | "jobs" | "kettlebell" | "pullups" | "yoga" | null;
+  // computed instead of `progress`: Finances savings, Jobs pipeline, logged kettlebell / pull-up / running / L-sit workouts, weeks with yoga logged or checked off
+  auto: "savings" | "jobs" | "kettlebell" | "pullups" | "run" | "lsit" | "yoga" | null;
   mode: "count" | "list" | "measure" | "auto"; // +/- counter, checklist of items, number logged weekly, or computed
   use_latest: boolean;            // measure: progress is the latest week, not the best
   sort: number;
