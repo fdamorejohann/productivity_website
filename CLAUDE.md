@@ -8,14 +8,14 @@ This file is the project memory. Read it at the start of every session before to
 
 **Personal OS** is a private, password-protected personal dashboard deployed on Vercel. It started as a weekly goals tracker but has grown into a full personal operating system. It is Finn's personal app — there is no multi-user support, no sign-up flow.
 
-Core panels:
+Home is a bubble grid (redesigned 2026-10-12): greeting + weather chip, then one bubble per page with a live preview line. Each bubble opens a full page; the URL hash (`#jobs`, `#money`, `#gym`, `#movies`, `#notes`) tracks the open page so refresh and Back work. Pages:
 - **Jobs** — job postings found + fit-scored by the external scanner, plus manual "+ Add" rows (`job_postings`). Tabs: New / Interested / Applied / Pipeline (screen·interview·offer) / Archive (rejected·withdrawn·skipped·closed). Search box searches across all tabs (id, company, title, location, next step, contact, notes, why interested; Esc clears). Category filter All / Lead / Engineer / Product next to search (remembered in localStorage `pos_jobs_category`); category badge on each row; category editable in the expanded row. Expanded row: one-click next-step buttons per stage (e.g. Interested / I applied / Skip) + full status dropdown, why interested, contact, next step, follow-up date ("Follow up" chip when due), applied date, notes
-- **News** — Tech/Finance/NYC headlines; hideable (✕ / "Show News", remembered in localStorage `pos_news_visible`)
-- Removed from the dashboard (tables/endpoints still exist, unused): Focus Points, Weekly Goals, Daily Tasks, Habits, Whoop, drink/powder trackers, food cost
+- **Finances** — FinanceBox savings chart on top, BudgetPanel below
+- Removed from the dashboard (code/tables/endpoints may still exist, unused): Focus Points, Weekly Goals, Daily Tasks, Habits, Whoop, drink/powder trackers, food cost, and (2026-10-12) News, Defunct YouTube widget, Bible verse, D&D, England & Dublin trip
 - **Notes** — freeform scratchpad
-- **Budget** — monthly income/expense tracker
-- **Workout** — exercise sessions and sets logger
-- **D&D** — campaign manager (characters, locations, sessions, lore, quests, concepts)
+- **Movies** — placeholder ("coming soon"); watchlist + recommendations not built yet
+- **Gym** — Workouts (WorkoutPanel) and 10K plan (RunningPanel) toggle
+- D&D (DndPanel.tsx) and TripPanel.tsx still exist but aren't linked from the home page
 
 **Architecture:**
 - React + Vite frontend (TypeScript, Tailwind CSS)
@@ -74,7 +74,7 @@ codeProject/
     │   └── storage.ts               ← Legacy localStorage facade (still used by WeekDashboard)
     └── components/
         ├── LockScreen.tsx           ← Password gate — shown if not authed
-        ├── PersonalOS.tsx           ← ROOT dashboard: 2-column layout (Finance + Jobs + News | Hello + Weather + Spent + Defunct + Notes)
+        ├── PersonalOS.tsx           ← ROOT: bubble home + full-page router (Jobs, Finances, Gym, Movies, Notes)
         ├── BudgetPanel.tsx          ← Monthly budget: income/expenses/summary
         ├── WorkoutPanel.tsx         ← Exercise sessions and sets logger
         ├── DndPanel.tsx             ← D&D campaign manager
