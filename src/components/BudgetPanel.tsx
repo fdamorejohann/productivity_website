@@ -335,7 +335,7 @@ function categorizeVendor(vendor: string): string {
   if (/\b(MTA|OMNY|NYCT|SUBWAY)\b/.test(v)) return "MTA";
   if (/\b(LYFT|UBER)\b/.test(v)) return "Ubers";
   if (/\b(WHOLE FOODS|TRADER JOE|GROCERY|MARKET)\b/.test(v)) return "Groceries";
-  if (/(STARBUCKS|COFFEE|CAFE|BAKERY|RESTAURANT|BAR|GRILL|PIZZA|TACOS|FISHBAR|SWEETGREEN|CHIPOTLE|PUB|TST\*)/.test(v)) return "Food and drink";
+  if (/\b(STARBUCKS|COFFEE|CAFE|BAKERY|RESTAURANT|BAR|GRILL|PIZZA|TACOS|FISHBAR|SWEETGREEN|CHIPOTLE|PUB)\b|\bTST\*/.test(v)) return "Food and drink";
   if (/\b(INDUSTRIOUS|COMMONS|COWORKING)\b/.test(v)) return "work";
   if (/\b(PRIME|NETFLIX|SPOTIFY|APPLE\.COM|SUBSCRIPTION)\b/.test(v)) return "Subscriptions";
 
