@@ -804,6 +804,85 @@ function SpendPieChart({ entries, logs }: SpendPieChartProps) {
   );
 }
 
+// ─── Spending patterns: by weekday + biggest purchases ──────────────────────
+// Same spending as the pie chart (CHART_EXCLUDE drops rent, savings transfers, work income, rebates).
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+function SpendPatterns({ logs, month }: { logs: BudgetExpenseLog[]; month: string }) {
+  const spend = logs.filter(l => l.date.startsWith(month) && !CHART_EXCLUDE.has(l.category) && effectiveCost(l) > 0);
+
+  // Average per weekday = total spent on that weekday ÷ how many of that weekday the month has had
+  // (through today for the current month, the whole month otherwise).
+  const [y, m] = month.split("-").map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const now = new Date();
+  const isCurrent = now.getFullYear() === y && now.getMonth() + 1 === m;
+  const lastDay = isCurrent ? Math.min(now.getDate(), daysInMonth) : daysInMonth;
+  const counts = Array(7).fill(0) as number[];
+  for (let d = 1; d <= lastDay; d++) counts[(new Date(y, m - 1, d).getDay() + 6) % 7]++;
+  const totals = Array(7).fill(0) as number[];
+  for (const l of spend) {
+    const day = Number(l.date.slice(8, 10));
+    if (day > lastDay) continue;
+    totals[(new Date(y, m - 1, day).getDay() + 6) % 7] += effectiveCost(l);
+  }
+  const avgs = totals.map((t, i) => (counts[i] ? t / counts[i] : 0));
+  const maxAvg = Math.max(...avgs);
+  const topDay = maxAvg > 0 ? avgs.indexOf(maxAvg) : -1;
+
+  const top5 = [...spend].sort((a, b) => effectiveCost(b) - effectiveCost(a)).slice(0, 5);
+  const shortDate = (d: string) => new Date(y, m - 1, Number(d.slice(8, 10))).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
+        <h2 className="text-sm font-semibold text-gray-800">Spending by weekday</h2>
+        <p className="text-xs text-gray-500 mt-0.5 mb-4">
+          {topDay >= 0
+            ? <>Most on <span className="text-[#111] font-medium">{WEEKDAY_NAMES[topDay]}s</span>, about {fmt(maxAvg)} on an average {WEEKDAY_NAMES[topDay]}.</>
+            : "No spending logged yet this month."}
+        </p>
+        <div className="space-y-2">
+          {WEEKDAYS.map((d, i) => (
+            <div key={d} className="grid grid-cols-[2.5rem_1fr_4.5rem] items-center gap-3 text-xs"
+              title={`${counts[i]} ${WEEKDAY_NAMES[i]}${counts[i] === 1 ? "" : "s"} so far · ${fmt(totals[i])} total`}>
+              <span className={i === topDay ? "text-[#111] font-semibold" : "text-gray-500"}>{d}</span>
+              <div className="h-[14px] rounded-[4px] bg-[#E6E4DE] overflow-hidden">
+                <div className="h-full rounded-[4px] transition-all duration-700"
+                  style={{ width: maxAvg > 0 ? `${(avgs[i] / maxAvg) * 100}%` : 0, backgroundColor: i === topDay ? "#111" : "#898781" }} />
+              </div>
+              <span className={`text-right tabular-nums ${i === topDay ? "text-[#111] font-semibold" : "text-gray-600"}`}>{fmt(avgs[i])}</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-gray-500 mt-3">Average per day · excludes rent, savings transfers, and rebates.</p>
+      </div>
+
+      <div className="bg-[#F5F4F0] rounded-[28px] border border-[#D9D7CF] p-5">
+        <h2 className="text-sm font-semibold text-gray-800 mb-4">Biggest purchases</h2>
+        {top5.length === 0 ? (
+          <p className="text-xs text-gray-500">No purchases logged yet this month.</p>
+        ) : (
+          <ol className="divide-y divide-[#D9D7CF]">
+            {top5.map((l, i) => (
+              <li key={l.id} className="flex items-center gap-3 py-2.5">
+                <span className="w-5 text-xs tabular-nums text-gray-500">{i + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-[#111] truncate">{l.vendor}</div>
+                  <div className="text-[11px] text-gray-500 truncate">{l.category} · {shortDate(l.date)}</div>
+                </div>
+                <span className="text-sm font-semibold tabular-nums text-[#111]">{fmt(effectiveCost(l))}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── BudgetPanel ──────────────────────────────────────────────────────────────
 
 type BudgetSection = "overview" | "budget" | "expenses";
@@ -1274,6 +1353,8 @@ export default function BudgetPanel({ overviewTop }: { overviewTop?: ReactNode }
         <DailyBudgetCard leftoverActual={leftoverActual} month={month} />
         <SpendPieChart entries={spendEntries} logs={data.logs} />
       </div>
+
+      <SpendPatterns logs={data.logs} month={month} />
       </>}
 
       {section === "budget" && <>
