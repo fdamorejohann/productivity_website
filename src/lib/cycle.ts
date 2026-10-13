@@ -42,6 +42,8 @@ export function cycleWeek(monday: string): number {
 }
 export const shortDate = (s: string) => parseYmd(s).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 export const cycleEnd = addDays(CYCLE.start, CYCLE.weeks * 7 - 1);
+/** "Save $10K" counts Finances Total (savings + investing + leftover) from this month on — September included on purpose. */
+export const SAVINGS_FROM = "2026-09";
 
 // ─── Goals ───────────────────────────────────────────────────────────────────
 
@@ -49,7 +51,7 @@ export const cycleEnd = addDays(CYCLE.start, CYCLE.weeks * 7 - 1);
 export function useCycleGoals(reloadKey?: unknown) {
   const [goals, setGoals] = useState<CycleGoal[]>([]);
   const [entries, setEntries] = useState<CycleGoalEntry[]>([]);  // list items + weekly measurements, all goals
-  const [saved, setSaved] = useState<number | null>(null);    // savings + investing since the cycle began
+  const [saved, setSaved] = useState<number | null>(null);    // Finances "Total" (savings + investing + leftover) since SAVINGS_FROM
   const [pipeline, setPipeline] = useState<{ active: number; offers: number } | null>(null);
   const [workouts, setWorkouts] = useState<LoggedWorkout[] | null>(null);
   const [yogaWeeks, setYogaWeeks] = useState<string[] | null>(null);   // Mondays with a Yoga tactic checked off
@@ -64,12 +66,14 @@ export function useCycleGoals(reloadKey?: unknown) {
     }).catch(() => {});
     db.cycle.goals.list().then(g => { if (Array.isArray(g)) setGoals(g); }).catch(() => {});
     db.cycle.entries.list().then(e => { if (Array.isArray(e)) setEntries(e); }).catch(() => {});
-    const firstMonth = CYCLE.start.slice(0, 7);
     const lastMonth = cycleEnd.slice(0, 7);
     db.summary.list().then((rows: { month: string; category: string; value: number }[]) => {
       if (!Array.isArray(rows)) return;
+      // Same months the Total chart uses: skip any month marked "Exclude from charts".
+      const excluded = new Set(rows.filter(r => r.category === "excluded" && Number(r.value) === 1).map(r => r.month));
       setSaved(rows
-        .filter(r => r.month >= firstMonth && r.month <= lastMonth && (r.category === "savings" || r.category === "investments"))
+        .filter(r => r.month >= SAVINGS_FROM && r.month <= lastMonth && !excluded.has(r.month)
+          && (r.category === "savings" || r.category === "investments" || r.category === "leftover"))
         .reduce((s, r) => s + Number(r.value), 0));
     }).catch(() => {});
     db.jobs.list().then(jobs => {
