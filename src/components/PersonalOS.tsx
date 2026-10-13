@@ -11,6 +11,7 @@ import BudgetPanel from "./BudgetPanel";
 import WorkoutPanel from "./WorkoutPanel";
 import RunningPanel from "./RunningPanel";
 import { db } from "../lib/db";
+import { useCountUp } from "../lib/useCountUp";
 import type { JobCategory, JobPosting, JobStatus, JobUpdate, NewJob } from "../lib/types";
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -87,23 +88,24 @@ function RunwayInline({ rows, loading, hoveredIdx, setHoveredIdx }: {
   const targetY   = yScale(RUNWAY_TARGET);
   const currentX  = xScale(solidPoints.length - 1);
   const pct = Math.min(100, Math.round((currentTotal / RUNWAY_TARGET) * 100));
+  const shownTotal = useCountUp(currentTotal);
 
   return (
     <>
       <div className="flex items-center justify-between mb-1">
-        <div className="text-2xl font-bold text-[#111]">${currentTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-sm text-gray-500 font-normal">/ $20k ({pct}%)</span></div>
+        <div className="text-2xl font-bold text-[#111]">${shownTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-sm text-gray-500 font-normal">/ $20k ({pct}%)</span></div>
         {monthsLeft !== null && monthsLeft > 0 && (
           <span className="text-xs text-gray-500"><span className="font-semibold text-[#111]">{monthsLeft}mo</span> / <span className="font-semibold text-[#111]">{weeksLeft}wk</span> away</span>
         )}
         {currentTotal >= RUNWAY_TARGET && <span className="text-xs font-semibold text-[#111]">Goal reached</span>}
       </div>
       {loading ? <div className="h-16 flex items-center justify-center text-xs text-gray-500">Loading…</div> : (
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-24" preserveAspectRatio="none">
+        <svg key={sortedMonths.length} viewBox={`0 0 ${W} ${H}`} className="w-full h-24" preserveAspectRatio="none">
           <line x1={0} y1={targetY} x2={W} y2={targetY} stroke="#C9C7BF" strokeWidth={1} strokeDasharray="4 3" />
           <text x={W - 2} y={targetY - 3} textAnchor="end" fontSize={7} fill="#898781">$20k</text>
-          {solidPoints.length > 1 && <path d={`${solidPath} L ${currentX} ${H} L 0 ${H} Z`} fill="#111111" fillOpacity="0.08" />}
-          <path d={solidPath} fill="none" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          {projPath && <path d={projPath} fill="none" stroke="#111111" strokeWidth="1.5" strokeDasharray="5 4" strokeOpacity="0.5" strokeLinecap="round" />}
+          {solidPoints.length > 1 && <path className="chart-fade" d={`${solidPath} L ${currentX} ${H} L 0 ${H} Z`} fill="#111111" fillOpacity="0.08" />}
+          <path className="chart-draw" pathLength={1} d={solidPath} fill="none" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          {projPath && <path className="chart-pop" d={projPath} fill="none" stroke="#111111" strokeWidth="1.5" strokeDasharray="5 4" strokeOpacity="0.5" strokeLinecap="round" />}
           {solidPoints.slice(1).map((v, i) => {
             const cx = xScale(i + 1), cy = yScale(v), isH = hoveredIdx === i;
             return (
@@ -124,7 +126,7 @@ function RunwayInline({ rows, loading, hoveredIdx, setHoveredIdx }: {
         </svg>
       )}
       <div className="mt-2 bg-[#E6E4DE] rounded-full h-1 overflow-hidden">
-        <div className="h-full rounded-full bg-[#111] transition-all" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-[#111] transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (shownTotal / RUNWAY_TARGET) * 100)}%` }} />
       </div>
     </>
   );
@@ -134,7 +136,7 @@ function FinanceBox() {
   const [rows, setRows] = useState<SummaryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<FinanceTab>("total");
-  const [hidden, setHidden] = useState(true);
+  const [hidden, setHidden] = useState(false);
   const [hoveredNode, setHoveredNode] = useState<"prev" | "curr" | null>(null);
   const [hoveredRunwayIdx, setHoveredRunwayIdx] = useState<number | null>(null);
 
@@ -160,6 +162,7 @@ function FinanceBox() {
   const activeLine = lineMap[tab];
   const activeColor = FINANCE_TABS.find(t => t.key === tab)!.color;
   const activeValue = activeLine.at(-1) ?? 0;
+  const shownValue = useCountUp(activeValue);
 
   const W = 280;
   const H = 80;
@@ -190,11 +193,11 @@ function FinanceBox() {
         <RunwayInline rows={rows} loading={loading} hoveredIdx={hoveredRunwayIdx} setHoveredIdx={setHoveredRunwayIdx} />
       ) : (<>
       <div className="text-2xl font-bold mb-2" style={{ color: activeColor }}>
-        {loading ? "—" : `${activeValue < 0 ? "-" : ""}$${Math.abs(activeValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+        {loading ? "—" : `${shownValue < 0 ? "-" : ""}$${Math.abs(shownValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
       </div>
       <div className="relative">
       {(
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-24" preserveAspectRatio="none">
+        <svg key={`${tab}-${sortedMonths.length}`} viewBox={`0 0 ${W} ${H}`} className="w-full h-24" preserveAspectRatio="none">
           <defs>
             <linearGradient id="finGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={activeColor} stopOpacity="0.1" />
@@ -202,9 +205,9 @@ function FinanceBox() {
             </linearGradient>
           </defs>
           {activeLine.length > 1 && (
-            <path d={`${activePath} L ${W} ${H} L 0 ${H} Z`} fill="url(#finGrad)" />
+            <path className="chart-fade" d={`${activePath} L ${W} ${H} L 0 ${H} Z`} fill="url(#finGrad)" />
           )}
-          <path d={activePath} fill="none" stroke={activeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path className="chart-draw" pathLength={1} d={activePath} fill="none" stroke={activeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           {prevMonthX !== null && prevMonthY !== null && (
             <>
               <line x1={prevMonthX} y1={0} x2={prevMonthX} y2={H} stroke="#D9D7CF" strokeWidth={1} />
@@ -215,7 +218,7 @@ function FinanceBox() {
           )}
           {sortedMonths.length > 0 && (
             <>
-              <circle cx={W} cy={lastY} r="4" fill={activeColor} stroke="#F5F4F0" strokeWidth="2" />
+              <circle className="chart-pop" cx={W} cy={lastY} r="4" fill={activeColor} stroke="#F5F4F0" strokeWidth="2" />
               <circle cx={W} cy={lastY} r="8" fill="transparent" className="cursor-pointer"
                 onMouseEnter={() => setHoveredNode("curr")} onMouseLeave={() => setHoveredNode(null)} />
             </>

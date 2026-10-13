@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { db } from "../lib/db";
+import { useCountUp } from "../lib/useCountUp";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -452,6 +453,7 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
   }
 
   const hasData = points.length >= 2;
+  const shownLeftover = useCountUp(points[points.length - 1].value);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [W, setW] = useState(560);
   useEffect(() => {
@@ -506,11 +508,11 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-gray-800">Leftover Balance</h2>
         <span className={`text-sm font-semibold tabular-nums ${isPositive ? "text-[#111]" : "text-red-600"}`}>
-          {isPositive ? "+" : ""}{fmt(lastPoint.value)} today
+          {isPositive ? "+" : ""}{fmt(shownLeftover)} today
         </span>
       </div>
       <div ref={wrapRef}>
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="block">
+      <svg key={month} width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="block">
         <defs>
           <linearGradient id="leftoverGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={isPositive ? "#111111" : "#d03b3b"} stopOpacity="0.1" />
@@ -535,12 +537,13 @@ function LeftoverChart({ month, logs, startingBalance, budgetTarget }: LeftoverC
             <line x1={0} y1={yScale(0)} x2={innerW} y2={yScale(0)} stroke="#C9C7BF" strokeWidth={1} />
           )}
           {/* Area fill */}
-          <path d={areaPath} fill="url(#leftoverGrad)" transform={`translate(0,0)`} />
+          <path className="chart-fade" d={areaPath} fill="url(#leftoverGrad)" />
           {/* Line */}
-          <path d={linePath} fill="none" stroke={isPositive ? "#111111" : "#d03b3b"} strokeWidth={2} strokeLinejoin="round" />
+          <path className="chart-draw" pathLength={1} d={linePath} fill="none" stroke={isPositive ? "#111111" : "#d03b3b"} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
           {/* Today dot */}
           {isCurrentMonth && (
             <circle
+              className="chart-pop"
               cx={xScale(lastPoint.day)}
               cy={yScale(lastPoint.value)}
               r={3.5}

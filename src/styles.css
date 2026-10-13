@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Chart entrance: lines draw left to right (paths use pathLength=1), fills and end dots fade in after. */
+.chart-draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: chart-draw 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.chart-fade { opacity: 0; animation: chart-fade 0.6s ease-out 0.45s forwards; }
+.chart-pop { opacity: 0; animation: chart-fade 0.3s ease-out 0.95s forwards; }
+@keyframes chart-draw { to { stroke-dashoffset: 0; } }
+@keyframes chart-fade { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .chart-draw, .chart-fade, .chart-pop { animation: none; stroke-dashoffset: 0; opacity: 1; }
+}
+
 @layer base {
   html {
     font-size: 17px; /* up from browser default 16px — scales all rem-based text */
