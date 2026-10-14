@@ -14,6 +14,7 @@ import { db } from "../lib/db";
 import type { CycleArea, CycleGoal, CycleTactic, CycleWeekItem } from "../lib/types";
 import NycEvents from "./NycEvents";
 import Movies from "./Movies";
+import Albums from "./Albums";
 import {
   AREAS, CYCLE, DAY_NAMES, addDays, areaColor, cycleEnd, cycleWeek, goalStatus, listItems, measurements, mondayOf,
   parseYmd, shortDate, useCycleGoals, useCycleWeek, cycleWorkoutWeeks, isWorkoutGoal, ymd,
@@ -466,6 +467,7 @@ export function CalmPage() {
         <p className="text-[13px] text-[#5f5e5a]">Open a goal to add books, shows, movies, or game steps and check them off. Log screen time as your weekly average.</p>
       </div>
       <Movies onWatched={m => { if (moviesGoal) s.addItem(moviesGoal.id, m.title, true); }} />
+      <Albums />
       <NycEvents onWent={e => { if (showsGoal) s.addItem(showsGoal.id, e.title, true); }} />
     </div>
   );

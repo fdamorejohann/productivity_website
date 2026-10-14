@@ -276,3 +276,24 @@ alter table public.movies
   add column if not exists showing_from date,
   add column if not exists showing_until date,
   add column if not exists showing_checked_at timestamptz;
+
+-- Albums: Claude's album picks for Finn's taste. Finn marks each liked / meh / disliked with a reason on the Calm page;
+-- a scheduled Claude task (and ad-hoc sessions) reads reaction + feedback to learn taste and write the taste profile.
+create table if not exists public.albums (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  artist text not null,
+  year int,
+  genre text,
+  apple_url text not null unique,        -- music.apple.com album link (from the free iTunes Search API)
+  artwork_url text,
+  why text,                              -- why Claude picked it
+  tags text[] not null default '{}',
+  source text not null default 'claude' check (source in ('claude', 'seed', 'site')),
+  status text not null default 'new' check (status in ('new', 'liked', 'meh', 'disliked', 'skipped')),
+  feedback text,                         -- Finn's "why", free text
+  reacted_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists albums_status_idx on public.albums (status);
+alter table public.albums enable row level security;

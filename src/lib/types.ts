@@ -281,3 +281,24 @@ export interface Movie {
   showing_until: string | null;
   showing_checked_at: string | null;
 }
+
+// ─── Albums (public.albums) ──────────────────────────────────────────────────
+
+export type AlbumStatus = "new" | "liked" | "meh" | "disliked" | "skipped";
+
+export interface Album {
+  id: string;
+  title: string;
+  artist: string;
+  year: number | null;
+  genre: string | null;
+  apple_url: string;
+  artwork_url: string | null;
+  why: string | null;
+  tags: string[];
+  source: "claude" | "seed" | "site";
+  status: AlbumStatus;
+  feedback: string | null;
+  reacted_at: string | null;
+  created_at: string;
+}

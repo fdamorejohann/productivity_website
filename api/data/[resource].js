@@ -41,6 +41,7 @@ export default async function handler(req, res) {
     case "cycle-entries":    return handleCycleTable(req, res, "cycle_goal_entries", "created_at");
     case "nyc-events":       return handleNycEvents(req, res);
     case "movies":           return handleMovies(req, res);
+    case "albums":           return handleAlbums(req, res);
     default:                 return res.status(404).json({ error: "Not found" });
   }
 }
@@ -1003,6 +1004,26 @@ async function handleMovies(req, res) {
     }
     if (Object.keys(updates).length === 0) return res.status(400).json({ error: "Nothing to update" });
     const { data, error } = await supabase.from("movies").update(updates).eq("id", id).select();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
+  }
+  res.status(405).end();
+}
+
+// ─── Albums (Calm page) ──────────────────────────────────────────────────────
+// Album picks added by Claude; the site only records Finn's reaction (liked / meh / disliked / skipped) and why.
+async function handleAlbums(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase.from("albums").select("*").order("created_at", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  }
+  if (req.method === "PATCH") {
+    const { id, status, feedback } = req.body;
+    if (!["new", "liked", "meh", "disliked", "skipped"].includes(status)) return res.status(400).json({ error: "Bad status" });
+    const updates = { status, reacted_at: status === "new" ? null : new Date().toISOString() };
+    if (typeof feedback === "string") updates.feedback = feedback.trim().slice(0, 2000) || null;
+    const { data, error } = await supabase.from("albums").update(updates).eq("id", id).select();
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data[0]);
   }

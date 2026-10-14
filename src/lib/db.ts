@@ -2,7 +2,7 @@
 // Thin fetch wrapper around our /api/data/* endpoints.
 // Falls back to localStorage on network error so the app still works offline.
 
-import type { CycleGoal, CycleGoalEntry, CycleTactic, CycleWeekItem, JobPosting, JobUpdate, Movie, NewJob, NycEvent, NycEventStatus } from "./types";
+import type { Album, AlbumStatus, CycleGoal, CycleGoalEntry, CycleTactic, CycleWeekItem, JobPosting, JobUpdate, Movie, NewJob, NycEvent, NycEventStatus } from "./types";
 
 const json = (res: Response) => res.json();
 
@@ -146,6 +146,10 @@ export const db = {
   nycEvents: {
     list: (): Promise<NycEvent[]> => api.get("/api/data/nyc-events"),
     setStatus: (id: string, status: NycEventStatus): Promise<NycEvent> => api.patch("/api/data/nyc-events", { id, status }),
+  },
+  albums: {
+    list: (): Promise<Album[]> => api.get("/api/data/albums"),
+    react: (id: string, status: AlbumStatus, feedback?: string): Promise<Album> => api.patch("/api/data/albums", { id, status, feedback }),
   },
   movies: {
     list: (): Promise<Movie[]> => api.get("/api/data/movies"),
