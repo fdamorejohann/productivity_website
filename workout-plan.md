@@ -4,16 +4,17 @@ Goal: **bigger arms** (arm hypertrophy). Nothing here has been put into the site
 
 ## New session A (gym / rings, arm-focused)
 
-1. Weighted chin-ups / pull-ups, 4x5-8
-2. Weighted dips, 3x6-10 (upright, elbows tucked)
-3. Ring push-ups, 3 sets near failure
-4. Tucked front lever row, 3x3-6 slow, stop 1-2 reps short of failure (regress to inverted ring row, feet elevated, palms up, if elbows ache)
-5. Overhead triceps extension, 3x10-15 *(Claude's suggestion, not yet confirmed)*
-6. Incline / Bayesian curls, 3x10-15 *(Claude's suggestion, not yet confirmed)*
-7. Hammer curls, 2-3x10-12
-8. Lateral raises, 3x12-20
+Confirmed by Finn 2026-10-14: 3 sets of chin-ups, 2 sets of everything else.
 
-Finn's own list was items 1-4, 7, 8 (he wrote "shoulder raise"). Items 5-6 were added for direct triceps long-head and stretched-biceps work.
+1. Weighted chin-ups / pull-ups, 3x5-8
+2. Weighted dips, 2x6-10 (upright, elbows tucked)
+3. Ring push-ups, 2 sets near failure
+4. Tucked front lever row, 2x3-6 slow, stop 1-2 reps short of failure (regress to inverted ring row, feet elevated, palms up, if elbows ache)
+5. Hammer curls, 2x10-12
+6. Lateral raises, 2x12-20
+
+Overhead triceps extensions and incline / Bayesian curls (Claude's earlier suggestions) were dropped by Finn on 2026-10-14.
+Per session that's about 7 sets for biceps (chin-ups, rows, hammer curls) and 4 for triceps (dips, ring push-ups); twice a week, roughly 14 biceps / 8 triceps, so triceps sit under the 10-16 target.
 
 ## Session B (50 lb kettlebell)
 
@@ -35,7 +36,6 @@ Weighted chin-ups 4x5-8; weighted dips 3x6-10; diamond push-ups AMRAP + hammer c
 ## Open questions
 
 - Days per week, and does A/B just alternate?
-- Keep items 5-6 in A?
 - Keep B as is, or make it conditioning/legs with curls dropped and add a short 3rd arm day?
 - B format: timed rounds, or 2 failure sets each?
 - Put session A into the site's weekly tactics (`cycle_tactics`)?
