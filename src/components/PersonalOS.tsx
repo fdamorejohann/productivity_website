@@ -15,6 +15,7 @@ import { db } from "../lib/db";
 import { useCountUp } from "../lib/useCountUp";
 import { CYCLE, goalStatus, useCycleGoals, useCycleWeek } from "../lib/cycle";
 import { CalmPage, CyclePage, CycleScore, GoalStrip, GoalsBand, WeekBoard } from "./Cycle";
+import JobsFunnel from "./JobsFunnel";
 import type { CycleArea, JobCategory, JobPosting, JobStatus, JobUpdate, NewJob } from "../lib/types";
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -620,6 +621,8 @@ function JobsPanel() {
 
   return (
     <div>
+      {!loading && jobs.length > 0 && <JobsFunnel jobs={jobs} />}
+
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
         {JOB_TABS.map(t => {
           const active = !searching && tab === t.key;
