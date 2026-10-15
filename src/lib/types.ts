@@ -204,9 +204,11 @@ export interface CycleGoal {
   unit: string | null;
   lower_is_better: boolean;       // e.g. minutes for the KB routine, screen-time hours
   // computed instead of `progress`: Finances savings, Jobs pipeline, logged kettlebell / pull-up / running / L-sit workouts, weeks with yoga logged or checked off
-  auto: "savings" | "jobs" | "kettlebell" | "pullups" | "run" | "lsit" | "yoga" | null;
+  auto: "savings" | "jobs" | "kettlebell" | "pullups" | "run" | "lsit" | "yoga" | "lift" | null;
   mode: "count" | "list" | "measure" | "auto"; // +/- counter, checklist of items, number logged weekly, or computed
   use_latest: boolean;            // measure: progress is the latest week, not the best
+  exercise: string | null;        // auto 'lift': exercises.name it tracks
+  target_weight: number | null;   // auto 'lift': lb for weighted goals (target = reps at that weight); null = reps only
   sort: number;
 }
 

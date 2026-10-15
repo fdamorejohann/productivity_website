@@ -95,6 +95,7 @@ const WORKOUT_GOAL_SOURCE: Record<string, string> = {
   pullups: "From pull-up and chin-up sets in your lifting workouts: your most reps in one set.",
   run: "From running workouts: your longest run each week.",
   lsit: "From L-sit workouts (your best hold in seconds), or the “L-sit (seconds as reps)” exercise in a lifting workout.",
+  lift: "From your logged sets of this exercise (Workout A). Weighted goals count heavier weight or more reps.",
 };
 
 /** Kettlebell / pull-up / run goals: weekly bests read from logged workouts since the cycle began. */
@@ -103,7 +104,7 @@ function WorkoutHistoryPanel({ g, s }: { g: CycleGoal; s: GoalsState }) {
   const unit = g.unit ? ` ${g.unit}` : "";
   return (
     <div className="pt-2 pb-1 text-[12px] text-[#5f5e5a]">
-      <p>{WORKOUT_GOAL_SOURCE[g.auto ?? ""]}{priorBest !== null && ` Before ${CYCLE.name}: ${priorBest}${unit}.`}</p>
+      <p>{WORKOUT_GOAL_SOURCE[g.auto ?? ""]}{priorBest !== null && ` Before ${CYCLE.name}: ${priorBest}${typeof priorBest === "number" ? unit : ""}.`}</p>
       {weeks.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {weeks.map(w => (
@@ -384,7 +385,7 @@ function GoalsEditor({ s }: { s: GoalsState }) {
               </div>
             ))}
             <button className="text-[12px] text-[#111] hover:underline underline-offset-2 mt-2"
-              onClick={() => s.add({ area: a.key, title: "New goal", target: null, progress: null, unit: null, lower_is_better: false, auto: null, mode: "count", use_latest: false, sort: 99 })}>
+              onClick={() => s.add({ area: a.key, title: "New goal", target: null, progress: null, unit: null, lower_is_better: false, auto: null, mode: "count", use_latest: false, exercise: null, target_weight: null, sort: 99 })}>
               + Add goal
             </button>
           </div>

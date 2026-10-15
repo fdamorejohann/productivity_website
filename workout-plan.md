@@ -4,10 +4,10 @@ Goal: **bigger arms** (arm hypertrophy). Nothing here has been put into the site
 
 ## New session A (gym / rings, arm-focused)
 
-Confirmed by Finn 2026-10-14: 3 sets of chin-ups, 2 sets of everything else.
+Confirmed by Finn 2026-10-14: 3 sets of the first two exercises, 2 sets of everything else.
 
-1. L-sit chin-ups, 3 sets (bodyweight; replaced weighted chin-ups 2026-10-14). Separate from the 15-second L-sit hold goal.
-2. Weighted dips, 2x6-10 (upright, elbows tucked)
+1. L-sit dips, 3 sets (bodyweight; replaced weighted chin-ups 2026-10-14). Separate from the 15-second L-sit hold goal.
+2. Chin-ups / dips, 3 sets, bodyweight (back in 2026-10-14, replacing weighted dips)
 3. Kettlebell incline push-ups, 2 sets near failure (renamed from ring push-ups, 2026-10-14)
 4. Tucked chin-ups, 2 sets, slow (renamed from tucked front lever rows, 2026-10-14)
 5. Hammer curls, 2x10-12
@@ -19,8 +19,8 @@ Set 2026-10-14 from Finn's best logged sets (last logged May-June 2026, so expec
 
 | Lift | Best so far | Goal |
 |---|---|---|
-| L-sit chin-ups | none logged yet (weighted chin-ups were +60 lb x 4 on Jun 2) | 15 in a row |
-| Weighted dips | +30 lb x 6 (May 11) | +50 lb x 8 |
+| L-sit dips | none logged yet | 15 in a row |
+| Chin-ups / dips | bodyweight: none logged recently (weighted chin-ups were +60 lb x 4 on Jun 2) | 15 in a row (same as the Q4 "15 pull-ups in a row" goal) |
 | Kettlebell incline push-ups | no reps logged ("Kettle Bell Elevated Pushup", May) | 25 reps in a set |
 | Tucked chin-ups | 2 reps (as front lever rows, May 26) | 10 reps in a set |
 | Hammer curls | 45 lb x 11 (Jun 2) | 55 lb x 10 |

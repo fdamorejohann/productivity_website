@@ -133,13 +133,13 @@ export interface LoggedWorkout {
   date: string;
   type: string | null;
   cardio_data?: { sets?: number; duration_min?: number; distance_miles?: number; hold_sec?: number } | null;
-  workout_sets?: { reps: number | null; exercises?: { name: string } | null }[];
+  workout_sets?: { reps: number | null; weight_lbs?: number | null; exercises?: { name: string } | null }[];
 }
 
 // Bodyweight pull-ups / chin-ups; not pull-downs, pullovers, or weighted sets.
-const isPullUp = (name: string) => /(pull[\s-]?ups?|chin[\s-]?ups?)/i.test(name) && !/down|over|weighted/i.test(name);
+const isPullUp = (name: string) => /(pull[\s-]?ups?|chin[\s-]?ups?)/i.test(name) && !/down|over|weighted|tuck/i.test(name);
 // L-sit holds only: an "L-sit chin-up" is a chin-up (counts toward pull-ups), not an L-sit hold.
-const isLSit = (name: string) => /l[\s-]?sit/i.test(name) && !/chin|pull/i.test(name);
+const isLSit = (name: string) => /l[\s-]?sit/i.test(name) && !/chin|pull|dip/i.test(name);
 const KB_SETS = 5;
 
 /** Kettlebell session score 0–1 toward "5 sets in <target> min": share of the 5 sets done × pace toward the target
@@ -165,6 +165,10 @@ export function workoutWeeks(g: CycleGoal, s: GoalsState): { week_start: string;
       v = kettlebellScore(w, g.target ?? 35);
       if (v !== null) label = kbLabel(w);
     }
+    if (g.auto === "lift" && g.exercise) {
+      const best = bestLiftSet(g, w);
+      if (best) { v = best.score; label = best.label; }
+    }
     if (g.auto === "run" && w.type === "running" && w.cardio_data?.distance_miles) {
       v = w.cardio_data.distance_miles;
     }
@@ -184,7 +188,24 @@ export function workoutWeeks(g: CycleGoal, s: GoalsState): { week_start: string;
   return [...byWeek.entries()].map(([week_start, b]) => ({ week_start, ...b })).sort((a, b) => a.week_start.localeCompare(b.week_start));
 }
 
-export const isWorkoutGoal = (g: CycleGoal) => g.auto === "kettlebell" || g.auto === "pullups" || g.auto === "run" || g.auto === "lsit";
+export const isWorkoutGoal = (g: CycleGoal) =>
+  g.auto === "kettlebell" || g.auto === "pullups" || g.auto === "run" || g.auto === "lsit" || g.auto === "lift";
+
+/** Lift goals: best set of the goal's exercise in one workout. Reps-only goals score by reps; weighted goals
+ *  score by estimated 1-rep max (Epley), so heavier or more reps both count, and the label shows the real set. */
+const epley = (weight: number, reps: number) => weight * (1 + reps / 30);
+function bestLiftSet(g: CycleGoal, w: LoggedWorkout): { score: number; label: string; weight: number; reps: number } | null {
+  const sets = (w.workout_sets ?? []).filter(st => st.exercises?.name?.toLowerCase() === g.exercise!.toLowerCase() && (st.reps ?? 0) > 0);
+  let best: { score: number; label: string; weight: number; reps: number } | null = null;
+  for (const st of sets) {
+    const reps = st.reps ?? 0;
+    const weight = Number(st.weight_lbs ?? 0);
+    const score = g.target_weight ? epley(weight, reps) : reps;
+    const label = g.target_weight ? `${weight} lb × ${reps}` : `${reps} reps`;
+    if (!best || score > best.score) best = { score, label, weight, reps };
+  }
+  return best;
+}
 
 /** Workout weeks inside the cycle, and the best result from before it (a starting point). */
 export function cycleWorkoutWeeks(g: CycleGoal, s: GoalsState) {
@@ -220,6 +241,15 @@ export function goalStatus(g: CycleGoal, s: GoalsState): { text: string; pct: nu
   if (g.auto === "yoga") {
     if (!s.yogaWeeks) return { text: "…", pct: null };
     return { text: `${s.yogaWeeks.length} / ${num(g.target ?? 0)}${unit}`, pct: g.target ? Math.min(1, s.yogaWeeks.length / g.target) : null };
+  }
+  if (g.auto === "lift") {
+    if (!s.workouts) return { text: "…", pct: null };
+    const weeks = cycleWorkoutWeeks(g, s).weeks;
+    if (weeks.length === 0) return { text: g.target_weight ? `goal ${num(g.target_weight)} lb × ${num(g.target ?? 0)}` : `goal ${num(g.target ?? 0)}${unit}`, pct: 0 };
+    const best = weeks.reduce((a, b) => (b.value > a.value ? b : a));
+    if (!g.target_weight) return { text: `${num(best.value)} / ${num(g.target ?? 0)}${unit}`, pct: g.target ? Math.min(1, best.value / g.target) : null };
+    const goalScore = epley(g.target_weight, g.target ?? 1);
+    return { text: `${best.label} → ${num(g.target_weight)} × ${num(g.target ?? 0)}`, pct: Math.min(1, best.value / goalScore) };
   }
   if (isWorkoutGoal(g)) {
     if (!s.workouts) return { text: "…", pct: null };

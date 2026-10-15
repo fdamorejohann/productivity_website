@@ -70,6 +70,17 @@ const LEGACY_WORKOUT_TYPES: typeof WORKOUT_TYPES = [
   { key: "muaythai",      label: "Muay Thai",     emoji: "🥊", color: "#898781" },
 ];
 
+// Workout A (see workout-plan.md): exercise names must match the exercises table; bodyweight moves log reps only.
+// Workout B is the kettlebell circuit, logged as sets + total time.
+const WORKOUT_A: { name: string; sets: number; bodyweight: boolean }[] = [
+  { name: "L-sit Dips", sets: 3, bodyweight: true },
+  { name: "Chin-ups", sets: 3, bodyweight: true },
+  { name: "Kettlebell Incline Push-ups", sets: 2, bodyweight: true },
+  { name: "Tucked Chin-ups", sets: 2, bodyweight: true },
+  { name: "Hammer Curls", sets: 2, bodyweight: false },
+  { name: "Lateral Raises", sets: 2, bodyweight: false },
+];
+
 // Draft set used while logging
 interface DraftSet {
   id: string;
@@ -233,6 +244,35 @@ function LogTab({ exercises, sessions, onSaved }: {
     setShowDropdown(false);
   };
 
+  // Fill the form with Workout A: every exercise with its set count, weights from last time.
+  const startWorkoutA = async () => {
+    setWorkoutType("lifting");
+    setNotes(n => n || "Workout A");
+    const list: DraftExercise[] = [];
+    for (const item of WORKOUT_A) {
+      let ex = exercises.find(e => e.name.toLowerCase() === item.name.toLowerCase());
+      if (!ex) {
+        ex = await db.exercises.upsert({ id: uid(), name: item.name, category: "other" }) as Exercise;
+        exercises.push(ex);
+      }
+      const lastWeight = item.bodyweight ? "" : String(prevWeights(ex.id).find(st => st.weight_lbs)?.weight_lbs ?? "");
+      list.push({
+        exercise_id: ex.id,
+        exercise_name: ex.name,
+        sets: Array.from({ length: item.sets }, () => ({ id: uid(), weight_lbs: lastWeight, reps: "", is_amrap: item.bodyweight })),
+      });
+    }
+    setDraftExercises(list);
+  };
+
+  // Workout B: the kettlebell circuit, logged as sets + total time.
+  const startWorkoutB = () => {
+    setWorkoutType("kettlebell");
+    setDraftExercises([]);
+    setCardioData({});
+    setNotes(n => n || "Workout B");
+  };
+
   const updateSet = (exIdx: number, setIdx: number, field: "weight_lbs" | "reps", val: string) => {
     setDraftExercises(prev => prev.map((e, i) => i !== exIdx ? e : {
       ...e,
@@ -340,9 +380,26 @@ function LogTab({ exercises, sessions, onSaved }: {
           </div>
         </div>
 
+        {/* Planned sessions */}
+        <div className="mb-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Planned workout</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button onClick={startWorkoutA}
+              className="text-left rounded-2xl border border-[#111] px-4 py-3 hover:bg-[#111] hover:text-[#F5F4F0] transition-colors">
+              <span className="block text-sm font-semibold">Workout A</span>
+              <span className="block text-xs opacity-70">L-sit dips · chin-ups · incline push-ups · tucked chin-ups · hammer curls · lateral raises</span>
+            </button>
+            <button onClick={startWorkoutB}
+              className="text-left rounded-2xl border border-[#111] px-4 py-3 hover:bg-[#111] hover:text-[#F5F4F0] transition-colors">
+              <span className="block text-sm font-semibold">Workout B</span>
+              <span className="block text-xs opacity-70">Kettlebell circuit · sets + total time</span>
+            </button>
+          </div>
+        </div>
+
         {/* Type selector */}
         <div>
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Workout Type</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Or pick a type</p>
           <div className="flex flex-wrap gap-2">
             {WORKOUT_TYPES.map(wt => (
               <button
