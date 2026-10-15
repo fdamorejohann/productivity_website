@@ -2,6 +2,8 @@
 
 This file is the project memory. Read it at the start of every session before touching any code.
 
+Workout planning in progress (goal: bigger arms): see `workout-plan.md` for the current session A/B plan and open questions. Supabase project id for this app: `rhbdaonaerlynpclozfg` (reach it via the Supabase connector, no keys needed).
+
 ---
 
 ## What this app is
