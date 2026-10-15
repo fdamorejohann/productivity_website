@@ -6,12 +6,27 @@ Goal: **bigger arms** (arm hypertrophy). Nothing here has been put into the site
 
 Confirmed by Finn 2026-10-14: 3 sets of chin-ups, 2 sets of everything else.
 
-1. Weighted chin-ups / pull-ups, 3x5-8
+1. L-sit chin-ups, 3 sets (bodyweight; replaced weighted chin-ups 2026-10-14). Separate from the 15-second L-sit hold goal.
 2. Weighted dips, 2x6-10 (upright, elbows tucked)
-3. Ring push-ups, 2 sets near failure
-4. Tucked front lever row, 2x3-6 slow, stop 1-2 reps short of failure (regress to inverted ring row, feet elevated, palms up, if elbows ache)
+3. Kettlebell incline push-ups, 2 sets near failure (renamed from ring push-ups, 2026-10-14)
+4. Tucked chin-ups, 2 sets, slow (renamed from tucked front lever rows, 2026-10-14)
 5. Hammer curls, 2x10-12
 6. Lateral raises, 2x12-20
+
+## Q4 lift goals (by Dec 27, 2026)
+
+Set 2026-10-14 from Finn's best logged sets (last logged May-June 2026, so expect 2-3 weeks to regain them).
+
+| Lift | Best so far | Goal |
+|---|---|---|
+| L-sit chin-ups | none logged yet (weighted chin-ups were +60 lb x 4 on Jun 2) | 15 in a row |
+| Weighted dips | +30 lb x 6 (May 11) | +50 lb x 8 |
+| Kettlebell incline push-ups | no reps logged ("Kettle Bell Elevated Pushup", May) | 25 reps in a set |
+| Tucked chin-ups | 2 reps (as front lever rows, May 26) | 10 reps in a set |
+| Hammer curls | 45 lb x 11 (Jun 2) | 55 lb x 10 |
+| Lateral raises | 20 lb x 12 (Jun 2) | 25 lb x 12 |
+
+Progression: stay in each rep range; when every set hits the top of the range, add 5 lb next session. Bodyweight moves add reps first.
 
 Overhead triceps extensions and incline / Bayesian curls (Claude's earlier suggestions) were dropped by Finn on 2026-10-14.
 Per session that's about 7 sets for biceps (chin-ups, rows, hammer curls) and 4 for triceps (dips, ring push-ups); twice a week, roughly 14 biceps / 8 triceps, so triceps sit under the 10-16 target.

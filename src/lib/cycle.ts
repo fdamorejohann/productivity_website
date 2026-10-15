@@ -138,7 +138,8 @@ export interface LoggedWorkout {
 
 // Bodyweight pull-ups / chin-ups; not pull-downs, pullovers, or weighted sets.
 const isPullUp = (name: string) => /(pull[\s-]?ups?|chin[\s-]?ups?)/i.test(name) && !/down|over|weighted/i.test(name);
-const isLSit = (name: string) => /l[\s-]?sit/i.test(name);
+// L-sit holds only: an "L-sit chin-up" is a chin-up (counts toward pull-ups), not an L-sit hold.
+const isLSit = (name: string) => /l[\s-]?sit/i.test(name) && !/chin|pull/i.test(name);
 const KB_SETS = 5;
 
 /** Kettlebell session score 0–1 toward "5 sets in <target> min": share of the 5 sets done × pace toward the target
