@@ -1,6 +1,6 @@
 /**
  * PersonalOS.tsx — Dark mode personal dashboard
- * Light editorial home: giant greeting; right column with the Q4 cycle score and a Learn block (Wikipedia article, artist to listen to, NTS link); the 12-week goals band and this week's tactic board (Cycle.tsx); then one
+ * Light editorial home: giant greeting; right column with the Q4 cycle score and a Learn block (Wikipedia article, artist to listen to; the Notes bubble carries a pinned NTS link); the 12-week goals band and this week's tactic board (Cycle.tsx); then one
  * outlined bubble per page (Jobs, Finances, Gym, Calm, Notes, Q4).
  * Each bubble opens a full page; the URL hash (#jobs etc.) tracks the open page.
  */
@@ -883,11 +883,11 @@ function pageFromHash(): Page | null {
   return (PAGES as string[]).includes(h) ? (h as Page) : null;
 }
 
-function Bubble({ page, line, sub, onOpen }: { page: Page; line: string; sub: string; onOpen: () => void }) {
-  return (
+function Bubble({ page, line, sub, onOpen, link }: { page: Page; line: string; sub: string; onOpen: () => void; link?: { href: string; label: string } }) {
+  const card = (
     <button
       onClick={onOpen}
-      className="group text-left border border-[#111] rounded-[28px] p-5 flex flex-col justify-between gap-6 min-h-[150px] transition-colors hover:bg-[#111] hover:text-[#ECEBE7]"
+      className="group text-left border border-[#111] rounded-[28px] p-5 flex flex-col justify-between gap-6 min-h-[150px] w-full h-full transition-colors hover:bg-[#111] hover:text-[#ECEBE7]"
     >
       <div className="text-xl font-medium tracking-[-0.03em]">{PAGE_TITLES[page]}</div>
       <div className="text-[13px] leading-snug text-[#5f5e5a] group-hover:text-[#b4b2a9]">
@@ -895,6 +895,17 @@ function Bubble({ page, line, sub, onOpen }: { page: Page; line: string; sub: st
         <div>{sub}</div>
       </div>
     </button>
+  );
+  if (!link) return card;
+  // The link sits over the card's corner as a sibling (a link can't live inside the card's button).
+  return (
+    <div className="relative">
+      {card}
+      <a href={link.href} target="_blank" rel="noopener noreferrer"
+        className="absolute top-4 right-5 text-[12px] underline underline-offset-4 decoration-[#C9C7BF] text-[#5f5e5a] hover:text-[#111] hover:decoration-[#111]">
+        {link.label}
+      </a>
+    </div>
   );
 }
 
@@ -996,7 +1007,8 @@ export default function PersonalOS() {
           <Bubble page="calm" onOpen={() => open("calm")}
             line={calmGoals.length ? `${calmDone} of ${calmGoals.length} goals done` : "…"}
             sub="Books, shows, movies" />
-          <Bubble page="notes" onOpen={() => open("notes")} line={home.notesFirstLine || "Empty"} sub="Scratchpad" />
+          <Bubble page="notes" onOpen={() => open("notes")} line={home.notesFirstLine || "Empty"} sub="Scratchpad"
+            link={{ href: "https://www.nts.live/", label: "NTS ↗" }} />
           <Bubble page="q4" onOpen={() => open("q4")}
             line={week.inCycle ? `Week ${week.week} of ${CYCLE.weeks}` : "Review"}
             sub={weekPct === null ? "Goals and tactics" : `${weekPct}% this week`} />

@@ -1,15 +1,13 @@
 /**
  * Learn.tsx — Home page "Learn" block (replaces the old reminders list): a Wikipedia article to read
  * (today's featured article, or a random one on request), an artist to listen to (rotates daily through
- * the artists in the albums table, with an Apple Music link), and a pinned link to NTS Radio.
+ * the artists in the albums table, with an Apple Music link). (The NTS Radio link lives on the Notes bubble.)
  * Wikipedia's REST API is free, keyless and CORS-enabled, so it is fetched straight from the browser.
  */
 
 import { useEffect, useState } from "react";
 import { db } from "../lib/db";
 import type { Album } from "../lib/types";
-
-const NTS_URL = "https://www.nts.live/";
 
 interface Article { title: string; blurb: string; url: string; featured: boolean; }
 
@@ -88,10 +86,6 @@ export default function Learn({ onOpenAlbums }: { onOpenAlbums?: () => void }) {
           </p>
         </div>
       )}
-
-      <p className="text-[12px]">
-        Pinned: <a href={NTS_URL} target="_blank" rel="noopener noreferrer" className={link}>NTS Radio ↗</a> (live shows + archive)
-      </p>
     </div>
   );
 }
