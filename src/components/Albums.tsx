@@ -13,6 +13,18 @@ const REACTIONS: { status: Exclude<AlbumStatus, "new" | "skipped">; label: strin
   { status: "meh", label: "Meh", prompt: "What was missing or off?" },
   { status: "disliked", label: "Disliked", prompt: "What didn't work for you?" },
 ];
+/** Display order + labels for album categories; unknown categories sort after these under a title-cased label. */
+const CATEGORIES: { key: string; label: string; blurb: string }[] = [
+  { key: "love", label: "More of what you love", blurb: "Close to artists you already play" },
+  { key: "stretch", label: "Stretch picks", blurb: "Adjacent, but new territory" },
+  { key: "classics", label: "Classics to know", blurb: "The canon, for learning music history" },
+  { key: "global", label: "Global & world", blurb: "Sounds from outside the US and UK" },
+  { key: "deep_dive", label: "Genre deep dives", blurb: "One genre at a time" },
+];
+const catLabel = (key: string) =>
+  CATEGORIES.find(c => c.key === key)?.label ?? (key === "other" ? "Other" : key.replace(/_/g, " ").replace(/^\w/, ch => ch.toUpperCase()));
+const catBlurb = (key: string) => CATEGORIES.find(c => c.key === key)?.blurb;
+
 const LABEL: Record<AlbumStatus, string> = { new: "New", liked: "Liked", meh: "Meh", disliked: "Disliked", skipped: "Skipped" };
 
 export default function Albums() {
@@ -44,6 +56,12 @@ export default function Albums() {
   if (albums === null) return <p className="mt-12 text-[13px] text-[#5f5e5a]">Loading albums…</p>;
 
   const queue = albums.filter(a => a.status === "new");
+  const groups = (() => {
+    const by = new Map<string, Album[]>();
+    for (const a of queue) by.set(a.category ?? "other", [...(by.get(a.category ?? "other") ?? []), a]);
+    const order = (k: string) => { const i = CATEGORIES.findIndex(c => c.key === k); return i === -1 ? CATEGORIES.length + (k === "other" ? 1 : 0) : i; };
+    return [...by.entries()].sort((x, y) => order(x[0]) - order(y[0]));
+  })();
   const done = albums.filter(a => a.status !== "new");
   const count = (s: AlbumStatus) => albums.filter(a => a.status === s).length;
 
@@ -115,7 +133,15 @@ export default function Albums() {
       {queue.length === 0 ? (
         <p className="text-[13px] text-[#5f5e5a] border border-dashed border-[#C9C7BF] rounded-[22px] p-6">Nothing queued. Ask Claude for the next round.</p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">{queue.map(card)}</div>
+        groups.map(([key, list]) => (
+          <section key={key} className="mb-8">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+              <h3 className="text-[11px] uppercase tracking-[0.1em] text-[#111]">{catLabel(key)} <span className="text-[#5f5e5a]">· {list.length}</span></h3>
+              {catBlurb(key) && <span className="text-[12px] text-[#5f5e5a]">{catBlurb(key)}</span>}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{list.map(card)}</div>
+          </section>
+        ))
       )}
 
       {done.length > 0 && (

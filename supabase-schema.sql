@@ -297,3 +297,8 @@ create table if not exists public.albums (
 );
 create index if not exists albums_status_idx on public.albums (status);
 alter table public.albums enable row level security;
+
+-- Albums are grouped on the Calm page by category (free text slug; labels live in Albums.tsx):
+-- love = more of what Finn loves, stretch = adjacent but new, classics = the canon, global = world / non-Western, deep_dive = one genre at a time.
+alter table public.albums add column if not exists category text;
+create index if not exists albums_category_idx on public.albums (category);

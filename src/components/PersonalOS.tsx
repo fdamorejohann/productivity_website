@@ -1,7 +1,6 @@
 /**
  * PersonalOS.tsx — Dark mode personal dashboard
- * Light editorial home: giant greeting; right column with the Q4 cycle score and reminders (job
- * follow-ups, note to-dos); the 12-week goals band and this week's tactic board (Cycle.tsx); then one
+ * Light editorial home: giant greeting; right column with the Q4 cycle score and a Learn block (Wikipedia article, artist to listen to, NTS link); the 12-week goals band and this week's tactic board (Cycle.tsx); then one
  * outlined bubble per page (Jobs, Finances, Gym, Calm, Notes, Q4).
  * Each bubble opens a full page; the URL hash (#jobs etc.) tracks the open page.
  */
@@ -16,6 +15,7 @@ import { useCountUp } from "../lib/useCountUp";
 import { CYCLE, goalStatus, useCycleGoals, useCycleWeek } from "../lib/cycle";
 import { CalmPage, CyclePage, CycleScore, GoalStrip, GoalsBand, WeekBoard } from "./Cycle";
 import JobsFunnel from "./JobsFunnel";
+import Learn from "./Learn";
 import type { CycleArea, JobCategory, JobPosting, JobStatus, JobUpdate, NewJob } from "../lib/types";
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -754,7 +754,7 @@ function NotesBox() {
   return (
     <div className="flex flex-col">
       <p className="text-[13px] text-[#5f5e5a] mb-4">
-        Saves as you type. Lines starting with <span className="font-mono text-[#111]">[ ]</span>, <span className="font-mono text-[#111]">- [ ]</span> or <span className="font-mono text-[#111]">todo:</span> show up as reminders on Home.
+        Saves as you type. Lines starting with <span className="font-mono text-[#111]">[ ]</span>, <span className="font-mono text-[#111]">- [ ]</span> or <span className="font-mono text-[#111]">todo:</span> are no longer shown on Home.
       </p>
       <textarea
         ref={textareaRef}
@@ -959,8 +959,6 @@ export default function PersonalOS() {
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning," : hour < 17 ? "Good afternoon," : "Good evening,";
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-  const { jobs, notes } = home.reminders;
-  const reminders = [...jobs.slice(0, 4), ...notes.slice(0, 3)];
   const calmGoals = goals.goals.filter(g => g.area === "calm");
   const calmDone = calmGoals.filter(g => (goalStatus(g, goals).pct ?? 0) >= 1).length;
   const weekPct = week.score === null ? null : Math.round(week.score * 100);
@@ -979,17 +977,7 @@ export default function PersonalOS() {
               <WeatherLine />
             </div>
             <button onClick={() => open("q4")} className="block text-left" title={`Open ${CYCLE.name}`}><CycleScore w={week} /></button>
-            {reminders.length > 0 ? (
-              <ul className="space-y-1.5">
-                {reminders.map((r, i) => (
-                  <li key={i}>
-                    <button onClick={() => open(r.page)} className="text-left hover:text-[#111] transition-colors">{r.text}</button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>Nothing due. Enjoy the day.</p>
-            )}
+            <Learn onOpenAlbums={() => open("calm")} />
           </div>
         </div>
 

@@ -294,6 +294,7 @@ export interface Album {
   artist: string;
   year: number | null;
   genre: string | null;
+  category: string | null;      // love | stretch | classics | global | deep_dive (free text; labels in Albums.tsx)
   apple_url: string;
   artwork_url: string | null;
   why: string | null;
