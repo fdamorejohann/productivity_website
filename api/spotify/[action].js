@@ -11,7 +11,9 @@ import { supabase } from "../_supabase.js";
 const BASE = "https://productivity-website-three.vercel.app";
 const REDIRECT = `${BASE}/api/spotify/callback`;
 const SCOPES = "playlist-read-private playlist-modify-private playlist-modify-public";
-const PLAYLIST_NAME = (process.env.SPOTIFY_PLAYLIST_NAME || "new_songs").toLowerCase();
+const PLAYLIST_NAME = process.env.SPOTIFY_PLAYLIST_NAME || "new_songs";
+// "new_songs", "New Songs", "new-songs" all match.
+const norm = s => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
 export default async function handler(req, res) {
   const { action } = req.query;
@@ -94,7 +96,7 @@ async function api(token, path, init = {}) {
 async function findPlaylist(token) {
   for (let url = "/me/playlists?limit=50"; url;) {
     const page = await api(token, url);
-    const hit = page.items?.find(p => p?.name?.toLowerCase() === PLAYLIST_NAME);
+    const hit = page.items?.find(p => norm(p?.name) === norm(PLAYLIST_NAME));
     if (hit) return hit;
     url = page.next;
   }
