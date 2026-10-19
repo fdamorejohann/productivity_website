@@ -36,6 +36,9 @@ function todayYmd(): string {
 export default function Movies({ onWatched }: { onWatched?: (m: Movie) => void }) {
   const [movies, setMovies] = useState<Movie[] | null>(null);
   const [tonight, setTonight] = useState(0);
+  // Watchlist is collapsed by default; the open/closed choice is remembered per browser.
+  const [showList, setShowList] = useState(() => { try { return localStorage.getItem("movies.watchlistOpen") === "1"; } catch { return false; } });
+  const toggleList = () => setShowList(v => { try { localStorage.setItem("movies.watchlistOpen", v ? "0" : "1"); } catch { /* convenience only */ } return !v; });
 
   useEffect(() => {
     db.movies.list().then(ms => setMovies(Array.isArray(ms) ? ms : [])).catch(() => setMovies([]));
@@ -174,8 +177,10 @@ export default function Movies({ onWatched }: { onWatched?: (m: Movie) => void }
         </>
       )}
 
-      <h3 className="text-[11px] uppercase tracking-[0.1em] text-[#111] mb-2">Watchlist · {watchlist.length}</h3>
-      {watchlist.length === 0 ? (
+      <button onClick={toggleList} className="text-[11px] uppercase tracking-[0.1em] text-[#111] mb-2 hover:text-[#5f5e5a]">
+        {showList ? "▾" : "▸"} Watchlist · {watchlist.length}
+      </button>
+      {!showList ? null : watchlist.length === 0 ? (
         <p className="text-[13px] text-[#5f5e5a]">Your Letterboxd watchlist is empty.</p>
       ) : (
         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 border-t border-[#D9D7CF]">
