@@ -3,6 +3,7 @@
 //   GET  /api/spotify/login     -> Spotify OAuth consent (one time)
 //   GET  /api/spotify/callback  -> stores the refresh token in public.spotify_auth (first account only)
 //   GET  /api/spotify/status    -> { connected, playlist }
+//   GET  /api/spotify/tracks?id= -> tracks of one of Finn's OWN playlists (read-only; used to learn his playlist vibes)
 //   POST /api/spotify/sync      -> adds songs from albums.liked_songs (liked picks) to the "new_songs" playlist
 // Env: SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, optional SPOTIFY_PLAYLIST_NAME (default new_songs).
 
@@ -22,6 +23,7 @@ export default async function handler(req, res) {
       case "login":    return login(req, res);
       case "callback": return await callback(req, res);
       case "status":   return await status(req, res);
+      case "tracks":   return await tracks(req, res);
       case "sync":     return req.method === "POST" ? await sync(req, res) : res.status(405).end();
       default:         return res.status(404).json({ error: "Not found" });
     }
@@ -141,6 +143,27 @@ async function findTrack(token, artist, song) {
     if (best) return best;
   }
   return null;
+}
+
+async function tracks(req, res) {
+  const id = String(req.query.id || "");
+  if (!/^[A-Za-z0-9]{22}$/.test(id)) return res.status(400).json({ error: "Bad playlist id" });
+  const token = await accessToken();
+  if (!token) return res.status(409).json({ error: "Spotify not connected" });
+  const [me, pl] = await Promise.all([api(token, "/me"), api(token, `/playlists/${id}?fields=name,description,owner(id)`)]);
+  if (pl.owner?.id !== me.id) return res.status(403).json({ error: "Only your own playlists" });
+  const out = [];
+  for (let url = `/playlists/${id}/items?limit=50`; url;) {
+    let page;
+    try { page = await api(token, url); }
+    catch (e) { if (e.status === 404 && url.includes("/items")) { url = url.replace("/items", "/tracks"); continue; } throw e; }
+    for (const it of page.items || []) {
+      const t = it.item || it.track;
+      if (t?.name) out.push({ name: t.name, artists: (t.artists || []).map(a => a.name), album: t.album?.name ?? null, year: t.album?.release_date?.slice(0, 4) ?? null });
+    }
+    url = page.next;
+  }
+  return res.json({ name: pl.name, description: pl.description || null, tracks: out });
 }
 
 async function status(req, res) {
