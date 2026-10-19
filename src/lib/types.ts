@@ -296,6 +296,7 @@ export interface Album {
   genre: string | null;
   category: string | null;      // love | stretch | classics | global | deep_dive (free text; labels in Albums.tsx)
   apple_url: string;
+  spotify_url: string | null;
   artwork_url: string | null;
   why: string | null;
   tags: string[];

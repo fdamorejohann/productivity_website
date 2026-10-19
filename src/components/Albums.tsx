@@ -1,5 +1,5 @@
 /**
- * Albums.tsx — Calm page: album picks from Claude, linked to Apple Music. Listen, then mark each
+ * Albums.tsx — Calm page: album picks from Claude, linked to Spotify (spotify_url, else a Spotify search). Listen, then mark each
  * Liked / Meh / Disliked and say why; the reason is saved to Supabase (table albums) and the next round of
  * picks is built from it. Picks are grouped into music-type tabs (albums.category); "taste_check" albums are
  * calibration picks Claude wants heard first, shown in a strip above the tabs. Each tab also shows what's
@@ -39,6 +39,9 @@ const catOrder = (key: string) => { const i = CATEGORIES.findIndex(c => c.key ==
 const catOf = (a: Album) => a.category ?? "other";
 
 const LABEL: Record<AlbumStatus, string> = { new: "New", liked: "Liked", meh: "Meh", disliked: "Disliked", skipped: "Skipped" };
+
+/** Exact Spotify album link when we have one, otherwise a Spotify search for the album. */
+const listenUrl = (a: Album) => a.spotify_url ?? `https://open.spotify.com/search/${encodeURIComponent(`${a.artist} ${a.title}`)}`;
 
 const readTab = () => { try { return localStorage.getItem(TAB_KEY) ?? ALL; } catch { return ALL; } };
 
@@ -97,7 +100,7 @@ export default function Albums() {
     <div key={a.id} className="border border-[#111] rounded-[22px] p-4 flex flex-col gap-3 bg-[#F5F4F0]">
       <div className="flex gap-4">
         {a.artwork_url && (
-          <a href={a.apple_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+          <a href={listenUrl(a)} target="_blank" rel="noopener noreferrer" className="shrink-0">
             <img src={a.artwork_url} alt="" loading="lazy" className="w-24 h-24 rounded-[10px] object-cover bg-[#E4E2DC]" />
           </a>
         )}
@@ -105,12 +108,12 @@ export default function Albums() {
           <div className="text-[11px] uppercase tracking-[0.08em] text-[#5f5e5a]">
             {[activeTab === ALL && catOf(a) !== TASTE ? catLabel(catOf(a)) : a.genre, a.year].filter(Boolean).join(" · ") || "Album"}
           </div>
-          <a href={a.apple_url} target="_blank" rel="noopener noreferrer" className="text-[17px] font-medium leading-snug tracking-[-0.02em] hover:underline underline-offset-4">
+          <a href={listenUrl(a)} target="_blank" rel="noopener noreferrer" className="text-[17px] font-medium leading-snug tracking-[-0.02em] hover:underline underline-offset-4">
             {a.title}
           </a>
           <p className="text-[13px] text-[#5f5e5a]">{a.artist}</p>
-          <a href={a.apple_url} target="_blank" rel="noopener noreferrer" className="text-[12px] underline underline-offset-4 hover:text-[#5f5e5a] w-fit">
-            Open in Apple Music ↗
+          <a href={listenUrl(a)} target="_blank" rel="noopener noreferrer" className="text-[12px] underline underline-offset-4 hover:text-[#5f5e5a] w-fit">
+            Open in Spotify ↗
           </a>
         </div>
       </div>
@@ -166,7 +169,7 @@ export default function Albums() {
         <h2 className="text-xl font-medium tracking-[-0.03em]">Albums to listen to</h2>
         <span className="text-[12px] text-[#5f5e5a]">{count("liked")} liked · {count("meh")} meh · {count("disliked") + count("skipped")} not for me</span>
       </div>
-      <p className="text-[13px] text-[#5f5e5a] mb-5">Tap one to open it in Apple Music. After listening, mark it and say why — that's what tunes the next picks.</p>
+      <p className="text-[13px] text-[#5f5e5a] mb-5">Tap one to open it in Spotify. After listening, mark it and say why — that's what tunes the next picks.</p>
 
       {tasteQueue.length > 0 && (
         <section className="mb-8 rounded-[28px] bg-[#E4E2DC] p-4 md:p-5">
