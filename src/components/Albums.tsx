@@ -20,7 +20,9 @@ const REACTIONS: { status: Exclude<AlbumStatus, "new" | "skipped">; label: strin
 const CATEGORIES: { key: string; label: string; blurb: string }[] = [
   { key: "techno", label: "Melodic techno", blurb: "Melodic techno and electronic, like your top tracks" },
   { key: "indie_dance", label: "Indie dance", blurb: "New Order, Hot Chip, LCD territory" },
-  { key: "funk_soul", label: "Funk & soul", blurb: "Disco, funk and soul grooves" },
+  { key: "nu_disco", label: "Nu-disco", blurb: "Modern disco and electro-funk, the Parcels lane" },
+  { key: "funk", label: "Funk", blurb: "Funk, afrobeat and psych-funk grooves" },
+  { key: "soul", label: "Soul", blurb: "Classic and modern soul" },
   { key: "dream_pop", label: "Dream pop", blurb: "Dream pop and shoegaze" },
   { key: "songwriters", label: "Songwriters", blurb: "Indie and sad-boy songwriters" },
   { key: "country", label: "Country", blurb: "Country and Americana, for Cowboy cool" },
