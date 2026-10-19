@@ -98,7 +98,7 @@ export default function Albums() {
     try {
       const r = await db.spotify.sync();
       const miss = r.notFound?.length ? ` Couldn't find: ${r.notFound.map(n => `${n.song} (${n.artist})`).join(", ")}.` : "";
-      setSyncMsg(`Added ${r.added?.length ?? 0} song${r.added?.length === 1 ? "" : "s"} to ${r.playlist}.${miss}`);
+      setSyncMsg(`Added ${r.added?.length ?? 0} song${r.added?.length === 1 ? "" : "s"} to ${r.playlist ?? "new_songs"}.${miss}`);
       load();
     } catch { setSyncMsg("Sync failed. Check that Spotify is connected."); }
   };
