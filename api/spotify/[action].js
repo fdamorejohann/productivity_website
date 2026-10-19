@@ -93,9 +93,13 @@ async function api(token, path, init = {}) {
   return r.status === 204 ? null : r.json();
 }
 
+let lastScan = { seen: 0, owned: 0 };
 async function findPlaylist(token) {
+  lastScan = { seen: 0, owned: 0 };
   for (let url = "/me/playlists?limit=50"; url;) {
     const page = await api(token, url);
+    lastScan.seen += page.items?.length ?? 0;
+    lastScan.owned += page.items?.filter(p => p?.owner?.id).length ?? 0;
     const hit = page.items?.find(p => norm(p?.name) === norm(PLAYLIST_NAME));
     if (hit) return hit;
     url = page.next;
@@ -143,7 +147,7 @@ async function status(req, res) {
   const token = await accessToken();
   if (!token) return res.json({ connected: false, playlist: null });
   const pl = await findPlaylist(token);
-  return res.json({ connected: true, playlist: pl ? pl.name : null });
+  return res.json({ connected: true, playlist: pl ? pl.name : null, playlistsSeen: lastScan.seen });
 }
 
 async function sync(req, res) {
