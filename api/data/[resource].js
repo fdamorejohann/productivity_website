@@ -1019,10 +1019,16 @@ async function handleAlbums(req, res) {
     return res.json(data);
   }
   if (req.method === "PATCH") {
-    const { id, status, feedback } = req.body;
-    if (!["new", "liked", "meh", "disliked", "skipped"].includes(status)) return res.status(400).json({ error: "Bad status" });
-    const updates = { status, reacted_at: status === "new" ? null : new Date().toISOString() };
+    // status is optional so the songs note can be edited on its own; liked_songs feeds /api/spotify/sync.
+    const { id, status, feedback, liked_songs } = req.body;
+    const updates = {};
+    if (status !== undefined) {
+      if (!["new", "liked", "meh", "disliked", "skipped"].includes(status)) return res.status(400).json({ error: "Bad status" });
+      Object.assign(updates, { status, reacted_at: status === "new" ? null : new Date().toISOString() });
+    }
     if (typeof feedback === "string") updates.feedback = feedback.trim().slice(0, 2000) || null;
+    if (typeof liked_songs === "string") updates.liked_songs = liked_songs.trim().slice(0, 2000) || null;
+    if (!Object.keys(updates).length) return res.status(400).json({ error: "Nothing to update" });
     const { data, error } = await supabase.from("albums").update(updates).eq("id", id).select();
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data[0]);

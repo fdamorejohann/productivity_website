@@ -79,11 +79,11 @@ export default function Learn({ onOpenAlbums }: { onOpenAlbums?: () => void }) {
         <div>
           <p className={label}>Listen</p>
           <p className="mt-1">
-            <a href={pick.apple_url} target="_blank" rel="noopener noreferrer" className={`${link} text-[#111]`}>{pick.artist}</a>
+            <a href={pick.spotify_url ?? `https://open.spotify.com/search/${encodeURIComponent(`${pick.artist} ${pick.title}`)}`} target="_blank" rel="noopener noreferrer" className={`${link} text-[#111]`}>{pick.artist}</a>
             <span> — {pick.title}{pick.genre ? `, ${pick.genre}` : ""}</span>
             <span className="block mt-0.5 text-[12px]">
               <button onClick={() => setShift(s => s + 1)} className={link}>another</button>
-              {onOpenAlbums && <> · <button onClick={onOpenAlbums} className={link}>all albums</button></>}
+              {onOpenAlbums && <> · <button onClick={onOpenAlbums} className={link}>all music</button></>}
             </span>
           </p>
         </div>

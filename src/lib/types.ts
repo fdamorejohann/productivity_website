@@ -294,8 +294,9 @@ export interface Album {
   artist: string;
   year: number | null;
   genre: string | null;
-  category: string | null;      // love | stretch | classics | global | deep_dive (free text; labels in Albums.tsx)
-  apple_url: string;
+  category: string | null;      // music-type tab key (free text; labels in Albums.tsx); taste_check = calibration strip
+  kind: "artist" | "album";     // artist = rate the artist (title = album to start with); album = rate this record (canon)
+  apple_url: string | null;
   spotify_url: string | null;
   artwork_url: string | null;
   why: string | null;
@@ -303,6 +304,9 @@ export interface Album {
   source: "claude" | "seed" | "site";
   status: AlbumStatus;
   feedback: string | null;
+  liked_songs: string | null;   // Finn's free text; /api/spotify/sync adds them to the new_songs playlist
+  songs_added: string[];        // song names already synced to Spotify
+  this_is_url: string | null;   // Spotify "This Is <artist>" playlist, when one exists
   reacted_at: string | null;
   created_at: string;
 }

@@ -1,9 +1,10 @@
 /**
- * Albums.tsx — Calm page: album picks from Claude, linked to Spotify (spotify_url, else a Spotify search). Listen, then mark each
- * Liked / Meh / Disliked and say why; the reason is saved to Supabase (table albums) and the next round of
- * picks is built from it. Picks are grouped into music-type tabs (albums.category); "taste_check" albums are
- * calibration picks Claude wants heard first, shown in a strip above the tabs. Each tab also shows what's
- * been liked vs not, so the taste profile per style is visible.
+ * Albums.tsx — Calm page music picks from Claude (table albums), opened in Spotify. Most picks are ARTISTS
+ * (kind 'artist': rate the artist; title is the album to start with, this_is_url the "This Is" playlist);
+ * the canon tab stays ALBUMS (kind 'album'). Listen, then mark Liked / Meh / Disliked and say why. When you
+ * like one, list the songs you liked: /api/spotify/sync (run daily by the music-picks task, or "Sync now")
+ * adds them to the new_songs playlist. Picks sit in music-type tabs (category); "taste_check" picks are
+ * calibration picks shown in a strip above the tabs. Each tab shows liked vs not, with your notes.
  */
 
 import { useEffect, useState } from "react";
@@ -15,7 +16,7 @@ const REACTIONS: { status: Exclude<AlbumStatus, "new" | "skipped">; label: strin
   { status: "meh", label: "Meh", prompt: "What was missing or off?" },
   { status: "disliked", label: "Disliked", prompt: "What didn't work for you?" },
 ];
-/** Tab order + labels for album categories; unknown categories sort after these under a title-cased label. */
+/** Tab order + labels for categories; unknown categories sort after these under a title-cased label. */
 const CATEGORIES: { key: string; label: string; blurb: string }[] = [
   { key: "techno", label: "Melodic techno", blurb: "Melodic techno and electronic, like your top tracks" },
   { key: "indie_dance", label: "Indie dance", blurb: "New Order, Hot Chip, LCD territory" },
@@ -37,24 +38,34 @@ const catLabel = (key: string) =>
   CATEGORIES.find(c => c.key === key)?.label ?? (key === "other" ? "Other" : key.replace(/_/g, " ").replace(/^\w/, ch => ch.toUpperCase()));
 const catOrder = (key: string) => { const i = CATEGORIES.findIndex(c => c.key === key); return i === -1 ? CATEGORIES.length + (key === "other" ? 1 : 0) : i; };
 const catOf = (a: Album) => a.category ?? "other";
+const isArtist = (a: Album) => a.kind !== "album";
 
 const LABEL: Record<AlbumStatus, string> = { new: "New", liked: "Liked", meh: "Meh", disliked: "Disliked", skipped: "Skipped" };
 
 /** Exact Spotify album link when we have one, otherwise a Spotify search for the album. */
 const listenUrl = (a: Album) => a.spotify_url ?? `https://open.spotify.com/search/${encodeURIComponent(`${a.artist} ${a.title}`)}`;
+/** Same split as /api/spotify/sync. */
+const parseSongs = (text: string | null) => (text ?? "").split(/[\n,;]+/).map(s => s.replace(/^[\s\-•*"“']+|[\s"”']+$/g, "")).filter(Boolean);
 
 const readTab = () => { try { return localStorage.getItem(TAB_KEY) ?? ALL; } catch { return ALL; } };
 
+type Spotify = { connected: boolean; playlist: string | null } | null;
+
 export default function Albums() {
   const [albums, setAlbums] = useState<Album[] | null>(null);
-  const [open, setOpen] = useState<{ id: string; status: AlbumStatus } | null>(null);
+  const [open, setOpen] = useState<{ id: string; status: AlbumStatus | null } | null>(null);
   const [note, setNote] = useState("");
+  const [songs, setSongs] = useState("");
   const [saving, setSaving] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const [tab, setTabState] = useState<string>(readTab);
+  const [spotify, setSpotify] = useState<Spotify>(null);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
+  const load = () => db.albums.list().then(a => setAlbums(Array.isArray(a) ? a : [])).catch(() => setAlbums([]));
   useEffect(() => {
-    db.albums.list().then(a => setAlbums(Array.isArray(a) ? a : [])).catch(() => setAlbums([]));
+    load();
+    db.spotify.status().then(setSpotify).catch(() => setSpotify(null));
   }, []);
 
   const setTab = (t: string) => {
@@ -63,38 +74,70 @@ export default function Albums() {
     try { localStorage.setItem(TAB_KEY, t); } catch { /* per-viewer convenience only */ }
   };
 
-  const startReact = (a: Album, status: AlbumStatus) => {
+  /** status null = only editing the songs on an already-liked pick. */
+  const startReact = (a: Album, status: AlbumStatus | null) => {
     setOpen({ id: a.id, status });
     setNote(a.feedback ?? "");
+    setSongs(a.liked_songs ?? "");
   };
 
-  const save = async (a: Album, status: AlbumStatus, feedback: string) => {
+  const save = async (a: Album, status: AlbumStatus | null, feedback: string, likedSongs: string) => {
     setSaving(true);
     try {
-      const updated = await db.albums.react(a.id, status, feedback);
+      const updated = status === null
+        ? await db.albums.setSongs(a.id, likedSongs)
+        : await db.albums.react(a.id, status, feedback, status === "liked" ? likedSongs : undefined);
       setAlbums(as => as?.map(x => x.id === a.id ? { ...x, ...updated } : x) ?? null);
       setOpen(null);
     } catch { /* keep the form open so nothing typed is lost */ }
     setSaving(false);
   };
 
-  if (albums === null) return <p className="mt-12 text-[13px] text-[#5f5e5a]">Loading albums…</p>;
+  const syncNow = async () => {
+    setSyncMsg("Syncing…");
+    try {
+      const r = await db.spotify.sync();
+      const miss = r.notFound?.length ? ` Couldn't find: ${r.notFound.map(n => `${n.song} (${n.artist})`).join(", ")}.` : "";
+      setSyncMsg(`Added ${r.added?.length ?? 0} song${r.added?.length === 1 ? "" : "s"} to ${r.playlist}.${miss}`);
+      load();
+    } catch { setSyncMsg("Sync failed. Check that Spotify is connected."); }
+  };
+
+  if (albums === null) return <p className="mt-12 text-[13px] text-[#5f5e5a]">Loading music…</p>;
 
   const tasteQueue = albums.filter(a => catOf(a) === TASTE && a.status === "new");
   const keys = [...new Set(albums.map(catOf).filter(k => k !== TASTE))].sort((x, y) => catOrder(x) - catOrder(y));
   const activeTab = tab === ALL || keys.includes(tab) ? tab : ALL;
   const inTab = albums.filter(a => catOf(a) !== TASTE && (activeTab === ALL || catOf(a) === activeTab));
   const queue = inTab.filter(a => a.status === "new").sort((x, y) => catOrder(catOf(x)) - catOrder(catOf(y)));
-  // Rated albums for this tab; taste checks count everywhere under All.
+  // Rated picks for this tab; taste checks count everywhere under All.
   const rated = albums.filter(a => a.status !== "new" && (activeTab === ALL || catOf(a) === activeTab));
   const liked = rated.filter(a => a.status === "liked");
   const notForMe = rated.filter(a => a.status !== "liked");
   const queued = (k: string) => albums.filter(a => a.status === "new" && (k === ALL ? catOf(a) !== TASTE : catOf(a) === k)).length;
   const count = (s: AlbumStatus) => albums.filter(a => a.status === s).length;
+  const pendingSongs = albums.filter(a => a.status === "liked")
+    .reduce((n, a) => n + parseSongs(a.liked_songs).filter(s => !a.songs_added?.some(x => x.toLowerCase() === s.toLowerCase())).length, 0);
 
   const btn = "text-xs font-medium px-3 py-1 rounded-full border transition-colors";
   const ghost = `${btn} border-[#C9C7BF] text-[#5f5e5a] hover:border-[#111] hover:text-[#111]`;
   const solid = `${btn} bg-[#111] text-[#F5F4F0] border-[#111] hover:bg-[#333]`;
+  const link = "text-[12px] underline underline-offset-4 hover:text-[#5f5e5a] w-fit";
+  const field = "w-full text-[13px] bg-transparent border border-[#C9C7BF] rounded-[14px] p-3 focus:outline-none focus:border-[#111]";
+
+  const songList = (a: Album) => {
+    const list = parseSongs(a.liked_songs);
+    if (!list.length) return null;
+    const done = new Set((a.songs_added ?? []).map(s => s.toLowerCase()));
+    return (
+      <p className="text-[12px] text-[#5f5e5a]">
+        Songs: {list.map((s, i) => (
+          <span key={s}>{i > 0 && ", "}<span className="text-[#111]">{s}</span>{done.has(s.toLowerCase()) ? " ✓" : ""}</span>
+        ))}
+        {list.some(s => !done.has(s.toLowerCase())) && <span> · not in new_songs yet</span>}
+      </p>
+    );
+  };
 
   const card = (a: Album) => (
     <div key={a.id} className="border border-[#111] rounded-[22px] p-4 flex flex-col gap-3 bg-[#F5F4F0]">
@@ -106,34 +149,48 @@ export default function Albums() {
         )}
         <div className="min-w-0 flex flex-col gap-1">
           <div className="text-[11px] uppercase tracking-[0.08em] text-[#5f5e5a]">
-            {[activeTab === ALL && catOf(a) !== TASTE ? catLabel(catOf(a)) : a.genre, a.year].filter(Boolean).join(" · ") || "Album"}
+            {[activeTab === ALL && catOf(a) !== TASTE ? catLabel(catOf(a)) : null, isArtist(a) ? "Artist" : a.year].filter(Boolean).join(" · ")}
           </div>
-          <a href={listenUrl(a)} target="_blank" rel="noopener noreferrer" className="text-[17px] font-medium leading-snug tracking-[-0.02em] hover:underline underline-offset-4">
-            {a.title}
-          </a>
-          <p className="text-[13px] text-[#5f5e5a]">{a.artist}</p>
-          <a href={listenUrl(a)} target="_blank" rel="noopener noreferrer" className="text-[12px] underline underline-offset-4 hover:text-[#5f5e5a] w-fit">
-            Open in Spotify ↗
-          </a>
+          {isArtist(a) ? (
+            <>
+              <p className="text-[17px] font-medium leading-snug tracking-[-0.02em]">{a.artist}</p>
+              <p className="text-[13px] text-[#5f5e5a]">
+                Start with{" "}
+                <a href={listenUrl(a)} target="_blank" rel="noopener noreferrer" className="text-[#111] underline underline-offset-4 hover:text-[#5f5e5a]">
+                  {a.title}{a.year ? ` (${a.year})` : ""}
+                </a>
+              </p>
+              {a.this_is_url && <a href={a.this_is_url} target="_blank" rel="noopener noreferrer" className={link}>This Is {a.artist} playlist ↗</a>}
+            </>
+          ) : (
+            <>
+              <a href={listenUrl(a)} target="_blank" rel="noopener noreferrer" className="text-[17px] font-medium leading-snug tracking-[-0.02em] hover:underline underline-offset-4">
+                {a.title}
+              </a>
+              <p className="text-[13px] text-[#5f5e5a]">{a.artist}</p>
+              <a href={listenUrl(a)} target="_blank" rel="noopener noreferrer" className={link}>Open in Spotify ↗</a>
+            </>
+          )}
         </div>
       </div>
       {a.why && <p className="text-[13px] leading-snug">{a.why}</p>}
 
       {open?.id === a.id ? (
         <div className="flex flex-col gap-2">
-          <p className="text-[12px] text-[#5f5e5a]">
-            {LABEL[open.status]} — {REACTIONS.find(r => r.status === open.status)?.prompt}
-          </p>
-          <textarea
-            value={note}
-            onChange={e => setNote(e.target.value)}
-            rows={3}
-            autoFocus
-            placeholder="A sentence or two helps most."
-            className="w-full text-[13px] bg-transparent border border-[#C9C7BF] rounded-[14px] p-3 focus:outline-none focus:border-[#111]"
-          />
+          {open.status !== null && (
+            <>
+              <p className="text-[12px] text-[#5f5e5a]">{LABEL[open.status]} — {REACTIONS.find(r => r.status === open.status)?.prompt}</p>
+              <textarea value={note} onChange={e => setNote(e.target.value)} rows={3} autoFocus placeholder="A sentence or two helps most." className={field} />
+            </>
+          )}
+          {(open.status === "liked" || open.status === null) && (
+            <>
+              <p className="text-[12px] text-[#5f5e5a]">Songs you liked (commas or one per line). They get added to your new_songs playlist.</p>
+              <textarea value={songs} onChange={e => setSongs(e.target.value)} rows={2} autoFocus={open.status === null} placeholder="Overnight, Tieduprightnow" className={field} />
+            </>
+          )}
           <div className="flex gap-2">
-            <button disabled={saving} onClick={() => save(a, open.status, note)} className={solid}>{saving ? "Saving…" : "Save"}</button>
+            <button disabled={saving} onClick={() => save(a, open.status, note, songs)} className={solid}>{saving ? "Saving…" : "Save"}</button>
             <button disabled={saving} onClick={() => setOpen(null)} className={ghost}>Cancel</button>
           </div>
         </div>
@@ -142,10 +199,12 @@ export default function Albums() {
           {REACTIONS.map(r => (
             <button key={r.status} onClick={() => startReact(a, r.status)} className={a.status === r.status ? solid : ghost}>{r.label}</button>
           ))}
-          {a.status === "new" && <button onClick={() => save(a, "skipped", "")} className={ghost}>Not for me</button>}
+          {a.status === "new" && <button onClick={() => save(a, "skipped", "", "")} className={ghost}>Not for me</button>}
+          {a.status === "liked" && <button onClick={() => startReact(a, null)} className={ghost}>{a.liked_songs ? "Edit songs" : "Add songs"}</button>}
         </div>
       )}
       {open?.id !== a.id && a.feedback && <p className="text-[12px] text-[#5f5e5a] italic">“{a.feedback}”</p>}
+      {open?.id !== a.id && a.status === "liked" && songList(a)}
     </div>
   );
 
@@ -166,10 +225,21 @@ export default function Albums() {
   return (
     <div className="mt-12">
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
-        <h2 className="text-xl font-medium tracking-[-0.03em]">Albums to listen to</h2>
+        <h2 className="text-xl font-medium tracking-[-0.03em]">Music to listen to</h2>
         <span className="text-[12px] text-[#5f5e5a]">{count("liked")} liked · {count("meh")} meh · {count("disliked") + count("skipped")} not for me</span>
       </div>
-      <p className="text-[13px] text-[#5f5e5a] mb-5">Tap one to open it in Spotify. After listening, mark it and say why — that's what tunes the next picks.</p>
+      <p className="text-[13px] text-[#5f5e5a] mb-2">Each pick is an artist with an album to start on. Listen in Spotify, then mark it and say why. That's what tunes the next picks.</p>
+      <div className="flex flex-wrap items-center gap-2 mb-5 text-[12px] text-[#5f5e5a]">
+        {spotify?.connected ? (
+          <>
+            <span>Spotify connected{spotify.playlist ? ` · songs go to ${spotify.playlist}` : " · no new_songs playlist found"}{pendingSongs ? ` · ${pendingSongs} waiting` : ""}</span>
+            {pendingSongs > 0 && spotify.playlist && <button onClick={syncNow} className={ghost}>Sync now</button>}
+          </>
+        ) : spotify ? (
+          <a href="/api/spotify/login" className={link}>Connect Spotify so liked songs land in new_songs ↗</a>
+        ) : null}
+        {syncMsg && <span>{syncMsg}</span>}
+      </div>
 
       {tasteQueue.length > 0 && (
         <section className="mb-8 rounded-[28px] bg-[#E4E2DC] p-4 md:p-5">
@@ -203,7 +273,7 @@ export default function Albums() {
       )}
 
       {queue.length === 0 ? (
-        <p className="text-[13px] text-[#5f5e5a] border border-dashed border-[#C9C7BF] rounded-[22px] p-6 mb-6">Nothing queued here. Ask Claude for the next round.</p>
+        <p className="text-[13px] text-[#5f5e5a] border border-dashed border-[#C9C7BF] rounded-[22px] p-6 mb-6">Nothing queued here. New picks arrive with the daily music run.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">{queue.map(card)}</div>
       )}

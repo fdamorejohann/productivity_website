@@ -149,7 +149,12 @@ export const db = {
   },
   albums: {
     list: (): Promise<Album[]> => api.get("/api/data/albums"),
-    react: (id: string, status: AlbumStatus, feedback?: string): Promise<Album> => api.patch("/api/data/albums", { id, status, feedback }),
+    react: (id: string, status: AlbumStatus, feedback?: string, liked_songs?: string): Promise<Album> => api.patch("/api/data/albums", { id, status, feedback, liked_songs }),
+    setSongs: (id: string, liked_songs: string): Promise<Album> => api.patch("/api/data/albums", { id, liked_songs }),
+  },
+  spotify: {
+    status: (): Promise<{ connected: boolean; playlist: string | null }> => api.get("/api/spotify/status"),
+    sync: (): Promise<{ playlist: string; added: { artist: string; song: string; track: string }[]; alreadyInPlaylist: unknown[]; notFound: { artist: string; song: string }[] }> => api.post("/api/spotify/sync", {}),
   },
   movies: {
     list: (): Promise<Movie[]> => api.get("/api/data/movies"),
