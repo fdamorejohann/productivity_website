@@ -16,7 +16,7 @@ import { CYCLE, goalStatus, useCycleGoals, useCycleWeek } from "../lib/cycle";
 import { CalmPage, CyclePage, CycleScore, GoalStrip, GoalsBand, WeekBoard } from "./Cycle";
 import JobsFunnel from "./JobsFunnel";
 import Learn from "./Learn";
-import type { CycleArea, JobCategory, JobPosting, JobStatus, JobUpdate, NewJob } from "../lib/types";
+import type { NotePage, CycleArea, JobCategory, JobPosting, JobStatus, JobUpdate, NewJob } from "../lib/types";
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 // ─── Finance Box ─────────────────────────────────────────────────────────────
@@ -728,42 +728,112 @@ function JobsPanel() {
 // ─── Notes Box ───────────────────────────────────────────────────────────────
 
 function NotesBox() {
-  const [notes, setNotes] = useState("");
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pages, setPages] = useState<NotePage[] | null>(null);
+  const [activeId, setActiveId] = useState<number>(1);
+  const [adding, setAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    db.notes.get().then((d: { content: string }) => setNotes(d.content ?? ""));
+    db.notes.list().then((rows: NotePage[]) => {
+      const list = Array.isArray(rows) ? rows : [];
+      setPages(list);
+      if (list.length && !list.some(p => p.id === 1)) setActiveId(list[0].id);
+    }).catch(() => setPages([]));
   }, []);
 
-  const handleChange = (val: string) => {
-    setNotes(val);
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => db.notes.save(val), 1000);
-    // Auto-resize
+  const active = pages?.find(p => p.id === activeId) ?? pages?.[0] ?? null;
+
+  const resize = () => {
     const el = textareaRef.current;
     if (el) { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; }
   };
-
-  // Resize on initial load
+  // Resize when switching notes and after the first load.
+  const activeKey = active?.id ?? 0;
+  const loaded = pages !== null;
   useEffect(() => {
     const el = textareaRef.current;
-    if (el && notes) { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; }
-  }, [notes]);
+    if (el) { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; }
+  }, [activeKey, loaded]);
 
+  /** Debounced save of one field of one note (content and title are saved independently). */
+  const edit = (id: number, field: "content" | "title", val: string) => {
+    setPages(ps => ps?.map(p => p.id === id ? { ...p, [field]: val } : p) ?? null);
+    const key = `${id}:${field}`;
+    clearTimeout(saveTimers.current[key]);
+    saveTimers.current[key] = setTimeout(() => db.notes.save(id, { [field]: val }), 1000);
+    if (field === "content") resize();
+  };
+
+  const create = async () => {
+    const title = newTitle.trim();
+    if (!title) return;
+    try {
+      const page = await db.notes.create(title);
+      setPages(ps => [...(ps ?? []), page]);
+      setActiveId(page.id);
+      setAdding(false);
+      setNewTitle("");
+    } catch { /* keep the title field open so nothing typed is lost */ }
+  };
+
+  const remove = async (p: NotePage) => {
+    if ((p.content ?? "").trim() && !window.confirm(`Delete "${p.title}" and everything in it?`)) return;
+    try {
+      await db.notes.remove(p.id);
+      setPages(ps => ps?.filter(x => x.id !== p.id) ?? null);
+      setActiveId(1);
+    } catch { /* leave it in place if the delete failed */ }
+  };
+
+  if (pages === null) return <p className="text-[13px] text-[#5f5e5a]">Loading notes…</p>;
+
+  const pill = "text-xs font-semibold px-4 py-1.5 rounded-full transition-colors";
   return (
     <div className="flex flex-col">
-      <p className="text-[13px] text-[#5f5e5a] mb-4">
-        Saves as you type. Lines starting with <span className="font-mono text-[#111]">[ ]</span>, <span className="font-mono text-[#111]">- [ ]</span> or <span className="font-mono text-[#111]">todo:</span> are no longer shown on Home.
-      </p>
-      <textarea
-        ref={textareaRef}
-        className="bg-[#F5F4F0] border border-[#111] rounded-[28px] px-7 py-6 text-base text-[#111] placeholder-gray-400 resize-none focus:outline-none leading-relaxed overflow-hidden"
-        style={{ minHeight: "60vh" }}
-        placeholder="Jot something down…"
-        value={notes}
-        onChange={e => handleChange(e.target.value)}
-      />
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {pages.map(p => (
+          <button key={p.id} onClick={() => setActiveId(p.id)}
+            className={`${pill} ${active?.id === p.id ? "bg-[#111] text-[#F5F4F0]" : "border border-[#C9C7BF] text-[#5f5e5a] hover:border-[#111] hover:text-[#111]"}`}>
+            {p.title || "Untitled"}
+          </button>
+        ))}
+        {adding ? (
+          <form onSubmit={e => { e.preventDefault(); create(); }} className="flex items-center gap-2">
+            <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => { if (e.key === "Escape") { setAdding(false); setNewTitle(""); } }}
+              maxLength={80} placeholder="Title for the new note"
+              className="text-xs bg-transparent border border-[#111] rounded-full px-4 py-1.5 w-52 focus:outline-none" />
+            <button type="submit" disabled={!newTitle.trim()} className={`${pill} bg-[#111] text-[#F5F4F0] disabled:opacity-40`}>Add</button>
+            <button type="button" onClick={() => { setAdding(false); setNewTitle(""); }} className={`${pill} text-[#5f5e5a] hover:text-[#111]`}>Cancel</button>
+          </form>
+        ) : (
+          <button onClick={() => setAdding(true)} className={`${pill} border border-dashed border-[#C9C7BF] text-[#5f5e5a] hover:border-[#111] hover:text-[#111]`}>+ New note</button>
+        )}
+      </div>
+
+      {active ? (
+        <>
+          <div className="flex items-baseline justify-between gap-4 mb-3">
+            <input value={active.title} onChange={e => edit(active.id, "title", e.target.value)} maxLength={80} aria-label="Note title"
+              className="flex-1 min-w-0 bg-transparent text-xl font-medium tracking-[-0.03em] focus:outline-none border-b border-transparent focus:border-[#C9C7BF]" />
+            {active.id !== 1 && (
+              <button onClick={() => remove(active)} className="text-[12px] text-[#5f5e5a] hover:text-[#111] shrink-0">Delete note</button>
+            )}
+          </div>
+          <textarea
+            ref={textareaRef}
+            className="bg-[#F5F4F0] border border-[#111] rounded-[28px] px-7 py-6 text-base text-[#111] placeholder-gray-400 resize-none focus:outline-none leading-relaxed overflow-hidden"
+            style={{ minHeight: "60vh" }}
+            placeholder="Jot something down…"
+            value={active.content ?? ""}
+            onChange={e => edit(active.id, "content", e.target.value)}
+          />
+          <p className="text-[12px] text-[#5f5e5a] mt-2">Saves as you type.</p>
+        </>
+      ) : (
+        <p className="text-[13px] text-[#5f5e5a]">No notes yet. Add one above.</p>
+      )}
     </div>
   );
 }
@@ -865,8 +935,9 @@ function useHomeData(reloadKey?: unknown): HomeData {
       const monday = startOfWeekYmd();
       setData(d => ({ ...d, sessionsThisWeek: rows.filter(r => r.date >= monday).length }));
     }).catch(() => {});
-    db.notes.get().then((n: { content?: string }) => {
-      const lines = (n?.content ?? "").split("\n").map(l => l.trim()).filter(Boolean);
+    db.notes.list().then((rows: NotePage[]) => {
+      const first = Array.isArray(rows) ? (rows.find(r => r.id === 1) ?? rows[0]) : undefined;
+      const lines = (first?.content ?? "").split("\n").map(l => l.trim()).filter(Boolean);
       setData(d => ({ ...d, notesFirstLine: lines[0] ?? "" }));
       setReminders("notes", lines
         .map(l => l.match(NOTE_TODO)?.[1])

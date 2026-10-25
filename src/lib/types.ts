@@ -310,3 +310,12 @@ export interface Album {
   reacted_at: string | null;
   created_at: string;
 }
+
+// ─── Notes (public.notes) ────────────────────────────────────────────────────
+
+export interface NotePage {
+  id: number;      // 1 = the original note
+  title: string;
+  content: string | null;
+  sort: number;
+}

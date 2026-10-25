@@ -175,20 +175,43 @@ async function handleEvents(req, res) {
 }
 
 // ─── Notes ───────────────────────────────────────────────────────────────────
+// Any number of titled note pages. id 1 is the original note and cannot be deleted.
 async function handleNotes(req, res) {
+  const cleanTitle = t => (typeof t === "string" ? t.trim().slice(0, 80) : "");
   if (req.method === "GET") {
-    const { data, error } = await supabase.from("notes").select("content").eq("id", 1).single();
+    const { data, error } = await supabase.from("notes").select("id, title, content, sort").order("sort").order("id");
     if (error) return res.status(500).json({ error: error.message });
-    return res.json({ content: data.content });
+    return res.json(data);
+  }
+  if (req.method === "POST") {
+    const title = cleanTitle(req.body?.title) || "Untitled";
+    const { data: last } = await supabase.from("notes").select("sort").order("sort", { ascending: false }).limit(1);
+    const sort = (last?.[0]?.sort ?? 0) + 1;
+    const { data, error } = await supabase.from("notes").insert({ title, content: "", sort }).select("id, title, content, sort");
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data[0]);
   }
   if (req.method === "PUT") {
-    const { content } = req.body;
-    const { error } = await supabase.from("notes").update({ content }).eq("id", 1);
+    const { id, content, title } = req.body ?? {};
+    if (!Number.isInteger(id)) return res.status(400).json({ error: "Bad id" });
+    const updates = {};
+    if (typeof content === "string") updates.content = content;
+    if (typeof title === "string") updates.title = cleanTitle(title) || "Untitled";
+    if (!Object.keys(updates).length) return res.status(400).json({ error: "Nothing to update" });
+    const { error } = await supabase.from("notes").update(updates).eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true });
+  }
+  if (req.method === "DELETE") {
+    const { id } = req.body ?? {};
+    if (!Number.isInteger(id) || id === 1) return res.status(400).json({ error: "Can't delete this note" });
+    const { error } = await supabase.from("notes").delete().eq("id", id);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ ok: true });
   }
   res.status(405).end();
 }
+
 
 // ─── Budget ──────────────────────────────────────────────────────────────────
 async function handleBudget(req, res) {

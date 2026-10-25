@@ -302,3 +302,12 @@ alter table public.albums enable row level security;
 -- love = more of what Finn loves, stretch = adjacent but new, classics = the canon, global = world / non-Western, deep_dive = one genre at a time.
 alter table public.albums add column if not exists category text;
 create index if not exists albums_category_idx on public.albums (category);
+
+-- Notes: any number of titled note pages. id 1 is the original note (title "Notes"); new pages get ids from notes_id_seq.
+alter table public.notes
+  add column if not exists title text not null default 'Notes',
+  add column if not exists sort int not null default 0,
+  add column if not exists created_at timestamptz not null default now();
+create sequence if not exists public.notes_id_seq start 2;
+alter table public.notes alter column id set default nextval('public.notes_id_seq');
+alter sequence public.notes_id_seq owned by public.notes.id;

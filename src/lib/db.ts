@@ -2,7 +2,7 @@
 // Thin fetch wrapper around our /api/data/* endpoints.
 // Falls back to localStorage on network error so the app still works offline.
 
-import type { Album, AlbumStatus, CycleGoal, CycleGoalEntry, CycleTactic, CycleWeekItem, JobPosting, JobUpdate, Movie, NewJob, NycEvent, NycEventStatus } from "./types";
+import type { NotePage, Album, AlbumStatus, CycleGoal, CycleGoalEntry, CycleTactic, CycleWeekItem, JobPosting, JobUpdate, Movie, NewJob, NycEvent, NycEventStatus } from "./types";
 
 const json = (res: Response) => res.json();
 
@@ -44,8 +44,10 @@ export const db = {
     delete: (id: string) => api.delete("/api/data/events", { id }),
   },
   notes: {
-    get: () => api.get("/api/data/notes"),
-    save: (content: string) => api.put("/api/data/notes", { content }),
+    list: (): Promise<NotePage[]> => api.get("/api/data/notes"),
+    create: (title: string): Promise<NotePage> => api.post("/api/data/notes", { title }),
+    save: (id: number, updates: { content?: string; title?: string }) => api.put("/api/data/notes", { id, ...updates }),
+    remove: (id: number) => api.delete("/api/data/notes", { id }),
   },
   budget: {
     get: (month: string) => api.get(`/api/data/budget?month=${month}`),
